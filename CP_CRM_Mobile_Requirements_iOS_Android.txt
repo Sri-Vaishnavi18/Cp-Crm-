@@ -1,0 +1,739 @@
+================================================================================
+CP CRM (LIGHT EDITION) — MOBILE APPLICATION REQUIREMENTS & IMPLEMENTATION SPECIFICATION
+================================================================================
+Target Platforms  : iOS (iOS 15.0+) & Android (API Level 26+ / Android 8.0+)
+Technology Engine : Cross-Platform Mobile Framework (Flutter / Dart)
+Document Version  : 1.0.0 (Production Implementation Specification)
+Target Audience   : Channel Partners (Real Estate Brokers, Realtors, Partner Agencies)
+================================================================================
+
+
+--------------------------------------------------------------------------------
+TABLE OF CONTENTS
+--------------------------------------------------------------------------------
+1. EXECUTIVE SUMMARY & CORE OBJECTIVE
+2. SCOPE DEFINITION: INCLUSIONS VS. EXCLUSIONS
+3. DUAL-PLATFORM MOBILE SPECIFICATIONS (iOS vs. ANDROID)
+   3.1 iOS Specific Requirements & Architecture
+   3.2 Android Specific Requirements & Architecture
+   3.3 Common Cross-Platform Design & Thumb-Zone Ergonomics
+4. FUNCTIONAL MODULE REQUIREMENTS (STEP-BY-STEP)
+   4.1 Module 1: Fast Authentication, Biometric Onboarding & Partner Profile
+   4.2 Module 2: Executive Mobile Dashboard & Real-Time Funnel
+   4.3 Module 3: Instant Lead Capture & Zero-OTP Duplicate Protection
+   4.4 Module 4: Project Catalog & Interactive Live Unit Inventory
+   4.5 Module 5: Co-Branded Marketing Collaterals & 1-Tap Share Hub
+   4.6 Module 6: Site Visit Booking & Frictionless QR Entry Pass
+   4.7 Module 7: Builder SPOC Directory & Unit Hold Helpdesk
+   4.8 Module 8: Push Notifications, In-App Inbox & Deep Linking
+5. TECHNICAL ARCHITECTURE & MOBILE STACK SPECIFICATION
+6. BACKEND REST API INTEGRATION CONTRACTS
+7. OFFLINE DATA SYNC, CACHING & PERFORMANCE STRATEGY
+8. SECURITY, PRIVACY & DEVICE PERMISSIONS MATRIX
+9. IMPLEMENTATION ROADMAP & PLATFORM QA CHECKLIST
+
+
+================================================================================
+1. EXECUTIVE SUMMARY & CORE OBJECTIVE
+================================================================================
+CP CRM (Light Edition) is an ultra-fast, field-optimized mobile application designed 
+specifically for Channel Partners (Realtors, Real Estate Brokers, Agency Heads, and 
+Sub-Agents).
+
+Traditional enterprise real estate CRMs fail in the field because they impose heavy 
+bureaucratic friction (OTP verification for leads, complex commission claims, nested 
+corporate approval matrices). CP CRM removes these obstacles, providing a high-velocity 
+tool focused purely on deal generation and partner enablement.
+
+Key Value Drivers:
+- Zero-Friction Deal Flow: No OTPs required for lead submission or site visits.
+- On-Demand Collaterals: 1-Tap co-branded PDF brochures with broker contact info.
+- Real-Time Inventory: Live tower and unit availability (Available/Blocked/Sold).
+- Digital Site Visit Passes: Instant QR code generation for smooth site reception.
+- Offline-First Architecture: Uninterrupted operation in basements and low-network areas.
+
+
+================================================================================
+2. SCOPE DEFINITION: INCLUSIONS VS. EXCLUSIONS
+================================================================================
+
+--------------------------------------------------------------------------------
+[EXCLUDED MODULES - PURPOSELY OMITTED FOR AGILITY]
+--------------------------------------------------------------------------------
+1. NO COMMISSIONS / PAYOUT WORKFLOWS:
+   - Omitted: Commission slabs, tiered percentages, payout requests, GST invoices, 
+     TDS calculations, bank account verification.
+   - Rationale: Commission settlement is a backend accounting function handled by 
+     corporate ERPs. Removing it eliminates UI clutter and keeps the mobile app 
+     fast and deal-focused.
+
+2. NO OTP (ONE-TIME PASSWORD) FRICTION:
+   - Omitted: SMS OTP on lead entry, SMS OTP at site visit reception desks (GRE), 
+     OTP login barriers.
+   - Rationale: High-net-worth clients find OTP requests intrusive during casual 
+     sales discussions. Protection against duplicates is handled algorithmically.
+
+3. NO CPSM (CHANNEL PARTNER SOURCING MANAGER) APPROVAL BOTTLENECKS:
+   - Omitted: CPSM assignment hierarchies, mandatory in-person GPS selfie verification, 
+     and multi-tier CP activation gates.
+   - Rationale: Brokers should be active within 2 minutes of installing the app.
+
+--------------------------------------------------------------------------------
+[INCLUDED MODULES - FULL MOBILE IMPLEMENTATION]
+--------------------------------------------------------------------------------
+1. Frictionless Auth & Biometric Unlock (Face ID / Fingerprint)
+2. Executive Mobile Dashboard with Real-Time Conversion KPIs
+3. Instant Lead Registration with Algorithmic Duplicate Protection
+4. Project Catalog with Live Interactive Unit Inventory (Floor/Tower Map)
+5. Dynamic Co-Branded Marketing Collateral Generator & 1-Tap Share Sheet
+6. QR Site Visit Pass (Instant Reception Scan - Zero OTP)
+7. Builder SPOC (Single Point of Contact) Directory & 24h Unit Hold Requests
+8. Targeted Push Notifications with Deep Linking
+9. Offline Data Caching & Offline Lead Queueing
+
+
+================================================================================
+3. DUAL-PLATFORM MOBILE SPECIFICATIONS (iOS vs. ANDROID)
+================================================================================
+
+--------------------------------------------------------------------------------
+3.1 iOS SPECIFIC REQUIREMENTS & ARCHITECTURE
+--------------------------------------------------------------------------------
+Target OS Version: iOS 15.0 and above (iPhone 8 through iPhone 16 Pro Max)
+
+A. UI/UX & Platform Conventions (Apple Human Interface Guidelines):
+   - Navigation: Smooth UINavigationController transitions, interactive swipe-to-go-back gesture.
+   - Top Bar & Dynamic Island: Proper handling of UIWindowInsets, Dynamic Island, 
+     Notch, and Status Bar across all iPhone models.
+   - Bottom Sheet / Modals: Cupertino-style modal sheets (`showCupertinoModalPopup` 
+     or custom draggable bottom sheets with drag indicator pills).
+   - Haptics: Contextual feedback via `UIFeedbackGenerator` (selection, light impact on 
+     swipes, success notification haptic on lead submission).
+   - Text Inputs: Minimum font size 16pt to prevent unwanted WebKit viewport scaling.
+   - System Actions: Pull-to-refresh (`CupertinoSliverRefreshControl`).
+
+B. Biometric Authentication:
+   - LocalAuthentication framework: Face ID & Touch ID integration.
+   - Mandatory Fallback: Device passcode or account password if biometrics fail.
+   - Keychain Integration: Encrypted storage of JWT access and refresh tokens.
+
+C. Native Integrations & URL Schemes:
+   - iOS Native Share Sheet (`UIActivityViewController` via `share_plus`) for PDFs, 
+     images, and text links.
+   - AirDrop compatibility for sharing co-branded marketing brochures directly to clients' Apple devices.
+   - URL Schemes (Info.plist `LSApplicationQueriesSchemes`):
+     - `whatsapp` (for opening WhatsApp / WhatsApp Business)
+     - `tel` (for launching native iPhone dialer)
+     - `mailto` (for default Mail app)
+     - `sms` (for native Messages app)
+
+D. Push Notifications (APNs):
+   - Apple Push Notification service (APNs) combined with Firebase Messaging.
+   - Background push mode enabled (`UIBackgroundModes: remote-notification`).
+   - Rich notifications with image previews for project launches.
+
+E. iOS Permissions Configuration (`ios/Runner/Info.plist`):
+   ```xml
+   <key>NSCameraUsageDescription</key>
+   <string>CP CRM requires camera access to capture RERA certificates and business cards.</string>
+   <key>NSPhotoLibraryUsageDescription</key>
+   <string>CP CRM requires photo library access to upload documents and agency logos.</string>
+   <key>NSFaceIDUsageDescription</key>
+   <string>CP CRM uses Face ID for fast and secure biometric login.</string>
+   <key>LSApplicationQueriesSchemes</key>
+   <array>
+       <string>whatsapp</string>
+       <string>tel</string>
+       <string>mailto</string>
+       <string>sms</string>
+       <string>https</string>
+       <string>http</string>
+   </array>
+   ```
+
+--------------------------------------------------------------------------------
+3.2 ANDROID SPECIFIC REQUIREMENTS & ARCHITECTURE
+--------------------------------------------------------------------------------
+Target OS Version: Android API Level 26 (Android 8.0 Oreo) up to API Level 35 (Android 15)
+
+A. UI/UX & Platform Conventions (Material Design 3):
+   - Visual Style: Material You / M3 with rounded corners (16dp-24dp), elevation 
+     overlays, tonal palettes.
+   - Navigation: Support for standard Android 3-button navigation bar as well as 
+     modern 2-button / gesture navigation bar with transparent window insets (edge-to-edge).
+   - Back Navigation: Predictable Back Navigation support (Android 13/14+).
+   - Bottom Navigation: Material 3 NavigationBar with badge indicators for leads/updates.
+   - Haptics: Standard Android HapticFeedbackConstants on button taps and list swipe actions.
+
+B. Biometric Authentication:
+   - Android BiometricPrompt API (supporting Class 3 Strong biometrics - Fingerprint, 
+     Face Unlock, Iris).
+   - Android Keystore System: Hardware-backed AES encrypted token storage.
+
+C. Native Intent Integrations:
+   - Android Intent Chooser (`ACTION_SEND` and `ACTION_SEND_MULTIPLE`) with direct share targets.
+   - Direct Intent triggers for `com.whatsapp`, `com.whatsapp.w4b`, native Telephony/Dialer, 
+     and SMS managers.
+
+D. Push Notifications (FCM & Notification Channels):
+   - Firebase Cloud Messaging (FCM) integration.
+   - Explicit Android Notification Channels:
+     - Channel 1: `cp_lead_alerts` (Importance: HIGH, Sound, Vibration) -> For real-time lead status updates.
+     - Channel 2: `cp_visit_reminders` (Importance: HIGH) -> For 1-hour site visit countdowns.
+     - Channel 3: `cp_broadcasts` (Importance: DEFAULT) -> For new tower pre-launches and pricing alerts.
+   - Android 13+ (API 33) Runtime Permission: `POST_NOTIFICATIONS` request flow.
+
+E. Android Manifest & Permissions Configuration (`android/app/src/main/AndroidManifest.xml`):
+   ```xml
+   <uses-permission android:name="android.permission.INTERNET"/>
+   <uses-permission android:name="android.permission.CAMERA"/>
+   <uses-permission android:name="android.permission.USE_BIOMETRIC"/>
+   <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+   <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
+   <!-- For Android 12 and below fallback -->
+   <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32"/>
+
+   <queries>
+       <package android:name="com.whatsapp"/>
+       <package android:name="com.whatsapp.w4b"/>
+       <intent>
+           <action android:name="android.intent.action.DIAL"/>
+           <data android:scheme="tel"/>
+       </intent>
+       <intent>
+           <action android:name="android.intent.action.SENDTO"/>
+           <data android:scheme="mailto"/>
+       </intent>
+       <intent>
+           <action android:name="android.intent.action.VIEW"/>
+           <data android:scheme="https"/>
+       </intent>
+   </queries>
+   ```
+
+--------------------------------------------------------------------------------
+3.3 COMMON CROSS-PLATFORM DESIGN & THUMB-ZONE ERGONOMICS
+--------------------------------------------------------------------------------
+- Bottom Thumb-Zone Layout: All critical primary touchpoints (Call, Add Lead, 
+  Share Kit, Book Visit) are positioned within the lower 40% of the mobile screen.
+- Minimum Touch Target: 48dp x 48dp for all interactive buttons, chips, and icons.
+- List Swipe Actions:
+  - Swipe Right: Direct native call trigger (`tel:`)
+  - Swipe Left: Direct pre-filled WhatsApp message trigger (`wa.me`)
+- Dark & Light Theme Support: Dynamic theme switching based on device system settings. 
+  Dark mode uses OLED-friendly deep slate/black backgrounds (`#121212` / `#1E1E2E`).
+
+
+================================================================================
+4. FUNCTIONAL MODULE REQUIREMENTS (STEP-BY-STEP)
+================================================================================
+
+--------------------------------------------------------------------------------
+4.1 MODULE 1: FAST AUTHENTICATION, ONBOARDING & PARTNER PROFILE
+--------------------------------------------------------------------------------
+Objective: Allow brokers to install the app and begin submitting leads in under 2 minutes.
+
+Requirements:
+1. Registration Screen:
+   - Partner Type Toggle: [ Individual Realtor ] vs [ Real Estate Agency / Firm ]
+   - Fields:
+     - Full Name / Firm Name (Required, Text)
+     - RERA Registration Number (Required, Alphanumeric uppercase formatting)
+     - Primary Mobile Number (Required, 10-digit validation)
+     - Email Address (Required, Email format)
+     - City & State (Dropdown selection)
+     - Password (Minimum 8 chars)
+   - Optional Quick KYC: In-app camera capture or gallery selection of RERA Certificate 
+     and Business Card. (Can be skipped during registration; prompted before unit booking).
+   - Instant Account Activation: Upon form submission, account is activated immediately. 
+     No waiting for physical broker meetings.
+
+2. Login Screen:
+   - Mobile Number or Email + Password login.
+   - "Enable Biometric Login" toggle prompt on first successful login.
+   - Biometric Quick Login button (Face ID icon on iOS, Fingerprint icon on Android).
+   - Silent JWT token refresh mechanism without forcing the user to re-login.
+
+3. Sub-Broker & Team Management (for Agency Accounts):
+   - Agency Admin can generate invite links or add team member mobile numbers.
+   - Sub-brokers log into their own app instance; all submitted leads and visits are 
+     automatically tagged with the parent agency's RERA and identifier.
+
+4. Profile & Co-Branding Setup:
+   - Edit contact details, upload high-resolution Firm Logo, and set office address.
+   - Preview generated co-branded business card and watermark badge.
+
+--------------------------------------------------------------------------------
+4.2 MODULE 2: EXECUTIVE MOBILE DASHBOARD & REAL-TIME FUNNEL
+--------------------------------------------------------------------------------
+Objective: Give partners an instant executive overview of their pipeline and actions.
+
+Requirements:
+1. Header Bar:
+   - Partner Profile Avatar & Agency Name.
+   - Quick search icon and notification bell with unread badge counter.
+
+2. Real-Time KPI Cards (2x2 Grid):
+   - Card 1: [ Active Leads ] (Count of open client conversations)
+   - Card 2: [ Visits Scheduled ] (Upcoming client site visits for current week)
+   - Card 3: [ Visits Completed ] (Cumulative completed site tours)
+   - Card 4: [ Bookings / Closures ] (Deals converted / units blocked)
+   - Tapping any card opens the pre-filtered Lead List for that specific status.
+
+3. Pipeline Conversion Funnel:
+   - Horizontal interactive progress bar showing breakdown:
+     [ New ] -> [ Contacted ] -> [ Visit Fixed ] -> [ Visit Done ] -> [ Token/Booked ]
+   - Shows percentage conversion rate and client counts per stage.
+
+4. Quick Action Floating Dock (Fixed at bottom thumb-zone):
+   - Button 1: `+ Add Lead` (Opens fast lead capture modal)
+   - Button 2: `📅 Book Visit` (Opens visit scheduler)
+   - Button 3: `🏢 Projects` (Jumps to project catalog)
+   - Button 4: `📤 Share Kit` (Opens collateral share drawer)
+
+5. Builder Announcements Carousel:
+   - Auto-scrolling visual banners highlighting:
+     - New tower pre-launches
+     - Limited-period payment schemes (e.g., 20:80 schemes)
+     - High-demand inventory releases
+   - Tapping a banner deep-links directly to the relevant project page.
+
+6. Chronological Activity Stream:
+   - Reverse-chronological timeline of real-time milestones:
+     - *"Client Rajesh Kumar checked in at Palm Meadows (15m ago)"*
+     - *"Site visit completed for Sneha Reddy at Skyline Heights (2h ago)"*
+     - *"Unit 402 Tower B put on 24h hold for your lead Amit Sharma"*
+
+--------------------------------------------------------------------------------
+4.3 MODULE 3: INSTANT LEAD CAPTURE & ZERO-OTP DUPLICATE PROTECTION
+--------------------------------------------------------------------------------
+Objective: Capture client details in under 20 seconds with foolproof conflict resolution.
+
+Requirements:
+1. Fast Lead Entry Form:
+   - Client First & Last Name (Required)
+   - Primary Phone Number (Required, 10-digit auto-formatted)
+   - Alternative Phone Number (Optional)
+   - Email Address (Optional)
+   - Budget Range Selector (Chips: ₹40L-₹70L | ₹70L-₹1Cr | ₹1Cr-₹2Cr | ₹2Cr+)
+   - Preferred Configuration (Multi-select checkboxes: 1 BHK | 2 BHK | 3 BHK | 4 BHK | Villa/Plot)
+   - Target Project (Searchable dropdown of active builder projects)
+   - Expected Purchase Timeline (Chips: Immediate <15 days | 30 Days | 90 Days | Exploring)
+   - Specific Client Notes (Free text, e.g., "Prefers East-facing higher floor, Vastu compliant")
+
+2. Algorithmic Duplicate Protection (Zero-OTP Client Verification):
+   - Real-time phone number deduplication against backend database on entry.
+   - Case A (New Lead): Instant confirmation with green badge -> Lead registered under partner RERA.
+   - Case B (Duplicate within Active Window, e.g., 60 days): Clear warning dialog:
+     *"This contact is already active with another partner or visited directly on [Date]. Your registration cannot be accepted at this time."*
+   - Zero OTP required from the client, eliminating drop-offs and broker friction.
+
+3. Lead Detail View & Lifecycle Tracker:
+   - Current stage badge: `NEW` | `CONTACTED` | `VISIT_SCHEDULED` | `VISIT_COMPLETED` | `TOKEN_PAID` | `LOST`
+   - Complete interaction history timeline with timestamped notes.
+   - 1-Tap Field Communication Actions:
+     - [ Call Client ]: Launches native phone dialer with number pre-dialed (`tel:XXXXXXXXXX`).
+     - [ WhatsApp ]: Opens WhatsApp conversation with pre-composed greeting and project deck.
+     - [ SMS ]: Opens native SMS composer.
+
+4. Filter, Search & Sorting:
+   - Live search by client name or phone number.
+   - Filter chips: By Project, By Stage, By Budget, and By Date Range.
+
+--------------------------------------------------------------------------------
+4.4 MODULE 4: PROJECT CATALOG & INTERACTIVE LIVE UNIT INVENTORY
+--------------------------------------------------------------------------------
+Objective: Give partners complete project intelligence and unit availability on their phone.
+
+Requirements:
+1. Project Directory Screen:
+   - Filter tabs: [ All ] | [ Ongoing ] | [ Ready to Move ] | [ Pre-Launch ]
+   - Project cards featuring: Hero render photo, Project Name, Location / Micro-market, 
+     Starting Price (e.g., "From ₹85 Lakhs"), RERA ID badge, Possession Date.
+
+2. Detailed Project Overview Screen:
+   - High-resolution architectural photo gallery & 3D render carousel.
+   - Integrated Google Maps view with distance pins (Metro, Airport, IT Parks, Schools).
+   - Master Amenities List with clean icons (Clubhouse, Infinity Pool, Gym, EV Charging).
+   - Approved Home Loan Banks List (HDFC, SBI, ICICI, Axis, Kotak).
+
+3. Interactive Unit Inventory Explorer:
+   - Tower Selector (Tower A, Tower B, Tower C, etc.)
+   - Floor Selector (Floor 1 to Floor 30)
+   - Color-Coded Unit Status Matrix:
+     - 🟩 GREEN  : Available (Ready for booking/hold)
+     - 🟧 ORANGE : Blocked (Under temporary token hold)
+     - 🟥 RED    : Sold
+   - Unit Spec Sheet on Tap: Unit number, Type (e.g., 3BHK + 3T), Carpet Area (sq.ft.), 
+     Super Built-up Area, Facing (East/West/North), Balcony views.
+
+4. Instant Mobile Cost Estimator:
+   - In-app interactive calculator:
+     - Base Unit Price
+     - Floor Rise Premium
+     - Amenity / Clubhouse Charges
+     - Covered Car Parking
+     - Estimated Stamp Duty & Registration (Auto-calculated based on state rules)
+     - GST Component
+   - Action: `Share Cost Sheet on WhatsApp` -> Formats a clean, readable text summary 
+     stamped with broker contact details.
+
+--------------------------------------------------------------------------------
+4.5 MODULE 5: CO-BRANDED MARKETING COLLATERALS & 1-TAP SHARE HUB
+--------------------------------------------------------------------------------
+Objective: Empower brokers to distribute official builder marketing material branded with their own firm info.
+
+Requirements:
+1. Collateral Asset Library:
+   - High-Definition Project E-Brochures (PDF)
+   - Tower Floor Plans & Unit Layouts (High-res PNG / PDF)
+   - Master Layout Plans
+   - Payment Schedule & Pricing Sheets
+   - 4K Video Walkthrough links (Cloud streaming / YouTube)
+   - RERA Approvals & Environmental Clearance documents
+
+2. Dynamic Co-Branding Watermark Engine:
+   - When the partner taps "Share Brochure" or "Share Floor Plan", the mobile client 
+     or backend dynamic PDF renderer stamps a co-branded header/footer box:
+     -------------------------------------------------------
+     Presented by: [Agency Name / Broker Name]
+     RERA Reg: [Broker RERA Number] | Phone: [Broker Mobile]
+     -------------------------------------------------------
+   - Guarantees that prospects who receive the PDF contact the broker directly.
+
+3. Native OS Share Sheet Integration:
+   - 1-Tap sharing to WhatsApp, WhatsApp Business, Telegram, Email, and AirDrop/Nearby Share.
+   - Supports single file or batch collateral sharing (e.g., Brochure + Price Sheet + Location Map).
+
+4. Offline Media Storage:
+   - "Save for Offline" toggle on project brochures and floor plans.
+   - Cached securely in local device storage using `path_provider` and `Hive`.
+   - Allows brokers to present architectural drawings in basement sales offices with zero mobile signal.
+
+--------------------------------------------------------------------------------
+4.6 MODULE 6: SITE VISIT BOOKING & FRICTIONLESS QR ENTRY PASS
+--------------------------------------------------------------------------------
+Objective: Eliminate reception wait times and OTP barriers during customer site visits.
+
+Requirements:
+1. Site Visit Scheduling Workflow:
+   - Step 1: Select registered lead (or tap "+ New Lead" inline).
+   - Step 2: Select Project and visit Date & Time Slot.
+   - Step 3: Logistics toggle:
+     - [ ] Request Client Cab / Pickup
+     - [ ] Broker Accompanying Client vs. Client Arriving Directly
+   - Step 4: Submit & Generate Pass.
+
+2. Digital QR Visit Pass (Zero-OTP Client Check-in):
+   - Generates a branded digital pass card on the mobile screen containing:
+     - Dynamic Scannable QR Code
+     - Unique Alphanumeric Visit ID (e.g., `VIS-8842`)
+     - Client Name & Masked Phone Number
+     - Project Name & Scheduled Slot
+     - Channel Partner Name & RERA ID
+   - 1-Tap "Send Pass to Client via WhatsApp" button.
+
+3. Site Reception Scan Workflow:
+   - When the client reaches the builder site reception (GRE desk), the host scans 
+     the QR code using the reception scanner or enters the Visit ID.
+   - Attendance is confirmed instantly on the server.
+   - ZERO OTP required from the client.
+
+4. Live Real-Time Visit Status Feed:
+   - Broker receives immediate push notifications upon:
+     - `Client Checked-In at Site`
+     - `Sales Executive Assigned` (with Sales SPOC name and contact)
+     - `Site Visit Completed` (with client feedback score: Hot / Warm / Cold)
+
+--------------------------------------------------------------------------------
+4.7 MODULE 7: BUILDER SPOC DIRECTORY & UNIT HOLD HELPDESK
+--------------------------------------------------------------------------------
+Objective: Connect brokers directly with project decision-makers without intermediary friction.
+
+Requirements:
+1. Project SPOC Directory:
+   - Dedicated listing of key project personnel:
+     - Project Sales Head
+     - Site Reception / Front Desk
+     - Channel Partner Relationship Manager
+   - 1-Tap direct Call (`tel:`) and WhatsApp chat actions.
+
+2. 24-Hour Temporary Unit Hold Request:
+   - Lightweight request form:
+     - Select Lead
+     - Select Project, Tower & Unit Number
+     - Estimated Token Deposit Date (Within 24-48 hours)
+     - Client Commitment Note
+   - Submits request directly to the Project Sales Head.
+   - Visual countdown timer showing remaining hold window (e.g., "18h 42m remaining").
+
+3. In-App Broker Support Desk:
+   - Simple ticketing form to raise queries regarding inventory, layout changes, or special payment terms.
+
+--------------------------------------------------------------------------------
+4.8 MODULE 8: PUSH NOTIFICATIONS, IN-APP INBOX & DEEP LINKING
+--------------------------------------------------------------------------------
+Objective: Keep brokers informed of urgent deal milestones and new opportunities.
+
+Requirements:
+1. Critical Push Notifications:
+   - Lead Status Progression (e.g., *"Lead Vikram Mehta completed site visit at Grand Residency"*).
+   - Visit Countdown (e.g., *"Reminder: Site visit scheduled for Priya Sharma in 1 hour"*).
+   - New Project & Tower Launches (Broadcast notifications with render images).
+   - Flash Inventory Releases & Festival Schemes.
+
+2. In-App Notification Center:
+   - Tabbed inbox: [ All ] | [ Lead Alerts ] | [ Visit Updates ] | [ Project Broadcasts ]
+   - Mark as read / Clear all actions.
+
+3. Deep Linking Engine:
+   - Tapping a notification opens the exact relevant screen:
+     - Lead notification -> Opens specific Lead Detail timeline
+     - Visit notification -> Opens Digital QR Visit Pass
+     - Project launch notification -> Opens Project Details & Inventory screen
+
+
+================================================================================
+5. TECHNICAL ARCHITECTURE & MOBILE STACK SPECIFICATION
+================================================================================
+
+--------------------------------------------------------------------------------
+CROSS-PLATFORM FLUTTER ARCHITECTURE
+--------------------------------------------------------------------------------
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                       CP CRM MOBILE ARCHITECTURE                            │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  UI / Presentation Layer:                                                   │
+│  - Cupertino Widgets (iOS) + Material 3 Widgets (Android)                   │
+│  - Responsive Bottom Sheets, Dialogs, Thumb-Zone Quick Docks                │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  State Management & Dependency Injection:                                  │
+│  - Flutter Riverpod / Provider for clean separation of concerns             │
+│  - Reactive state listeners for real-time inventory and lead updates        │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  Networking & API Layer:                                                    │
+│  - Dio HTTP Client with JWT Auth Interceptor & Refresh Token Handler        │
+│  - Background Request Queue for Offline-to-Online Sync                      │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  Local Persistence & Offline Cache Layer:                                   │
+│  - flutter_secure_storage: Encrypted Keychain (iOS) & Keystore (Android)    │
+│  - Hive / SQLite: Cached Leads, Projects, Collateral metadata               │
+│  - path_provider & open_filex: Local PDF brochure storage & file viewer     │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  Hardware & Platform Plugin Layer:                                          │
+│  - local_auth: Face ID & Fingerprint biometric authentication               │
+│  - url_launcher: Native Phone (tel:), WhatsApp & Email launcher             │
+│  - share_plus: Native iOS / Android Share Sheet for brochures & links       │
+│  - qr_flutter: Dynamic QR Pass generation                                    │
+│  - firebase_messaging + flutter_local_notifications: Push alerts            │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+Recommended Dependencies (`pubspec.yaml`):
+```yaml
+name: cp_crm
+description: CP CRM Light Mobile Application for iOS & Android
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.2.0 <4.0.0"
+  flutter: ">=3.16.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+  # State Management
+  flutter_riverpod: ^2.5.1
+
+  # Networking & REST
+  dio: ^5.4.1
+  connectivity_plus: ^5.0.2
+
+  # Secure Storage & Persistence
+  flutter_secure_storage: ^9.0.0
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+  path_provider: ^2.1.2
+
+  # Hardware & Platform Features
+  local_auth: ^2.1.8
+  url_launcher: ^6.2.5
+  share_plus: ^7.2.2
+  qr_flutter: ^4.1.0
+  cached_network_image: ^3.3.1
+  flutter_pdfview: ^1.3.2
+  open_filex: ^4.4.0
+
+  # Notifications
+  firebase_core: ^2.27.0
+  firebase_messaging: ^14.7.19
+  flutter_local_notifications: ^17.0.1
+
+  # Utilities
+  intl: ^0.19.0
+  uuid: ^4.3.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.1
+```
+
+
+================================================================================
+6. BACKEND REST API INTEGRATION CONTRACTS
+================================================================================
+
+The mobile app communicates with the backend REST APIs using the following endpoints:
+
+1. POST /api/auth/token/
+   - Description: Authenticate CP with mobile/email + password.
+   - Response: `{ "access": "JWT_ACCESS_TOKEN", "refresh": "JWT_REFRESH_TOKEN", "user": { "id": 101, "name": "Rahul Sharma", "firm": "Apex Realty", "rera": "RERA12345" } }`
+
+2. POST /api/auth/register-cp/
+   - Description: Self-registration for Individual or Agency brokers.
+   - Payload: `{ "type": "AGENCY", "firm_name": "Apex Realty", "rera_number": "RERA12345", "mobile": "9876543210", "email": "rahul@apex.com", "city": "Bangalore", "password": "..." }`
+   - Response: `{ "status": "SUCCESS", "message": "Account created and activated." }`
+
+3. GET /api/cp/dashboard-light/
+   - Description: Fetch real-time dashboard KPIs, active funnel, and announcements.
+   - Response: `{ "kpis": { "active_leads": 42, "visits_scheduled": 8, "visits_completed": 35, "closures": 5 }, "funnel": { "new": 12, "contacted": 15, "visit_fixed": 8, "visit_done": 4, "booked": 3 }, "announcements": [...] }`
+
+4. GET /api/cp/leads/
+   - Description: Fetch all leads registered by the CP (supports search, stage, and project filters).
+   - Parameters: `?search=rahul&stage=VISIT_SCHEDULED&project_id=12`
+
+5. POST /api/cp/leads/
+   - Description: Submit new lead with zero-OTP duplicate protection check.
+   - Payload: `{ "first_name": "Deepak", "last_name": "Verma", "phone": "9811122233", "budget_min": 7000000, "budget_max": 10000000, "configs": ["2BHK", "3BHK"], "project_id": 4, "timeline": "IMMEDIATE", "notes": "East facing" }`
+   - Response (Success): `{ "status": "REGISTERED", "lead_id": 8841, "protection_expiry": "2026-12-06" }`
+   - Response (Duplicate Conflict): `{ "status": "DUPLICATE_CONFLICT", "message": "Lead already active with another partner or direct walk-in." }`
+
+6. GET /api/projects/
+   - Description: Fetch active project directory (galleries, location maps, bank list, collaterals).
+
+7. GET /api/projects/{id}/inventory/
+   - Description: Fetch live unit inventory by tower and floor.
+   - Response: `{ "tower": "Tower A", "units": [ { "unit_no": "101", "bhk": "2BHK", "carpet_area": 1150, "status": "AVAILABLE", "price": 8500000 }, { "unit_no": "102", "status": "BLOCKED" }, { "unit_no": "103", "status": "SOLD" } ] }`
+
+8. POST /api/cp/site-visits/
+   - Description: Schedule a site visit and generate a digital QR visit pass.
+   - Payload: `{ "lead_id": 8841, "project_id": 4, "visit_date": "2026-10-10T14:30:00Z", "cab_required": false, "accompanying": true }`
+   - Response: `{ "visit_id": "VIS-9921", "qr_payload": "https://cp.builder.com/v/VIS-9921", "status": "CONFIRMED" }`
+
+9. GET /api/cp/documents/
+   - Description: Fetch project collaterals (brochures, floor plans, pricing sheets).
+
+10. POST /api/notifications/register-device/
+    - Description: Register iOS APNs or Android FCM device token for push delivery.
+    - Payload: `{ "platform": "IOS", "device_token": "APNS_OR_FCM_TOKEN_STRING" }`
+
+
+================================================================================
+7. OFFLINE DATA SYNC, CACHING & PERFORMANCE STRATEGY
+================================================================================
+
+Real estate sales executives and channel partners frequently operate in underground 
+parking garages, remote construction sites, and concrete basements with poor cellular signal.
+
+Offline Strategy:
+1. Lead Submission Queue (Offline-First):
+   - If network connectivity is lost (`connectivity_plus == none`), new lead submissions 
+     are saved to a local Hive queue with status `QUEUED_OFFLINE`.
+   - A background sync service monitors network status and flushes queued leads as soon 
+     as an active internet connection is detected.
+   - Visual indicator on the Lead screen shows "1 lead waiting to sync".
+
+2. Project Catalog & Floor Plan Caching:
+   - High-resolution floor plans and project brochures are cached locally on first view 
+     using `cached_network_image` and `path_provider`.
+   - Brokers can present layouts to buyers without experiencing loading spinners or network timeouts.
+
+3. Image & PDF Optimization:
+   - App client requests WebP / compressed thumbnails for catalog browsing, downloading 
+     full-res PDFs only on explicit download/share actions.
+
+
+================================================================================
+8. SECURITY, PRIVACY & DEVICE PERMISSIONS MATRIX
+================================================================================
+
+1. Zero-OTP Security Model:
+   - OTP elimination is balanced by strict cryptographic server-side deduplication rules 
+     and timestamp hashing to prevent broker dispute exploits.
+
+2. Sensitive Token Security:
+   - JWT tokens are stored exclusively in the iOS Keychain and Android Keystore 
+     via `flutter_secure_storage`.
+   - Plaintext credentials or tokens are never stored in SharedPreferences or NSUserDefaults.
+
+3. Privacy & OS Permissions:
+   - Camera: Used exclusively for document upload (RERA certificate & business card).
+   - Photos/Gallery: Used for selecting existing files/logos.
+   - Biometrics: Used strictly for local device authentication; biometric biometric data 
+     never leaves the local device Secure Enclave / TEE.
+
+
+================================================================================
+9. IMPLEMENTATION ROADMAP & PLATFORM QA CHECKLIST
+================================================================================
+
+--------------------------------------------------------------------------------
+PHASE-BY-PHASE IMPLEMENTATION PLAN
+--------------------------------------------------------------------------------
+Phase 1: Project Setup, Theme Engine & Authentication (Week 1)
+- Initialize Flutter project with iOS & Android configurations.
+- Configure Material 3 theme (Light/Dark) and Cupertino iOS navigation adapters.
+- Implement Registration, Login, JWT handling, and Biometric unlock (Face ID / Fingerprint).
+
+Phase 2: Dashboard & Lead Management System (Week 2)
+- Build Executive Dashboard KPI cards and Conversion Funnel.
+- Implement Fast Lead Capture Form with phone validation.
+- Integrate backend duplicate check API and Lead Detail Timeline view.
+- Wire 1-Tap Phone dialer (`tel:`), WhatsApp (`wa.me`), and SMS triggers.
+- Implement Offline Lead Queue with automatic network sync.
+
+Phase 3: Project Catalog, Interactive Inventory & Cost Estimator (Week 3)
+- Build Project Catalog grid and details screens with Google Maps & image galleries.
+- Build Interactive Tower/Floor Unit Matrix (Available / Blocked / Sold).
+- Build Mobile On-Site Cost Estimator with 1-tap WhatsApp summary card output.
+
+Phase 4: Co-Branding Collateral Engine & Native Sharing (Week 4)
+- Build Marketing Collateral Hub (Brochures, Floor Plans, Price Lists).
+- Implement Dynamic Co-Branding Watermark engine (Overlay broker info).
+- Integrate Native OS Share Sheet (`share_plus` / AirDrop / WhatsApp).
+- Implement local offline media caching.
+
+Phase 5: Digital QR Site Visit Pass & Helpdesk (Week 5)
+- Build Site Visit scheduling modal.
+- Build Digital QR Visit Pass generator and WhatsApp share button.
+- Integrate Project SPOC Directory and 24-hour Unit Hold Request workflow.
+
+Phase 6: Push Notifications, Platform Testing & Store Readiness (Week 6)
+- Integrate APNs (iOS) and FCM (Android) push notification handlers.
+- Configure deep linking for lead alerts and project launches.
+- Execute Dual-Platform Test Matrix across iOS devices and Android devices.
+- Generate signed production release bundles (iOS `.ipa` / Android `.aab`).
+
+--------------------------------------------------------------------------------
+DUAL-PLATFORM QA TEST MATRIX
+--------------------------------------------------------------------------------
+Feature Area         | iOS Validation Checkpoint            | Android Validation Checkpoint
+---------------------|--------------------------------------|---------------------------------------
+Biometrics           | Face ID & Touch ID prompt & fallback | BiometricPrompt (Fingerprint/Face)
+Lead Capture         | Phone keyboard, zero-OTP dup alert   | Phone keyboard, zero-OTP dup alert
+Direct Dial          | Launches iOS Phone app (`tel:`)      | Launches Android Phone dialer (`tel:`)
+WhatsApp Trigger     | Opens WhatsApp via Universal Link    | Opens WhatsApp via Package Intent
+Collateral Sharing   | Opens iOS UIActivityViewController   | Opens Android Intent.ACTION_SEND
+QR Visit Pass        | Renders crisp QR code at all scales  | Renders crisp QR code at all scales
+Offline Caching      | PDF viewer renders cached documents  | PDF viewer renders cached documents
+Push Notifications   | APNs foreground/background banners   | FCM Channels (High priority alerts)
+Safe Area & Insets   | Notch, Dynamic Island, Home Bar      | Gesture Navigation bar & status bar
+
+================================================================================
+END OF REQUIREMENTS SPECIFICATION
+================================================================================
