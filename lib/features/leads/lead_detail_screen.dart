@@ -627,15 +627,19 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
                     _buildUpdateStatusCard(lead, isDark),
                     const SizedBox(height: 16),
 
-                    // 6. NOTES CARD (Screenshot 3)
+                    // 6. INVOICES & COMMISSION CLAIMS CARD (Type 1 & Type 2)
+                    _buildInvoicesAndCommissionsCard(lead, isDark),
+                    const SizedBox(height: 16),
+
+                    // 7. NOTES CARD (Screenshot 3)
                     _buildNotesCard(lead, isDark),
                     const SizedBox(height: 16),
 
-                    // 7. SITE VISIT HISTORY CARD (Screenshot 3 - Zero-OTP)
+                    // 8. SITE VISIT HISTORY CARD (Screenshot 3 - Zero-OTP)
                     _buildSiteVisitHistoryCard(lead, isDark),
                     const SizedBox(height: 16),
 
-                    // 8. ACTIVITY TIMELINE CARD (Screenshot 3)
+                    // 9. ACTIVITY TIMELINE CARD (Screenshot 3)
                     _buildActivityTimelineCard(lead, isDark),
                     const SizedBox(height: 24),
                   ],
@@ -1781,4 +1785,944 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
       ),
     );
   }
+
+  // 6. INVOICES & COMMISSION CLAIMS CARD (Type 1 & Type 2)
+  Widget _buildInvoicesAndCommissionsCard(LeadModel lead, bool isDark) {
+    final invoices = widget.state.getInvoicesForLead(lead.id);
+
+    // Eligibility check
+    // Type 1 (Site Visit): Unlocked if visitScheduled, visitCompleted, negotiation, or tokenPaid (Booked)
+    final isType1Eligible = lead.stage == LeadStage.visitScheduled ||
+        lead.stage == LeadStage.visitCompleted ||
+        lead.stage == LeadStage.negotiation ||
+        lead.stage == LeadStage.tokenPaid;
+
+    // Type 2 (Booking): Unlocked if tokenPaid (Booked)
+    // When booked, BOTH Type 1 and Type 2 are unlocked!
+    final isType2Eligible = lead.stage == LeadStage.tokenPaid;
+
+    final hasSiteVisitInvoice = invoices.any((inv) => inv.type == InvoiceType.siteVisit);
+    final hasBookingInvoice = invoices.any((inv) => inv.type == InvoiceType.booking);
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF131A26) : AppColors.lightSurface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isDark ? const Color(0xFF222F43) : AppColors.lightBorder,
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header Row
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Center(
+                      child: Icon(Icons.receipt_long_rounded, color: Color(0xFF10B981), size: 18),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    'Invoices & Commission Claims',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                    ),
+                  ),
+                ],
+              ),
+              if (invoices.isNotEmpty)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '${invoices.length} Generated',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF10B981),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 14),
+
+          // Eligibility Helper Pill
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF182232) : AppColors.lightSurfaceSubtle,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isDark ? const Color(0xFF28364D) : AppColors.lightBorder,
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  isType2Eligible
+                      ? Icons.check_circle_rounded
+                      : (isType1Eligible ? Icons.info_outline_rounded : Icons.lock_outline_rounded),
+                  size: 15,
+                  color: isType2Eligible
+                      ? const Color(0xFF10B981)
+                      : (isType1Eligible ? const Color(0xFF38BDF8) : const Color(0xFFF59E0B)),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    isType2Eligible
+                        ? 'Lead is BOOKED: Both Site Visit & Booking invoices are unlocked!'
+                        : (isType1Eligible
+                            ? 'Site Visit Active: Type 1 Invoice unlocked. Book deal to unlock Type 2.'
+                            : 'Invoices unlock when lead reaches Site Visit (Type 1) or Booked (Type 1 & 2).'),
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // 2 Invoices Generation Action Tiles
+          // Type 1: Site Visit Invoice Action Tile
+          _buildInvoiceActionTile(
+            title: '1. Site Visit Invoice (Type 1)',
+            subtitle: 'Claim partner travel & client escort payout',
+            icon: Icons.tour_rounded,
+            color: const Color(0xFF38BDF8),
+            isEligible: isType1Eligible,
+            hasGenerated: hasSiteVisitInvoice,
+            onClaim: () => _showGenerateInvoiceModal(context, lead, InvoiceType.siteVisit),
+            isDark: isDark,
+          ),
+          const SizedBox(height: 10),
+
+          // Type 2: Booking Commission Invoice Action Tile
+          _buildInvoiceActionTile(
+            title: '2. Booking Commission Invoice (Type 2)',
+            subtitle: 'Claim full deal closure brokerage / success fee',
+            icon: Icons.real_estate_agent_rounded,
+            color: const Color(0xFF10B981),
+            isEligible: isType2Eligible,
+            hasGenerated: hasBookingInvoice,
+            onClaim: () => _showGenerateInvoiceModal(context, lead, InvoiceType.booking),
+            isDark: isDark,
+          ),
+          const SizedBox(height: 16),
+
+          // Invoices Generated for this Lead List
+          if (invoices.isNotEmpty) ...[
+            Text(
+              'Generated Invoices for this Lead',
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w800,
+                color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            ...invoices.map((inv) => _buildLeadInvoiceItem(inv, isDark)),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInvoiceActionTile({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Color color,
+    required bool isEligible,
+    required bool hasGenerated,
+    required VoidCallback onClaim,
+    required bool isDark,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF17202F) : AppColors.lightSurfaceSubtle,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isEligible
+              ? color.withValues(alpha: 0.35)
+              : (isDark ? const Color(0xFF28364D) : AppColors.lightBorder),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: isEligible ? color.withValues(alpha: 0.15) : (isDark ? const Color(0xFF1E283A) : Colors.grey.shade200),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              icon,
+              size: 18,
+              color: isEligible ? color : (isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: isEligible
+                        ? (isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary)
+                        : (isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          if (isEligible)
+            ElevatedButton(
+              onPressed: onClaim,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: color,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                visualDensity: VisualDensity.compact,
+                elevation: 0,
+              ),
+              child: Text(
+                hasGenerated ? '+ Add Another' : 'Claim (₹)',
+                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11.5),
+              ),
+            )
+          else
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF1F2937) : Colors.grey.shade200,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.lock_rounded, size: 12, color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Locked',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLeadInvoiceItem(CommissionInvoiceModel inv, bool isDark) {
+    final isSiteVisit = inv.type == InvoiceType.siteVisit;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF182232) : Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isDark ? const Color(0xFF28364D) : AppColors.lightBorder,
+        ),
+      ),
+      child: InkWell(
+        onTap: () => _showInvoiceReceiptModal(context, inv),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: (isSiteVisit ? const Color(0xFF38BDF8) : const Color(0xFF10B981)).withValues(alpha: 0.15),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                isSiteVisit ? Icons.tour_rounded : Icons.real_estate_agent_rounded,
+                size: 14,
+                color: isSiteVisit ? const Color(0xFF38BDF8) : const Color(0xFF10B981),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        inv.invoiceNumber,
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w800,
+                          color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        '(${inv.type.shortLabel})',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: isSiteVisit ? const Color(0xFF38BDF8) : const Color(0xFF10B981),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${_formatActivityDate(inv.date)} • A/C: •••• ${inv.bankDetails.accountNumber.length > 4 ? inv.bankDetails.accountNumber.substring(inv.bankDetails.accountNumber.length - 4) : inv.bankDetails.accountNumber}',
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  '₹${inv.amount.toStringAsFixed(0)}',
+                  style: const TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF10B981),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                _buildInvoiceStatusPill(inv.status),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInvoiceStatusPill(InvoiceStatus status) {
+    Color color;
+    switch (status) {
+      case InvoiceStatus.pending:
+        color = const Color(0xFFF59E0B);
+        break;
+      case InvoiceStatus.approved:
+        color = const Color(0xFF38BDF8);
+        break;
+      case InvoiceStatus.paid:
+        color = const Color(0xFF10B981);
+        break;
+      case InvoiceStatus.rejected:
+        color = const Color(0xFFEF4444);
+        break;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        status.displayName,
+        style: TextStyle(
+          fontSize: 9.5,
+          fontWeight: FontWeight.w800,
+          color: color,
+        ),
+      ),
+    );
+  }
+
+  // Invoice Generation Modal with Amount & Bank Details Form
+  void _showGenerateInvoiceModal(BuildContext context, LeadModel lead, InvoiceType type) {
+    final isDark = widget.state.isDarkMode;
+    final isSiteVisit = type == InvoiceType.siteVisit;
+
+    // Default amount presets: ₹3,000 for site visit, ₹1,50,000 for booking
+    final defaultAmount = isSiteVisit ? '3000' : '150000';
+    final amountCtrl = TextEditingController(text: defaultAmount);
+    final notesCtrl = TextEditingController(
+      text: isSiteVisit
+          ? 'Site visit escort and presentation completed for ${lead.fullName} at ${lead.projectName}.'
+          : 'Brokerage commission claim on deal closure for ${lead.fullName} (${lead.projectName}).',
+    );
+
+    // Bank Details from saved state
+    final savedBank = widget.state.savedBankDetails ??
+        BankDetailsModel(
+          accountHolder: widget.state.currentUser?.firmName ?? lead.firstName,
+          bankName: 'HDFC Bank Ltd',
+          accountNumber: '50100492817263',
+          ifscCode: 'HDFC0001234',
+          upiId: 'partner@okhdfcbank',
+        );
+
+    final holderCtrl = TextEditingController(text: savedBank.accountHolder);
+    final bankCtrl = TextEditingController(text: savedBank.bankName);
+    final accCtrl = TextEditingController(text: savedBank.accountNumber);
+    final ifscCtrl = TextEditingController(text: savedBank.ifscCode);
+    final upiCtrl = TextEditingController(text: savedBank.upiId ?? '');
+
+    final presetAmounts = isSiteVisit
+        ? ['1500', '2500', '3000', '5000']
+        : ['75000', '100000', '150000', '200000', '250000'];
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: isDark ? const Color(0xFF131A26) : Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) {
+          return Container(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.9,
+            ),
+            padding: EdgeInsets.only(
+              left: 20,
+              right: 20,
+              top: 20,
+              bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Title Header
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: (isSiteVisit ? const Color(0xFF38BDF8) : const Color(0xFF10B981)).withValues(alpha: 0.15),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              isSiteVisit ? Icons.tour_rounded : Icons.real_estate_agent_rounded,
+                              color: isSiteVisit ? const Color(0xFF38BDF8) : const Color(0xFF10B981),
+                              size: 20,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Generate ${type.shortLabel}',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w800,
+                                  color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                                ),
+                              ),
+                              Text(
+                                '${lead.fullName} • ${lead.projectName}',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.of(ctx).pop(),
+                        icon: const Icon(Icons.close),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+
+                  // 1. AMOUNT INPUT FIELD
+                  Text(
+                    'Claim Amount (₹) *',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: amountCtrl,
+                    keyboardType: TextInputType.number,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF10B981),
+                    ),
+                    decoration: InputDecoration(
+                      prefixIcon: const Icon(Icons.currency_rupee_rounded, color: Color(0xFF10B981)),
+                      hintText: 'Enter claim amount (₹)',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Quick preset chips
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: presetAmounts.map((amt) {
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 6),
+                          child: InkWell(
+                            onTap: () {
+                              setModalState(() {
+                                amountCtrl.text = amt;
+                              });
+                            },
+                            child: Chip(
+                              label: Text('₹$amt'),
+                              backgroundColor: isDark ? const Color(0xFF1E283A) : Colors.grey.shade100,
+                              labelStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+                              padding: const EdgeInsets.symmetric(horizontal: 4),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+
+                  // 2. BANK DETAILS SECTION
+                  Row(
+                    children: [
+                      const Icon(Icons.account_balance_rounded, size: 16, color: AppColors.primary),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Settlement Bank Details',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Confirm or update where the builder should credit this commission.',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  TextField(
+                    controller: holderCtrl,
+                    decoration: const InputDecoration(labelText: 'Account Holder / Firm Name *'),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: bankCtrl,
+                    decoration: const InputDecoration(labelText: 'Bank Name *'),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: accCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(labelText: 'Account Number *'),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: ifscCtrl,
+                    textCapitalization: TextCapitalization.characters,
+                    decoration: const InputDecoration(labelText: 'IFSC Code *'),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: upiCtrl,
+                    decoration: const InputDecoration(labelText: 'UPI ID (Optional)'),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: notesCtrl,
+                    maxLines: 2,
+                    decoration: const InputDecoration(
+                      labelText: 'Claim Remarks / Unit Details (Optional)',
+                      hintText: 'e.g. Unit 401 Tower B booking token verified',
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // OK / SUBMIT BUTTON
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        final amt = double.tryParse(amountCtrl.text.replaceAll(',', '').trim()) ?? 0.0;
+                        if (amt <= 0) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Please enter a valid claim amount greater than 0.')),
+                          );
+                          return;
+                        }
+
+                        if (holderCtrl.text.trim().isEmpty ||
+                            bankCtrl.text.trim().isEmpty ||
+                            accCtrl.text.trim().isEmpty ||
+                            ifscCtrl.text.trim().isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Please fill all mandatory bank account fields.')),
+                          );
+                          return;
+                        }
+
+                        final bank = BankDetailsModel(
+                          accountHolder: holderCtrl.text.trim(),
+                          bankName: bankCtrl.text.trim(),
+                          accountNumber: accCtrl.text.trim(),
+                          ifscCode: ifscCtrl.text.trim().toUpperCase(),
+                          upiId: upiCtrl.text.trim().isNotEmpty ? upiCtrl.text.trim() : null,
+                        );
+
+                        final createdInv = widget.state.submitCommissionInvoice(
+                          leadId: lead.id,
+                          type: type,
+                          amount: amt,
+                          bankDetails: bank,
+                          notes: notesCtrl.text.trim(),
+                        );
+
+                        Navigator.of(ctx).pop();
+                        setState(() {});
+
+                        // Show Success Snackbar and Open Digital Voucher Receipt
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            backgroundColor: const Color(0xFF10B981),
+                            content: Text('${type.shortLabel} submitted successfully! (Inv #${createdInv.invoiceNumber})'),
+                          ),
+                        );
+
+                        _showInvoiceReceiptModal(context, createdInv);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF10B981), // Emerald OK Button
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 15),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        elevation: 0,
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.check_circle_rounded, size: 20),
+                          const SizedBox(width: 8),
+                          Text(
+                            'OK • Submit ${type.shortLabel}',
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  // Digital Voucher / Receipt Preview Modal
+  void _showInvoiceReceiptModal(BuildContext context, CommissionInvoiceModel invoice) {
+    final isDark = widget.state.isDarkMode;
+    final isSiteVisit = invoice.type == InvoiceType.siteVisit;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: isDark ? const Color(0xFF131A26) : Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.all(20),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: (isSiteVisit ? const Color(0xFF38BDF8) : const Color(0xFF10B981)).withValues(alpha: 0.15),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          isSiteVisit ? Icons.tour_rounded : Icons.real_estate_agent_rounded,
+                          color: isSiteVisit ? const Color(0xFF38BDF8) : const Color(0xFF10B981),
+                          size: 22,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            invoice.invoiceNumber,
+                            style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w900,
+                              color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                            ),
+                          ),
+                          Text(
+                            invoice.type.displayName,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: isSiteVisit ? const Color(0xFF38BDF8) : const Color(0xFF10B981),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.of(ctx).pop(),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // Digital Voucher Card Container
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF182232) : AppColors.lightSurfaceSubtle,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: isDark ? const Color(0xFF28364D) : AppColors.lightBorder,
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Claim Amount',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '₹${invoice.amount.toStringAsFixed(0)}',
+                              style: const TextStyle(
+                                fontSize: 26,
+                                fontWeight: FontWeight.w900,
+                                color: Color(0xFF10B981),
+                              ),
+                            ),
+                          ],
+                        ),
+                        _buildInvoiceStatusPill(invoice.status),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    const Divider(height: 1),
+                    const SizedBox(height: 14),
+
+                    _buildReceiptRowItem('Client Name', invoice.clientName, isDark),
+                    const SizedBox(height: 8),
+                    _buildReceiptRowItem('Client Phone', invoice.clientPhone, isDark),
+                    const SizedBox(height: 8),
+                    _buildReceiptRowItem('Project', invoice.projectName, isDark),
+                    const SizedBox(height: 8),
+                    _buildReceiptRowItem('Claim Date', _formatActivityDate(invoice.date), isDark),
+                    if (invoice.notes != null && invoice.notes!.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      _buildReceiptRowItem('Remarks', invoice.notes!, isDark),
+                    ],
+                    const SizedBox(height: 14),
+                    const Divider(height: 1),
+                    const SizedBox(height: 14),
+
+                    Text(
+                      'Settlement Destination Bank',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    _buildReceiptRowItem('A/C Holder', invoice.bankDetails.accountHolder, isDark),
+                    const SizedBox(height: 6),
+                    _buildReceiptRowItem('Bank', invoice.bankDetails.bankName, isDark),
+                    const SizedBox(height: 6),
+                    _buildReceiptRowItem('Account No', invoice.bankDetails.accountNumber, isDark),
+                    const SizedBox(height: 6),
+                    _buildReceiptRowItem('IFSC', invoice.bankDetails.ifscCode, isDark),
+                    if (invoice.bankDetails.upiId != null && invoice.bankDetails.upiId!.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      _buildReceiptRowItem('UPI ID', invoice.bankDetails.upiId!, isDark),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Action Buttons
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            backgroundColor: const Color(0xFF4F46E5),
+                            content: Text('Downloading digital invoice PDF for ${invoice.invoiceNumber}...'),
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.download_rounded, size: 18),
+                      label: const Text('Download PDF'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.primary,
+                        side: const BorderSide(color: AppColors.primary),
+                        padding: const EdgeInsets.symmetric(vertical: 13),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            backgroundColor: const Color(0xFF10B981),
+                            content: Text('Sharing invoice voucher ${invoice.invoiceNumber} with builder accounts desk...'),
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.share_rounded, size: 18),
+                      label: const Text('Share Voucher'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        padding: const EdgeInsets.symmetric(vertical: 13),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildReceiptRowItem(String label, String value, bool isDark) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Flexible(
+          child: Text(
+            value,
+            textAlign: TextAlign.right,
+            style: TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w700,
+              color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }
+

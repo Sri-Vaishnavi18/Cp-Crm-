@@ -3,6 +3,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/state/app_state.dart';
 import '../../shared/widgets/app_widgets.dart';
 import '../leads/lead_detail_screen.dart';
+import '../commissions/commissions_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
   final AppState state;
@@ -240,7 +241,7 @@ class DashboardScreen extends StatelessWidget {
                   accentColor: const Color(0xFFF59E0B), // Amber / Orange
                   secondaryGraphic: _buildClockGraphic(const Color(0xFFF59E0B)),
                   subtext: 'Digital passes generated',
-                  onTap: () => onNavigateTab(4),
+                  onTap: () => onNavigateTab(1),
                 ),
 
                 // 3. Visits Completed Card
@@ -251,7 +252,7 @@ class DashboardScreen extends StatelessWidget {
                   accentColor: const Color(0xFF10B981), // Teal / Emerald
                   secondaryGraphic: _buildSealGraphic(const Color(0xFF10B981)),
                   subtext: 'Site tours completed',
-                  onTap: () => onNavigateTab(4),
+                  onTap: () => onNavigateTab(1),
                 ),
 
                 // 4. Bookings / Holds Card
@@ -274,11 +275,9 @@ class DashboardScreen extends StatelessWidget {
                   secondaryGraphic: _buildPendingGraphic(const Color(0xFFF43F5E)),
                   subtext: 'Invoice in builder audit',
                   onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        backgroundColor: const Color(0xFFF43F5E),
-                        content: Text('Pending Commission: ${state.commissionPendingFormatted} across active pipeline & token holds.'),
-                        behavior: SnackBarBehavior.floating,
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (ctx) => CommissionsScreen(state: state),
                       ),
                     );
                   },
@@ -293,11 +292,9 @@ class DashboardScreen extends StatelessWidget {
                   secondaryGraphic: _buildReceivedGraphic(const Color(0xFF8B5CF6)),
                   subtext: 'Disbursed to RERA bank',
                   onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        backgroundColor: const Color(0xFF8B5CF6),
-                        content: Text('Total Disbursed: ${state.commissionReceivedFormatted} settled directly to registered account.'),
-                        behavior: SnackBarBehavior.floating,
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (ctx) => CommissionsScreen(state: state),
                       ),
                     );
                   },

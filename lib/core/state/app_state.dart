@@ -59,6 +59,8 @@ class AppState extends ChangeNotifier {
   List<SpocModel> _spocs = [];
   List<CollateralModel> _collaterals = [];
   List<AppNotificationModel> _notifications = [];
+  List<CommissionInvoiceModel> _invoices = [];
+  BankDetailsModel? _savedBankDetails;
 
   // Date Filter State
   DashboardDatePreset _dashboardDatePreset = DashboardDatePreset.allTime;
@@ -93,6 +95,8 @@ class AppState extends ChangeNotifier {
   List<SpocModel> get spocs => _spocs;
   List<CollateralModel> get collaterals => _collaterals;
   List<AppNotificationModel> get notifications => _notifications;
+  List<CommissionInvoiceModel> get allInvoices => _invoices;
+  BankDetailsModel? get savedBankDetails => _savedBankDetails;
 
   int get unreadNotificationCount => _notifications.where((n) => !n.isRead).length;
 
@@ -108,6 +112,8 @@ class AppState extends ChangeNotifier {
     _spocs = MockDataService.getSpocs();
     _collaterals = MockDataService.getCollaterals();
     _notifications = MockDataService.getNotifications();
+    _invoices = MockDataService.getInitialInvoices();
+    _savedBankDetails = MockDataService.getInitialBankDetails();
 
     // Check saved session in local device storage
     try {
@@ -843,34 +849,190 @@ class AppState extends ChangeNotifier {
   int get funnelBookingsCount =>
       dashboardLeads.where((l) => l.stage == LeadStage.tokenPaid).length;
 
-  // Commission Analytics
+  // Commission & Invoices Management
+  List<CommissionInvoiceModel> getInvoicesForLead(String leadId) {
+    return _invoices.where((inv) => inv.leadId == leadId).toList();
+  }
+
+  double get totalCommissionClaimed =>
+      _invoices.fold(0.0, (sum, inv) => sum + inv.amount);
+
+  double get pendingCommissionAmount =>
+      _invoices.where((inv) => inv.status == InvoiceStatus.pending || inv.status == InvoiceStatus.approved).fold(0.0, (sum, inv) => sum + inv.amount);
+
+  double get paidCommissionAmount =>
+      _invoices.where((inv) => inv.status == InvoiceStatus.paid).fold(0.0, (sum, inv) => sum + inv.amount);
+
+  double get siteVisitCommissionTotal =>
+      _invoices.where((inv) => inv.type == InvoiceType.siteVisit).fold(0.0, (sum, inv) => sum + inv.amount);
+
+  double get bookingCommissionTotal =>
+      _invoices.where((inv) => inv.type == InvoiceType.booking).fold(0.0, (sum, inv) => sum + inv.amount);
+
+  // Commission Analytics (Format as INR Lakhs or standard amount)
   String get commissionPendingFormatted {
-    switch (_dashboardDatePreset) {
-      case DashboardDatePreset.today:
-        return '₹0.85 L';
-      case DashboardDatePreset.yesterday:
-        return '₹1.20 L';
-      case DashboardDatePreset.last7Days:
-        return '₹2.75 L';
-      case DashboardDatePreset.last30Days:
-      case DashboardDatePreset.allTime:
-      case DashboardDatePreset.custom:
-        return '₹4.20 Lakhs';
+    if (pendingCommissionAmount >= 100000) {
+      return '₹${(pendingCommissionAmount / 100000).toStringAsFixed(2)} Lakhs';
+    } else if (pendingCommissionAmount > 0) {
+      return '₹${pendingCommissionAmount.toStringAsFixed(0)}';
     }
+    return '₹0';
   }
 
   String get commissionReceivedFormatted {
-    switch (_dashboardDatePreset) {
-      case DashboardDatePreset.today:
-        return '₹2.10 L';
-      case DashboardDatePreset.yesterday:
-        return '₹3.40 L';
-      case DashboardDatePreset.last7Days:
-        return '₹8.50 L';
-      case DashboardDatePreset.last30Days:
-      case DashboardDatePreset.allTime:
-      case DashboardDatePreset.custom:
-        return '₹12.80 Lakhs';
+    if (paidCommissionAmount >= 100000) {
+      return '₹${(paidCommissionAmount / 100000).toStringAsFixed(2)} Lakhs';
+    } else if (paidCommissionAmount > 0) {
+      return '₹${paidCommissionAmount.toStringAsFixed(0)}';
+    }
+    return '₹0';
+  }
+
+  CommissionInvoiceModel submitCommissionInvoice({
+    required String leadId,
+    required InvoiceType type,
+    required double amount,
+    required BankDetailsModel bankDetails,
+    String? notes,
+  }) {
+    final lead = _leads.firstWhere((l) => l.id == leadId, orElse: () => _leads.first);
+    final now = DateTime.now();
+    final invoiceNumber = 'INV-${now.year}-${(1000 + _invoices.length + 1)}';
+
+    final invoice = CommissionInvoiceModel(
+      id: 'inv_${now.millisecondsSinceEpoch}',
+      invoiceNumber: invoiceNumber,
+      leadId: lead.id,
+      clientName: lead.fullName,
+      clientPhone: lead.phone,
+      projectId: lead.projectId,
+      projectName: lead.projectName,
+      type: type,
+      amount: amount,
+      date: now,
+      status: InvoiceStatus.pending,
+      bankDetails: bankDetails,
+      notes: notes,
+    );
+
+    _invoices.insert(0, invoice);
+    _savedBankDetails = bankDetails;
+
+    // Log Activity on Lead
+    final typeName = type == InvoiceType.siteVisit ? 'Site Visit Payout' : 'Booking Commission';
+    final formattedAmt = amount >= 100000
+        ? '₹${(amount / 100000).toStringAsFixed(2)} Lakhs'
+        : '₹${amount.toStringAsFixed(0)}';
+
+    lead.activityList.insert(
+      0,
+      LeadActivityItem(
+        id: 'act_${now.millisecondsSinceEpoch}',
+        title: '$typeName Invoice Generated: $formattedAmt ($invoiceNumber)',
+        timestamp: now,
+      ),
+    );
+
+    // Trigger In-App Notification
+    _notifications.insert(
+      0,
+      AppNotificationModel(
+        id: 'notif_${now.millisecondsSinceEpoch}',
+        title: '$typeName Claim Submitted! 🧾',
+        message: 'Invoice $invoiceNumber for $formattedAmt submitted for ${lead.fullName} (${lead.projectName}). Sent for builder audit.',
+        type: 'broadcast',
+        timestamp: now,
+      ),
+    );
+
+    notifyListeners();
+    return invoice;
+  }
+
+  // Project-Level Invoices & Commission Aggregations
+  List<CommissionInvoiceModel> getInvoicesForProject(String projectId) {
+    return _invoices.where((inv) => inv.projectId == projectId).toList();
+  }
+
+  double getProjectTotalCommission(String projectId) {
+    return _invoices
+        .where((inv) => inv.projectId == projectId)
+        .fold(0.0, (sum, inv) => sum + inv.amount);
+  }
+
+  double getProjectReceivedCommission(String projectId) {
+    return _invoices
+        .where((inv) => inv.projectId == projectId && inv.status == InvoiceStatus.paid)
+        .fold(0.0, (sum, inv) => sum + inv.amount);
+  }
+
+  double getProjectPendingCommission(String projectId) {
+    return _invoices
+        .where((inv) => inv.projectId == projectId && (inv.status == InvoiceStatus.pending || inv.status == InvoiceStatus.approved))
+        .fold(0.0, (sum, inv) => sum + inv.amount);
+  }
+
+  int getProjectLeadsCount(String projectId) {
+    return _leads.where((l) => l.projectId == projectId).length;
+  }
+
+  void toggleInvoiceReceivedStatus(
+    String invoiceId, {
+    required bool isReceived,
+    String? note,
+  }) {
+    final idx = _invoices.indexWhere((inv) => inv.id == invoiceId);
+    if (idx != -1) {
+      final inv = _invoices[idx];
+      final newStatus = isReceived ? InvoiceStatus.paid : InvoiceStatus.pending;
+      inv.status = newStatus;
+
+      final now = DateTime.now();
+      final statusLabel = isReceived ? 'RECEIVED / PAID' : 'PENDING';
+      final formattedAmt = inv.amount >= 100000
+          ? '₹${(inv.amount / 100000).toStringAsFixed(2)} Lakhs'
+          : '₹${inv.amount.toStringAsFixed(0)}';
+
+      // Log activity on lead
+      final leadIdx = _leads.indexWhere((l) => l.id == inv.leadId);
+      if (leadIdx != -1) {
+        _leads[leadIdx].activityList.insert(
+          0,
+          LeadActivityItem(
+            id: 'act_${now.millisecondsSinceEpoch}',
+            title: 'Invoice ${inv.invoiceNumber} payment marked as $statusLabel ($formattedAmt)',
+            timestamp: now,
+          ),
+        );
+      }
+
+      // Notification
+      _notifications.insert(
+        0,
+        AppNotificationModel(
+          id: 'notif_${now.millisecondsSinceEpoch}',
+          title: 'Invoice Payment Updated: ${inv.invoiceNumber}',
+          message: 'Payment for $formattedAmt (${inv.clientName}) marked as $statusLabel by Channel Partner.',
+          type: 'broadcast',
+          timestamp: now,
+        ),
+      );
+
+      notifyListeners();
     }
   }
+
+  void updateInvoiceStatus(String invoiceId, InvoiceStatus newStatus) {
+    final idx = _invoices.indexWhere((inv) => inv.id == invoiceId);
+    if (idx != -1) {
+      _invoices[idx].status = newStatus;
+      notifyListeners();
+    }
+  }
+
+  void saveDefaultBankDetails(BankDetailsModel bankDetails) {
+    _savedBankDetails = bankDetails;
+    notifyListeners();
+  }
 }
+

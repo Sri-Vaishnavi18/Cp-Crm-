@@ -595,4 +595,67 @@ class MockDataService {
       ),
     ];
   }
+
+  static BankDetailsModel getInitialBankDetails() {
+    return BankDetailsModel(
+      accountHolder: 'Apex Realty Advisors',
+      bankName: 'HDFC Bank Ltd',
+      accountNumber: '50100492817263',
+      ifscCode: 'HDFC0001234',
+      upiId: 'apexrealty@okhdfcbank',
+    );
+  }
+
+  static List<CommissionInvoiceModel> getInitialInvoices() {
+    final now = DateTime.now();
+    final bank = getInitialBankDetails();
+    return [
+      CommissionInvoiceModel(
+        id: 'inv_1',
+        invoiceNumber: 'INV-2026-1001',
+        leadId: 'lead_1',
+        clientName: 'Deepak Verma',
+        clientPhone: '9811223344',
+        projectId: 'proj_1',
+        projectName: 'Prestige Serenity Palms',
+        type: InvoiceType.siteVisit,
+        amount: 3000.0,
+        date: DateTime(now.year, now.month, now.day - 1, 14, 30),
+        status: InvoiceStatus.approved,
+        bankDetails: bank,
+        notes: 'Accompanied site visit completed with client Deepak Verma.',
+      ),
+      CommissionInvoiceModel(
+        id: 'inv_2',
+        invoiceNumber: 'INV-2026-1002',
+        leadId: 'lead_3',
+        clientName: 'Siddharth Mehta',
+        clientPhone: '9766554433',
+        projectId: 'proj_2',
+        projectName: 'Godrej Skyward Horizons',
+        type: InvoiceType.booking,
+        amount: 185000.0,
+        date: now.subtract(const Duration(days: 2)),
+        status: InvoiceStatus.pending,
+        bankDetails: bank,
+        notes: '2% brokerage claim on Unit T1-501 Penthouse booking.',
+      ),
+      CommissionInvoiceModel(
+        id: 'inv_3',
+        invoiceNumber: 'INV-2026-1003',
+        leadId: 'lead_3',
+        clientName: 'Siddharth Mehta',
+        clientPhone: '9766554433',
+        projectId: 'proj_2',
+        projectName: 'Godrej Skyward Horizons',
+        type: InvoiceType.siteVisit,
+        amount: 3000.0,
+        date: now.subtract(const Duration(days: 3)),
+        status: InvoiceStatus.paid,
+        bankDetails: bank,
+        notes: 'Site visit payout disbursed to registered bank.',
+      ),
+    ];
+  }
 }
+

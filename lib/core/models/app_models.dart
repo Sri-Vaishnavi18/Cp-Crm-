@@ -451,3 +451,114 @@ class AppNotificationModel {
     this.targetId,
   });
 }
+
+enum InvoiceType {
+  siteVisit,
+  booking,
+}
+
+extension InvoiceTypeExtension on InvoiceType {
+  String get displayName {
+    switch (this) {
+      case InvoiceType.siteVisit:
+        return 'Site Visit Invoice';
+      case InvoiceType.booking:
+        return 'Booking Commission Invoice';
+    }
+  }
+
+  String get shortLabel {
+    switch (this) {
+      case InvoiceType.siteVisit:
+        return 'Site Visit Payout';
+      case InvoiceType.booking:
+        return 'Booking Brokerage';
+    }
+  }
+}
+
+enum InvoiceStatus {
+  pending,
+  approved,
+  paid,
+  rejected,
+}
+
+extension InvoiceStatusExtension on InvoiceStatus {
+  String get displayName {
+    switch (this) {
+      case InvoiceStatus.pending:
+        return 'Pending Approval';
+      case InvoiceStatus.approved:
+        return 'Approved';
+      case InvoiceStatus.paid:
+        return 'Paid / Disbursed';
+      case InvoiceStatus.rejected:
+        return 'Rejected';
+    }
+  }
+}
+
+class BankDetailsModel {
+  final String accountHolder;
+  final String bankName;
+  final String accountNumber;
+  final String ifscCode;
+  final String? upiId;
+
+  BankDetailsModel({
+    required this.accountHolder,
+    required this.bankName,
+    required this.accountNumber,
+    required this.ifscCode,
+    this.upiId,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'accountHolder': accountHolder,
+    'bankName': bankName,
+    'accountNumber': accountNumber,
+    'ifscCode': ifscCode,
+    'upiId': upiId,
+  };
+
+  factory BankDetailsModel.fromJson(Map<String, dynamic> json) => BankDetailsModel(
+    accountHolder: json['accountHolder']?.toString() ?? '',
+    bankName: json['bankName']?.toString() ?? '',
+    accountNumber: json['accountNumber']?.toString() ?? '',
+    ifscCode: json['ifscCode']?.toString() ?? '',
+    upiId: json['upiId']?.toString(),
+  );
+}
+
+class CommissionInvoiceModel {
+  final String id;
+  final String invoiceNumber;
+  final String leadId;
+  final String clientName;
+  final String clientPhone;
+  final String projectId;
+  final String projectName;
+  final InvoiceType type;
+  final double amount;
+  final DateTime date;
+  InvoiceStatus status;
+  final BankDetailsModel bankDetails;
+  final String? notes;
+
+  CommissionInvoiceModel({
+    required this.id,
+    required this.invoiceNumber,
+    required this.leadId,
+    required this.clientName,
+    required this.clientPhone,
+    required this.projectId,
+    required this.projectName,
+    required this.type,
+    required this.amount,
+    required this.date,
+    this.status = InvoiceStatus.pending,
+    required this.bankDetails,
+    this.notes,
+  });
+}

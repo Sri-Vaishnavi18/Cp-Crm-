@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/models/app_models.dart';
 import '../../core/state/app_state.dart';
+import '../../features/commissions/commissions_screen.dart';
 
 class AppHeader extends StatelessWidget {
   final String title;
@@ -1010,7 +1012,66 @@ class UserProfileModalSheet extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 14),
+
+            // Commissions & Invoices Tile
+            InkWell(
+              onTap: () {
+                Navigator.of(context).pop();
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (ctx) => CommissionsScreen(state: state)),
+                );
+              },
+              borderRadius: BorderRadius.circular(14),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF161F2E) : AppColors.lightSurfaceSubtle,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: const Color(0xFF10B981).withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.receipt_long_rounded, color: Color(0xFF10B981), size: 18),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Commissions & Invoices Ledger',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                              color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Track site visit payouts & deal closure brokerage',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(Icons.arrow_forward_ios_rounded, size: 12, color: Color(0xFF10B981)),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
 
             // Switch User Account Section (if multiple registered)
             if (savedUsers.length > 1) ...[
@@ -1152,3 +1213,158 @@ class UserProfileModalSheet extends StatelessWidget {
     );
   }
 }
+
+class ScheduleVisitModalSheet extends StatefulWidget {
+  final AppState state;
+  final String? preselectedLeadId;
+
+  const ScheduleVisitModalSheet({super.key, required this.state, this.preselectedLeadId});
+
+  @override
+  State<ScheduleVisitModalSheet> createState() => _ScheduleVisitModalSheetState();
+}
+
+class _ScheduleVisitModalSheetState extends State<ScheduleVisitModalSheet> {
+  late String _selectedLeadId;
+  late String _selectedProjectId;
+  DateTime _selectedDateTime = DateTime.now().add(const Duration(days: 1, hours: 4));
+  bool _cabRequired = false;
+  bool _accompanying = true;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.preselectedLeadId != null && widget.state.allLeads.any((l) => l.id == widget.preselectedLeadId)) {
+      _selectedLeadId = widget.preselectedLeadId!;
+      final lead = widget.state.allLeads.firstWhere((l) => l.id == widget.preselectedLeadId);
+      _selectedProjectId = lead.projectId;
+    } else {
+      _selectedLeadId = widget.state.allLeads.isNotEmpty ? widget.state.allLeads.first.id : '';
+      _selectedProjectId = widget.state.projects.isNotEmpty ? widget.state.projects.first.id : '';
+    }
+  }
+
+  void _submit() {
+    final visitCode = widget.state.scheduleSiteVisit(
+      leadId: _selectedLeadId,
+      projectId: _selectedProjectId,
+      scheduledAt: _selectedDateTime,
+      cabRequired: _cabRequired,
+      accompanying: _accompanying,
+    );
+
+    Navigator.of(context).pop();
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: AppColors.success,
+        content: Text('Visit $visitCode Scheduled! Digital QR Pass generated.'),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = widget.state.isDarkMode;
+    final dateFormat = DateFormat('EEE, d MMM • hh:mm a');
+
+    return Container(
+      padding: EdgeInsets.only(
+        top: 20,
+        left: 20,
+        right: 20,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(color: Colors.grey.shade400, borderRadius: BorderRadius.circular(2)),
+            ),
+          ),
+          const SizedBox(height: 16),
+          const Text('Schedule Digital Site Visit', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 16),
+
+          Text('Select Lead', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary)),
+          const SizedBox(height: 6),
+          DropdownButtonFormField<String>(
+            value: _selectedLeadId,
+            items: widget.state.allLeads.map((l) => DropdownMenuItem(value: l.id, child: Text('${l.fullName} (${l.phone})'))).toList(),
+            onChanged: (val) {
+              if (val != null) setState(() => _selectedLeadId = val);
+            },
+          ),
+          const SizedBox(height: 14),
+
+          Text('Target Project', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary)),
+          const SizedBox(height: 6),
+          DropdownButtonFormField<String>(
+            value: _selectedProjectId,
+            items: widget.state.projects.map((p) => DropdownMenuItem(value: p.id, child: Text(p.name))).toList(),
+            onChanged: (val) {
+              if (val != null) setState(() => _selectedProjectId = val);
+            },
+          ),
+          const SizedBox(height: 14),
+
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.calendar_today, color: AppColors.primary),
+            title: const Text('Visit Date & Time Slot', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+            subtitle: Text(dateFormat.format(_selectedDateTime), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+            trailing: TextButton(
+              onPressed: () async {
+                final date = await showDatePicker(
+                  context: context,
+                  initialDate: _selectedDateTime,
+                  firstDate: DateTime.now(),
+                  lastDate: DateTime.now().add(const Duration(days: 60)),
+                );
+                if (date != null && context.mounted) {
+                  final time = await showTimePicker(
+                    context: context,
+                    initialTime: TimeOfDay.fromDateTime(_selectedDateTime),
+                  );
+                  if (time != null) {
+                    setState(() {
+                      _selectedDateTime = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+                    });
+                  }
+                }
+              },
+              child: const Text('Change'),
+            ),
+          ),
+          const SizedBox(height: 10),
+
+          SwitchListTile.adaptive(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Request Builder Cab Pickup for Client', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+            value: _cabRequired,
+            activeColor: AppColors.primary,
+            onChanged: (val) => setState(() => _cabRequired = val),
+          ),
+          SwitchListTile.adaptive(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Broker Accompanying Client', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+            value: _accompanying,
+            activeColor: AppColors.primary,
+            onChanged: (val) => setState(() => _accompanying = val),
+          ),
+          const SizedBox(height: 20),
+
+          ElevatedButton(
+            onPressed: _submit,
+            child: const Text('Generate Digital QR Entry Pass (Zero-OTP)', style: TextStyle(fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+

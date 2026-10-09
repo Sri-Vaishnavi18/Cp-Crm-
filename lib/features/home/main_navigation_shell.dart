@@ -5,8 +5,7 @@ import '../../shared/widgets/app_widgets.dart';
 import '../dashboard/dashboard_screen.dart';
 import '../leads/leads_screen.dart';
 import '../projects/projects_screen.dart';
-import '../collaterals/collaterals_screen.dart';
-import '../site_visits/site_visits_screen.dart';
+import '../commissions/commissions_screen.dart';
 import '../spoc_helpdesk/spoc_screen.dart';
 import '../notifications/notifications_screen.dart';
 
@@ -82,12 +81,8 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
       ProjectsScreen(
         state: widget.state,
       ),
-      CollateralsScreen(
+      CommissionsScreen(
         state: widget.state,
-      ),
-      SiteVisitsScreen(
-        state: widget.state,
-        onOpenSchedule: _openScheduleVisitModal,
       ),
     ];
 
@@ -95,16 +90,14 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
       widget.state.currentUser?.firmName ?? 'CP CRM',
       'Leads & Deals Pipeline',
       'Active Projects & Inventory',
-      'Co-Branded Collateral Hub',
-      'Digital Site Visit Passes',
+      'Project Commissions & Ledger',
     ];
 
     final subtitles = [
       'RERA: $safeRera',
       'Zero-OTP Algorithmic Protection',
       'Live Tower & Unit Status Matrix',
-      '1-Tap Watermarked PDF Sharing',
-      'Instant Reception Entry Passes',
+      'Project-wise Invoices & Settlements',
     ];
 
     return Scaffold(
@@ -173,20 +166,9 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
               label: 'Projects',
             ),
             const NavigationDestination(
-              icon: Icon(Icons.folder_shared_outlined),
-              selectedIcon: Icon(Icons.folder_shared, color: AppColors.primary),
-              label: 'Collateral',
-            ),
-            NavigationDestination(
-              icon: Badge(
-                label: Text('${widget.state.siteVisits.where((v) => v.status == "SCHEDULED").length}'),
-                child: const Icon(Icons.qr_code_2_outlined),
-              ),
-              selectedIcon: Badge(
-                label: Text('${widget.state.siteVisits.where((v) => v.status == "SCHEDULED").length}'),
-                child: const Icon(Icons.qr_code_2, color: AppColors.primary),
-              ),
-              label: 'Visits',
+              icon: Icon(Icons.account_balance_wallet_outlined),
+              selectedIcon: Icon(Icons.account_balance_wallet, color: AppColors.primary),
+              label: 'Commissions',
             ),
           ],
         ),
