@@ -531,7 +531,7 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
                       width: 52,
                       height: 52,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(
+                      errorBuilder: (_, _, _) => Container(
                         width: 52,
                         height: 52,
                         color: AppColors.primary.withValues(alpha: 0.15),

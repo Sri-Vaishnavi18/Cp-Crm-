@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/models/app_models.dart';
+import '../../core/services/document_picker_service.dart';
 import '../../core/services/url_action_service.dart';
 import '../../core/state/app_state.dart';
 import '../../core/theme/app_theme.dart';
@@ -19,6 +20,8 @@ class LeadDetailScreen extends StatefulWidget {
 }
 
 class _LeadDetailScreenState extends State<LeadDetailScreen> {
+  int _selectedTab = 0; // 0: Overview, 1: Site Visits, 2: Payouts & Invoices, 3: Notes & Timeline
+
   LeadModel? _getLead() {
     final list = widget.state.allLeads;
     final idx = list.indexWhere((l) => l.id == widget.leadId);
@@ -105,7 +108,7 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
-                    value: widget.state.projects.any((p) => p.name == selectedProject)
+                    initialValue: widget.state.projects.any((p) => p.name == selectedProject)
                         ? selectedProject
                         : (widget.state.projects.isNotEmpty ? widget.state.projects.first.name : null),
                     decoration: const InputDecoration(labelText: 'Interested Project'),
@@ -125,7 +128,7 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
-                    value: selectedSource,
+                    initialValue: selectedSource,
                     decoration: const InputDecoration(labelText: 'Source'),
                     dropdownColor: isDark ? const Color(0xFF1E293B) : Colors.white,
                     items: const [
@@ -615,32 +618,30 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
                     _buildActionButtonsGrid(lead, isDark),
                     const SizedBox(height: 16),
 
-                    // 3. LEAD INFORMATION CARD (Screenshot 1)
-                    _buildLeadInformationCard(lead, isDark),
+                    // 3. ERGONOMIC SEGMENTED TAB BAR
+                    _buildSegmentedTabBar(lead, isDark),
                     const SizedBox(height: 16),
 
-                    // 4. STATUS & TEMPERATURE CARD (Screenshot 2)
-                    _buildStatusAndTemperatureCard(lead, isDark, tempColor),
-                    const SizedBox(height: 16),
-
-                    // 5. UPDATE STATUS CARD (Screenshot 2)
-                    _buildUpdateStatusCard(lead, isDark),
-                    const SizedBox(height: 16),
-
-                    // 6. INVOICES & COMMISSION CLAIMS CARD (Type 1 & Type 2)
-                    _buildInvoicesAndCommissionsCard(lead, isDark),
-                    const SizedBox(height: 16),
-
-                    // 7. NOTES CARD (Screenshot 3)
-                    _buildNotesCard(lead, isDark),
-                    const SizedBox(height: 16),
-
-                    // 8. SITE VISIT HISTORY CARD (Screenshot 3 - Zero-OTP)
-                    _buildSiteVisitHistoryCard(lead, isDark),
-                    const SizedBox(height: 16),
-
-                    // 9. ACTIVITY TIMELINE CARD (Screenshot 3)
-                    _buildActivityTimelineCard(lead, isDark),
+                    // 4. TAB-SPECIFIC CONTENT (Ergonomic thumb-accessible navigation)
+                    if (_selectedTab == 0) ...[
+                      // TAB 1: OVERVIEW & PIPELINE
+                      _buildLeadInformationCard(lead, isDark),
+                      const SizedBox(height: 16),
+                      _buildStatusAndTemperatureCard(lead, isDark, tempColor),
+                      const SizedBox(height: 16),
+                      _buildUpdateStatusCard(lead, isDark),
+                    ] else if (_selectedTab == 1) ...[
+                      // TAB 2: SITE VISITS & ZERO-OTP PASSES
+                      _buildSiteVisitHistoryCard(lead, isDark),
+                    ] else if (_selectedTab == 2) ...[
+                      // TAB 3: INVOICES & BROKERAGE PAYOUTS
+                      _buildInvoicesAndCommissionsCard(lead, isDark),
+                    ] else ...[
+                      // TAB 4: AUDIT TIMELINE & NOTES
+                      _buildNotesCard(lead, isDark),
+                      const SizedBox(height: 16),
+                      _buildActivityTimelineCard(lead, isDark),
+                    ],
                     const SizedBox(height: 24),
                   ],
                 ),
@@ -648,6 +649,112 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  // Segmented Pill Navigation Bar
+  Widget _buildSegmentedTabBar(LeadModel lead, bool isDark) {
+    final visitCount = widget.state.siteVisits.where((v) => v.leadId == lead.id).length;
+    final invoiceCount = widget.state.getInvoicesForLead(lead.id).length;
+    final timelineCount = lead.notesList.length + lead.activityList.length;
+
+    final tabs = [
+      ('Overview', Icons.badge_outlined, null),
+      ('Site Visits', Icons.confirmation_number_outlined, visitCount > 0 ? '$visitCount' : null),
+      ('Invoices', Icons.receipt_long_rounded, invoiceCount > 0 ? '$invoiceCount' : null),
+      ('Timeline', Icons.history_rounded, timelineCount > 0 ? '$timelineCount' : null),
+    ];
+
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF131A26) : AppColors.lightSurfaceSubtle,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isDark ? const Color(0xFF222F43) : AppColors.lightBorder,
+        ),
+      ),
+      child: Row(
+        children: List.generate(tabs.length, (idx) {
+          final item = tabs[idx];
+          final isSelected = _selectedTab == idx;
+          return Expanded(
+            child: InkWell(
+              borderRadius: BorderRadius.circular(10),
+              onTap: () => setState(() => _selectedTab = idx),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeInOut,
+                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 2),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? (isDark ? const Color(0xFF1E293B) : Colors.white)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(10),
+                  boxShadow: isSelected
+                      ? [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.1),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ]
+                      : null,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      item.$2,
+                      size: 13,
+                      color: isSelected
+                          ? (isDark ? AppColors.accentGold : AppColors.primary)
+                          : (isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary),
+                    ),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        item.$1,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                          color: isSelected
+                              ? (isDark ? Colors.white : AppColors.lightTextPrimary)
+                              : (isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary),
+                        ),
+                      ),
+                    ),
+                    if (item.$3 != null) ...[
+                      const SizedBox(width: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? (isDark ? AppColors.accentGold : AppColors.primary)
+                              : (isDark ? const Color(0xFF222F43) : Colors.grey.shade300),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          item.$3!,
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w900,
+                            color: isSelected
+                                ? (isDark ? Colors.black : Colors.white)
+                                : (isDark ? Colors.white70 : Colors.black87),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          );
+        }),
       ),
     );
   }
@@ -2214,6 +2321,8 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
         ? ['1500', '2500', '3000', '5000']
         : ['75000', '100000', '150000', '200000', '250000'];
 
+    PickedDocument? attachedDoc;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -2401,6 +2510,92 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
                       hintText: 'e.g. Unit 401 Tower B booking token verified',
                     ),
                   ),
+                  const SizedBox(height: 14),
+
+                  // 3. ATTACH PROOF SECTION (Camera / Gallery Picker via DocumentPickerService)
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF0F172A) : AppColors.lightSurfaceSubtle,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: attachedDoc != null
+                            ? const Color(0xFF10B981)
+                            : (isDark ? const Color(0xFF222F43) : AppColors.lightBorder),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              attachedDoc != null ? Icons.check_circle_rounded : Icons.attach_file_rounded,
+                              size: 16,
+                              color: attachedDoc != null ? const Color(0xFF10B981) : AppColors.primary,
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                attachedDoc != null
+                                    ? 'Proof Attached: ${attachedDoc!.fileName}'
+                                    : 'Verification Document / Proof (Optional)',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: attachedDoc != null
+                                      ? const Color(0xFF10B981)
+                                      : (isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          attachedDoc != null
+                              ? 'File size: ${(attachedDoc!.sizeBytes / 1024).toStringAsFixed(1)} KB'
+                              : 'Capture client token receipt, visit pass photo, or booking form.',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: () async {
+                                  final doc = await DocumentPickerService.pickDocumentFromCamera();
+                                  if (doc != null) {
+                                    setModalState(() => attachedDoc = doc);
+                                  }
+                                },
+                                icon: const Icon(Icons.camera_alt_outlined, size: 14),
+                                label: const Text('Camera', style: TextStyle(fontSize: 11.5)),
+                                style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: () async {
+                                  final doc = await DocumentPickerService.pickDocumentFromGallery();
+                                  if (doc != null) {
+                                    setModalState(() => attachedDoc = doc);
+                                  }
+                                },
+                                icon: const Icon(Icons.photo_library_outlined, size: 14),
+                                label: const Text('Gallery', style: TextStyle(fontSize: 11.5)),
+                                style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
                   const SizedBox(height: 24),
 
                   // OK / SUBMIT BUTTON
@@ -2434,12 +2629,17 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
                           upiId: upiCtrl.text.trim().isNotEmpty ? upiCtrl.text.trim() : null,
                         );
 
+                        final remarks = notesCtrl.text.trim();
+                        final finalNotes = remarks.isNotEmpty
+                            ? (attachedDoc != null ? '$remarks [Proof: ${attachedDoc!.fileName}]' : remarks)
+                            : (attachedDoc != null ? '[Proof: ${attachedDoc!.fileName}]' : null);
+
                         final createdInv = widget.state.submitCommissionInvoice(
                           leadId: lead.id,
                           type: type,
                           amount: amt,
                           bankDetails: bank,
-                          notes: notesCtrl.text.trim(),
+                          notes: finalNotes,
                         );
 
                         Navigator.of(ctx).pop();

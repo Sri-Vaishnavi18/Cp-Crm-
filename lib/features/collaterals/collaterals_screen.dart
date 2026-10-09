@@ -65,7 +65,7 @@ class _CollateralsScreenState extends State<CollateralsScreen> {
                     ),
                     Switch.adaptive(
                       value: _enableCoBranding,
-                      activeColor: AppColors.primary,
+                      activeTrackColor: AppColors.primary,
                       onChanged: (val) => setState(() => _enableCoBranding = val),
                     ),
                   ],
@@ -174,7 +174,7 @@ class _CollateralsScreenState extends State<CollateralsScreen> {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: iconColor.withOpacity(0.12),
+                    color: iconColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(icon, color: iconColor, size: 22),
@@ -203,7 +203,7 @@ class _CollateralsScreenState extends State<CollateralsScreen> {
                 if (item.isDownloaded)
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(color: AppColors.success.withOpacity(0.15), borderRadius: BorderRadius.circular(4)),
+                    decoration: BoxDecoration(color: AppColors.success.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(4)),
                     child: const Text('OFFLINE READY', style: TextStyle(fontSize: 9, color: AppColors.success, fontWeight: FontWeight.bold)),
                   ),
               ],
@@ -218,7 +218,7 @@ class _CollateralsScreenState extends State<CollateralsScreen> {
                 decoration: BoxDecoration(
                   color: isDark ? AppColors.darkSurfaceSubtle : AppColors.lightSurfaceSubtle,
                   borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
                 ),
                 child: Row(
                   children: [

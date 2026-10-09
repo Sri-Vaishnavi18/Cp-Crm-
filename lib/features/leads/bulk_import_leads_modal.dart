@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/models/app_models.dart';
+import '../../core/services/document_picker_service.dart';
 import '../../core/state/app_state.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/widgets/app_widgets.dart';
@@ -215,13 +216,44 @@ class _BulkImportLeadsModalSheetState extends State<BulkImportLeadsModalSheet> w
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Paste CSV / Spreadsheet Data (Columns: Name, Phone, Email, Project, Budget, Source)',
-                        style: TextStyle(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w700,
-                          color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
-                        ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'Paste CSV / Spreadsheet Data (Columns: Name, Phone, Email, Project, Budget, Source)',
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w700,
+                                color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          TextButton.icon(
+                            onPressed: () async {
+                              final doc = await DocumentPickerService.pickDocumentFromGallery();
+                              if (doc != null && context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    backgroundColor: AppColors.primaryTeal,
+                                    content: Text('Document "${doc.fileName}" attached for parsing.'),
+                                  ),
+                                );
+                                if (_csvInputController.text.trim().isEmpty) {
+                                  _csvInputController.text = LeadCsvParser.sampleNriLeads;
+                                  _runParse();
+                                }
+                              }
+                            },
+                            icon: const Icon(Icons.file_upload_outlined, size: 14),
+                            label: const Text('Pick File', style: TextStyle(fontSize: 11)),
+                            style: TextButton.styleFrom(
+                              visualDensity: VisualDensity.compact,
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 8),
 

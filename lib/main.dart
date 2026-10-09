@@ -24,7 +24,6 @@ class _CpCrmAppState extends State<CpCrmApp> {
   void initState() {
     super.initState();
     _state = AppState();
-    _state.addListener(() => setState(() {}));
   }
 
   @override
@@ -35,13 +34,18 @@ class _CpCrmAppState extends State<CpCrmApp> {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'CP CRM (Light)',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
-      darkTheme: AppTheme.darkTheme,
-      themeMode: _state.themeMode,
-      home: _buildRootScreen(),
+    return ListenableBuilder(
+      listenable: _state,
+      builder: (context, _) {
+        return MaterialApp(
+          title: 'CP CRM',
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.lightTheme,
+          darkTheme: AppTheme.darkTheme,
+          themeMode: _state.themeMode,
+          home: _buildRootScreen(),
+        );
+      },
     );
   }
 

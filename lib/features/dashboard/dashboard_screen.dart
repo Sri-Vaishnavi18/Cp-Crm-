@@ -11,6 +11,9 @@ class DashboardScreen extends StatelessWidget {
   final VoidCallback onOpenAddLead;
   final VoidCallback onOpenScheduleVisit;
   final VoidCallback? onOpenProfile;
+  final VoidCallback? onOpenSiteVisits;
+  final VoidCallback? onOpenCollaterals;
+  final VoidCallback? onOpenSpocHelpdesk;
 
   const DashboardScreen({
     super.key,
@@ -19,6 +22,9 @@ class DashboardScreen extends StatelessWidget {
     required this.onOpenAddLead,
     required this.onOpenScheduleVisit,
     this.onOpenProfile,
+    this.onOpenSiteVisits,
+    this.onOpenCollaterals,
+    this.onOpenSpocHelpdesk,
   });
 
   Future<void> _openCalendarPicker(BuildContext context) async {
@@ -56,8 +62,7 @@ class DashboardScreen extends StatelessWidget {
                     surface: Colors.white,
                     onSurface: AppColors.lightTextPrimary,
                     secondary: AppColors.secondary,
-                  ),
-            dialogBackgroundColor: isDark ? AppColors.darkBg : Colors.white,
+                  ), dialogTheme: DialogThemeData(backgroundColor: isDark ? AppColors.darkBg : Colors.white),
           ),
           child: child!,
         );
@@ -125,9 +130,9 @@ class DashboardScreen extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF6366F1).withOpacity(0.15),
+                      color: const Color(0xFF6366F1).withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: const Color(0xFF6366F1).withOpacity(0.4)),
+                      border: Border.all(color: const Color(0xFF6366F1).withValues(alpha: 0.4)),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -160,9 +165,9 @@ class DashboardScreen extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.1),
+                  color: AppColors.primary.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
                 ),
                 child: Row(
                   children: [
@@ -213,6 +218,10 @@ class DashboardScreen extends StatelessWidget {
               const SizedBox(height: 12),
             ],
 
+            // Quick Action Hub (1-Tap Field Utilities)
+            _buildQuickActionsHub(context, isDark),
+            const SizedBox(height: 16),
+
             // Analytics KPI Cards Grid (6 Cards: Leads, Visits, Bookings, Commissions)
             GridView.count(
               crossAxisCount: 2,
@@ -220,7 +229,11 @@ class DashboardScreen extends StatelessWidget {
               physics: const NeverScrollableScrollPhysics(),
               crossAxisSpacing: 12,
               mainAxisSpacing: 12,
-              childAspectRatio: 1.25,
+              childAspectRatio: MediaQuery.sizeOf(context).width < 360
+                  ? 1.05
+                  : (MediaQuery.sizeOf(context).width > 600
+                      ? 1.6
+                      : (MediaQuery.textScalerOf(context).scale(1.0) > 1.15 ? 1.12 : 1.28)),
               children: [
                 // 1. Active Leads Card
                 StatKpiCard(
@@ -241,7 +254,7 @@ class DashboardScreen extends StatelessWidget {
                   accentColor: const Color(0xFFF59E0B), // Amber / Orange
                   secondaryGraphic: _buildClockGraphic(const Color(0xFFF59E0B)),
                   subtext: 'Digital passes generated',
-                  onTap: () => onNavigateTab(1),
+                  onTap: onOpenSiteVisits ?? () => onNavigateTab(1),
                 ),
 
                 // 3. Visits Completed Card
@@ -252,7 +265,7 @@ class DashboardScreen extends StatelessWidget {
                   accentColor: const Color(0xFF10B981), // Teal / Emerald
                   secondaryGraphic: _buildSealGraphic(const Color(0xFF10B981)),
                   subtext: 'Site tours completed',
-                  onTap: () => onNavigateTab(1),
+                  onTap: onOpenSiteVisits ?? () => onNavigateTab(1),
                 ),
 
                 // 4. Bookings / Holds Card
@@ -331,7 +344,7 @@ class DashboardScreen extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                       decoration: BoxDecoration(
-                        color: AppColors.primary.withOpacity(0.12),
+                        color: AppColors.primary.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Text(
@@ -530,7 +543,7 @@ class DashboardScreen extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                 decoration: BoxDecoration(
-                  color: isDark ? Colors.white10 : Colors.black.withOpacity(0.05),
+                  color: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.05),
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
                 ),
@@ -580,7 +593,7 @@ class DashboardScreen extends StatelessWidget {
           boxShadow: isSelected
               ? [
                   BoxShadow(
-                    color: AppColors.primary.withOpacity(0.3),
+                    color: AppColors.primary.withValues(alpha: 0.3),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -606,16 +619,16 @@ class DashboardScreen extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(6),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
+        color: color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          Container(width: 3, height: 8, decoration: BoxDecoration(color: color.withOpacity(0.4), borderRadius: BorderRadius.circular(2))),
+          Container(width: 3, height: 8, decoration: BoxDecoration(color: color.withValues(alpha: 0.4), borderRadius: BorderRadius.circular(2))),
           const SizedBox(width: 2),
-          Container(width: 3, height: 14, decoration: BoxDecoration(color: color.withOpacity(0.7), borderRadius: BorderRadius.circular(2))),
+          Container(width: 3, height: 14, decoration: BoxDecoration(color: color.withValues(alpha: 0.7), borderRadius: BorderRadius.circular(2))),
           const SizedBox(width: 2),
           Container(width: 3, height: 20, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(2))),
         ],
@@ -627,7 +640,7 @@ class DashboardScreen extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(6),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
+        color: color.withValues(alpha: 0.08),
         shape: BoxShape.circle,
       ),
       child: Icon(Icons.alarm_on_rounded, size: 18, color: color),
@@ -638,7 +651,7 @@ class DashboardScreen extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(6),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
+        color: color.withValues(alpha: 0.08),
         shape: BoxShape.circle,
       ),
       child: Icon(Icons.verified_rounded, size: 18, color: color),
@@ -649,7 +662,7 @@ class DashboardScreen extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(6),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
+        color: color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Icon(Icons.handshake_rounded, size: 18, color: color),
@@ -660,7 +673,7 @@ class DashboardScreen extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(6),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
+        color: color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Icon(Icons.schedule_send_rounded, size: 18, color: color),
@@ -671,10 +684,110 @@ class DashboardScreen extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(6),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
+        color: color.withValues(alpha: 0.08),
         shape: BoxShape.circle,
       ),
       child: Icon(Icons.check_circle_rounded, size: 18, color: color),
     );
   }
+
+  Widget _buildQuickActionsHub(BuildContext context, bool isDark) {
+    final actions = [
+      _QuickActionItem(
+        label: '+ Add Lead',
+        icon: Icons.person_add_alt_1_rounded,
+        color: AppColors.primary,
+        onTap: onOpenAddLead,
+      ),
+      _QuickActionItem(
+        label: '📅 Visit',
+        icon: Icons.calendar_month_rounded,
+        color: const Color(0xFFF59E0B),
+        onTap: onOpenScheduleVisit,
+      ),
+      _QuickActionItem(
+        label: '🎟️ Passes',
+        icon: Icons.qr_code_rounded,
+        color: const Color(0xFF10B981),
+        onTap: onOpenSiteVisits ?? () => onNavigateTab(1),
+      ),
+      _QuickActionItem(
+        label: '📤 Share Kit',
+        icon: Icons.send_to_mobile_rounded,
+        color: const Color(0xFF0284C7),
+        onTap: onOpenCollaterals ?? () => onNavigateTab(2),
+      ),
+      _QuickActionItem(
+        label: '🏢 Projects',
+        icon: Icons.apartment_rounded,
+        color: const Color(0xFF8B5CF6),
+        onTap: () => onNavigateTab(2),
+      ),
+    ];
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkSurface : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+          width: 1,
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: actions.map((item) {
+          return InkWell(
+            onTap: item.onTap,
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      color: item.color.withValues(alpha: 0.12),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: item.color.withValues(alpha: 0.25),
+                        width: 1.2,
+                      ),
+                    ),
+                    child: Icon(item.icon, color: item.color, size: 20),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    item.label,
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w700,
+                      color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
+
+class _QuickActionItem {
+  final String label;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+
+  _QuickActionItem({
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
 }

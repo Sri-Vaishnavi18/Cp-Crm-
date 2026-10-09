@@ -147,7 +147,7 @@ class _SiteVisitsScreenState extends State<SiteVisitsScreen> {
                   children: [
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.15), borderRadius: BorderRadius.circular(6)),
+                      decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(6)),
                       child: Text(
                         visit.visitCode,
                         style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.primary, fontSize: 13),
@@ -200,7 +200,7 @@ class _SiteVisitsScreenState extends State<SiteVisitsScreen> {
                   if (visit.cabRequired)
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(color: Colors.blue.withOpacity(0.15), borderRadius: BorderRadius.circular(4)),
+                      decoration: BoxDecoration(color: Colors.blue.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(4)),
                       child: const Text('CAB PICKUP', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.blue)),
                     ),
                 ],
@@ -257,7 +257,7 @@ Partner: ${widget.state.currentUser?.firmName}
           children: [
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.12), borderRadius: BorderRadius.circular(6)),
+              decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(6)),
               child: const Text('ZERO-OTP DIGITAL VISIT PASS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppColors.primary)),
             ),
             const SizedBox(height: 14),
@@ -384,7 +384,7 @@ class _ScheduleVisitModalSheetState extends State<ScheduleVisitModalSheet> {
           Text('Select Lead', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary)),
           const SizedBox(height: 6),
           DropdownButtonFormField<String>(
-            value: _selectedLeadId,
+            initialValue: _selectedLeadId,
             items: widget.state.allLeads.map((l) => DropdownMenuItem(value: l.id, child: Text('${l.fullName} (${l.phone})'))).toList(),
             onChanged: (val) {
               if (val != null) setState(() => _selectedLeadId = val);
@@ -395,7 +395,7 @@ class _ScheduleVisitModalSheetState extends State<ScheduleVisitModalSheet> {
           Text('Target Project', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary)),
           const SizedBox(height: 6),
           DropdownButtonFormField<String>(
-            value: _selectedProjectId,
+            initialValue: _selectedProjectId,
             items: widget.state.projects.map((p) => DropdownMenuItem(value: p.id, child: Text(p.name))).toList(),
             onChanged: (val) {
               if (val != null) setState(() => _selectedProjectId = val);
@@ -437,14 +437,14 @@ class _ScheduleVisitModalSheetState extends State<ScheduleVisitModalSheet> {
             contentPadding: EdgeInsets.zero,
             title: const Text('Request Builder Cab Pickup for Client', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
             value: _cabRequired,
-            activeColor: AppColors.primary,
+            activeTrackColor: AppColors.primary,
             onChanged: (val) => setState(() => _cabRequired = val),
           ),
           SwitchListTile.adaptive(
             contentPadding: EdgeInsets.zero,
             title: const Text('Broker Accompanying Client', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
             value: _accompanying,
-            activeColor: AppColors.primary,
+            activeTrackColor: AppColors.primary,
             onChanged: (val) => setState(() => _accompanying = val),
           ),
           const SizedBox(height: 20),

@@ -561,6 +561,46 @@ class CommissionInvoiceModel {
     required this.bankDetails,
     this.notes,
   });
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'invoiceNumber': invoiceNumber,
+    'leadId': leadId,
+    'clientName': clientName,
+    'clientPhone': clientPhone,
+    'projectId': projectId,
+    'projectName': projectName,
+    'type': type.name,
+    'amount': amount,
+    'date': date.toIso8601String(),
+    'status': status.name,
+    'bankDetails': bankDetails.toJson(),
+    'notes': notes,
+  };
+
+  factory CommissionInvoiceModel.fromJson(Map<String, dynamic> json) => CommissionInvoiceModel(
+    id: json['id']?.toString() ?? '',
+    invoiceNumber: json['invoiceNumber']?.toString() ?? '',
+    leadId: json['leadId']?.toString() ?? '',
+    clientName: json['clientName']?.toString() ?? '',
+    clientPhone: json['clientPhone']?.toString() ?? '',
+    projectId: json['projectId']?.toString() ?? '',
+    projectName: json['projectName']?.toString() ?? '',
+    type: InvoiceType.values.firstWhere(
+      (e) => e.name == json['type'],
+      orElse: () => InvoiceType.siteVisit,
+    ),
+    amount: (json['amount'] as num?)?.toDouble() ?? 0.0,
+    date: json['date'] != null ? DateTime.tryParse(json['date']) ?? DateTime.now() : DateTime.now(),
+    status: InvoiceStatus.values.firstWhere(
+      (e) => e.name == json['status'],
+      orElse: () => InvoiceStatus.pending,
+    ),
+    bankDetails: json['bankDetails'] != null
+        ? BankDetailsModel.fromJson(Map<String, dynamic>.from(json['bankDetails']))
+        : BankDetailsModel(accountHolder: '', bankName: '', accountNumber: '', ifscCode: ''),
+    notes: json['notes']?.toString(),
+  );
 }
 
 /// DTO for Parsed Lead Row during Bulk Import
@@ -1025,9 +1065,13 @@ B-401,Tower B,4,4 BHK,1650,2250,West,19500000,available''';
         if (cols.length > 7) basePrice = double.tryParse(cols[7].replaceAll(RegExp(r'[^\d.]'), '').trim()) ?? 8500000.0;
         if (cols.length > 8) {
           final s = cols[8].toLowerCase().trim();
-          if (s.contains('sold')) status = UnitStatus.sold;
-          else if (s.contains('block')) status = UnitStatus.blocked;
-          else status = UnitStatus.available;
+          if (s.contains('sold')) {
+            status = UnitStatus.sold;
+          } else if (s.contains('block')) {
+            status = UnitStatus.blocked;
+          } else {
+            status = UnitStatus.available;
+          }
         }
       }
 

@@ -44,6 +44,48 @@ void main() {
       expect(fromJson.upiId, bank.upiId);
     });
 
+    test('CommissionInvoiceModel serialization and deserialization', () {
+      final bank = BankDetailsModel(
+        accountHolder: 'Apex Realty',
+        bankName: 'HDFC Bank',
+        accountNumber: '50100492817263',
+        ifscCode: 'HDFC0001234',
+        upiId: 'apexrealty@okaxis',
+      );
+      final now = DateTime.now();
+      final invoice = CommissionInvoiceModel(
+        id: 'inv_test_1',
+        invoiceNumber: 'INV-2026-TEST',
+        leadId: 'lead_1',
+        clientName: 'Rahul Verma',
+        clientPhone: '9876543210',
+        projectId: 'proj_1',
+        projectName: 'Serenity Palms',
+        type: InvoiceType.booking,
+        amount: 150000.0,
+        date: now,
+        status: InvoiceStatus.approved,
+        bankDetails: bank,
+        notes: 'Token advance verified',
+      );
+
+      final json = invoice.toJson();
+      expect(json['id'], 'inv_test_1');
+      expect(json['invoiceNumber'], 'INV-2026-TEST');
+      expect(json['type'], 'booking');
+      expect(json['amount'], 150000.0);
+      expect(json['status'], 'approved');
+
+      final fromJson = CommissionInvoiceModel.fromJson(json);
+      expect(fromJson.id, invoice.id);
+      expect(fromJson.invoiceNumber, invoice.invoiceNumber);
+      expect(fromJson.clientName, invoice.clientName);
+      expect(fromJson.type, InvoiceType.booking);
+      expect(fromJson.status, InvoiceStatus.approved);
+      expect(fromJson.amount, 150000.0);
+      expect(fromJson.bankDetails.bankName, 'HDFC Bank');
+    });
+
     test('Lead Stage to Temperature Automatic Sync', () {
       expect(LeadModel.getTemperatureForStage(LeadStage.newLead), LeadTemperature.cold);
       expect(LeadModel.getTemperatureForStage(LeadStage.contacted), LeadTemperature.cold);

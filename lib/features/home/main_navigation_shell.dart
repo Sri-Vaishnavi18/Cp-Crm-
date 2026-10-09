@@ -8,6 +8,8 @@ import '../projects/projects_screen.dart';
 import '../commissions/commissions_screen.dart';
 import '../spoc_helpdesk/spoc_screen.dart';
 import '../notifications/notifications_screen.dart';
+import '../site_visits/site_visits_screen.dart' hide ScheduleVisitModalSheet;
+import '../collaterals/collaterals_screen.dart';
 
 class MainNavigationShell extends StatefulWidget {
   final AppState state;
@@ -36,6 +38,27 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (ctx) => ScheduleVisitModalSheet(state: widget.state),
+    );
+  }
+
+  void _openSiteVisits() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (ctx) => SiteVisitsScreen(
+          state: widget.state,
+          onOpenSchedule: _openScheduleVisitModal,
+        ),
+      ),
+    );
+  }
+
+  void _openCollaterals() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (ctx) => CollateralsScreen(
+          state: widget.state,
+        ),
+      ),
     );
   }
 
@@ -73,6 +96,9 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
         onOpenAddLead: _openAddLeadModal,
         onOpenScheduleVisit: _openScheduleVisitModal,
         onOpenProfile: _openProfileModal,
+        onOpenSiteVisits: _openSiteVisits,
+        onOpenCollaterals: _openCollaterals,
+        onOpenSpocHelpdesk: _openSpocHelpdesk,
       ),
       LeadsScreen(
         state: widget.state,

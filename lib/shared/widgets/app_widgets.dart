@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/models/app_models.dart';
+import '../../core/services/document_picker_service.dart';
 import '../../core/state/app_state.dart';
 import '../../features/commissions/commissions_screen.dart';
 
@@ -120,7 +121,7 @@ class AppHeader extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: isOffline ? AppColors.danger.withOpacity(0.15) : AppColors.success.withOpacity(0.15),
+                color: isOffline ? AppColors.danger.withValues(alpha: 0.15) : AppColors.success.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
                   color: isOffline ? AppColors.danger : AppColors.success,
@@ -276,7 +277,7 @@ class StatKpiCard extends StatelessWidget {
           ),
           boxShadow: [
             BoxShadow(
-              color: accentColor.withOpacity(isDark ? 0.05 : 0.08),
+              color: accentColor.withValues(alpha: isDark ? 0.05 : 0.08),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -293,7 +294,7 @@ class StatKpiCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: accentColor.withOpacity(0.12),
+                    color: accentColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(icon, color: accentColor, size: 20),
@@ -304,10 +305,10 @@ class StatKpiCard extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
-                      color: accentColor.withOpacity(0.08),
+                      color: accentColor.withValues(alpha: 0.08),
                       shape: BoxShape.circle,
                     ),
-                    child: Icon(secondaryIcon, color: accentColor.withOpacity(0.85), size: 16),
+                    child: Icon(secondaryIcon, color: accentColor.withValues(alpha: 0.85), size: 16),
                   )
                 else
                   Icon(Icons.arrow_forward_ios, size: 12, color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted),
@@ -501,7 +502,7 @@ class PipelineFunnelBar extends StatelessWidget {
             border: Border.all(color: color, width: 2.5),
             boxShadow: [
               BoxShadow(
-                color: color.withOpacity(0.25),
+                color: color.withValues(alpha: 0.25),
                 blurRadius: 6,
                 offset: const Offset(0, 2),
               ),
@@ -629,7 +630,7 @@ class DashboardLeadCard extends StatelessWidget {
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(isDark ? 0.2 : 0.03),
+              color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
               blurRadius: 6,
               offset: const Offset(0, 2),
             ),
@@ -647,7 +648,7 @@ class DashboardLeadCard extends StatelessWidget {
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
-                        stageColor.withOpacity(0.8),
+                        stageColor.withValues(alpha: 0.8),
                         stageColor,
                       ],
                       begin: Alignment.topLeft,
@@ -692,9 +693,9 @@ class DashboardLeadCard extends StatelessWidget {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                             decoration: BoxDecoration(
-                              color: stageColor.withOpacity(0.12),
+                              color: stageColor.withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: stageColor.withOpacity(0.4), width: 1),
+                              border: Border.all(color: stageColor.withValues(alpha: 0.4), width: 1),
                             ),
                             child: Text(
                               stageText,
@@ -743,7 +744,7 @@ class DashboardLeadCard extends StatelessWidget {
               decoration: BoxDecoration(
                 border: Border(
                   top: BorderSide(
-                    color: isDark ? Colors.white10 : Colors.black.withOpacity(0.06),
+                    color: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.06),
                     width: 0.8,
                   ),
                 ),
@@ -756,7 +757,7 @@ class DashboardLeadCard extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: (isDark ? Colors.white : Colors.black).withOpacity(0.06),
+                          color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.06),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
@@ -814,9 +815,9 @@ class StatusBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.withOpacity(0.4), width: 1),
+        border: Border.all(color: color.withValues(alpha: 0.4), width: 1),
       ),
       child: Text(
         text,
@@ -886,7 +887,7 @@ class UserProfileModalSheet extends StatelessWidget {
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: AppColors.primary.withOpacity(0.35),
+                        color: AppColors.primary.withValues(alpha: 0.35),
                         blurRadius: 10,
                         offset: const Offset(0, 4),
                       ),
@@ -941,7 +942,7 @@ class UserProfileModalSheet extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: AppColors.primary.withOpacity(0.12),
+                          color: AppColors.primary.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
@@ -1008,6 +1009,103 @@ class UserProfileModalSheet extends StatelessWidget {
                     'Device-Local Database (Encrypted Session)',
                     isDark,
                     valueColor: AppColors.success,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+
+            // RERA & KYC Verification Document Scanner Tile
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF161F2E) : AppColors.lightSurfaceSubtle,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: AppColors.primaryTeal.withValues(alpha: 0.3),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryTeal.withValues(alpha: 0.15),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.document_scanner_rounded, color: AppColors.primaryTeal, size: 16),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'RERA & Business KYC Verification',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w800,
+                          color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Upload or scan state RERA certificate and agency GSTIN to maintain verified partner badge.',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () async {
+                            final doc = await DocumentPickerService.pickDocumentFromCamera();
+                            if (doc != null && context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  backgroundColor: AppColors.success,
+                                  content: Text('Scanned "${doc.fileName}" (${(doc.sizeBytes / 1024).toStringAsFixed(1)} KB) successfully!'),
+                                ),
+                              );
+                            }
+                          },
+                          icon: const Icon(Icons.camera_alt_outlined, size: 14),
+                          label: const Text('Scan Certificate', style: TextStyle(fontSize: 11)),
+                          style: OutlinedButton.styleFrom(
+                            visualDensity: VisualDensity.compact,
+                            foregroundColor: AppColors.primaryTeal,
+                            side: BorderSide(color: AppColors.primaryTeal.withValues(alpha: 0.5)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () async {
+                            final doc = await DocumentPickerService.pickDocumentFromGallery();
+                            if (doc != null && context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  backgroundColor: AppColors.success,
+                                  content: Text('Uploaded "${doc.fileName}" (${(doc.sizeBytes / 1024).toStringAsFixed(1)} KB) successfully!'),
+                                ),
+                              );
+                            }
+                          },
+                          icon: const Icon(Icons.photo_library_outlined, size: 14),
+                          label: const Text('Upload Photo', style: TextStyle(fontSize: 11)),
+                          style: OutlinedButton.styleFrom(
+                            visualDensity: VisualDensity.compact,
+                            foregroundColor: AppColors.accentGold,
+                            side: BorderSide(color: AppColors.accentGold.withValues(alpha: 0.5)),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -1095,7 +1193,7 @@ class UserProfileModalSheet extends StatelessWidget {
                   child: ListTile(
                     dense: true,
                     leading: CircleAvatar(
-                      backgroundColor: AppColors.primary.withOpacity(0.2),
+                      backgroundColor: AppColors.primary.withValues(alpha: 0.2),
                       child: Text(
                         otherUser.name.isNotEmpty ? otherUser.name[0] : 'P',
                         style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary),
@@ -1293,7 +1391,7 @@ class _ScheduleVisitModalSheetState extends State<ScheduleVisitModalSheet> {
           Text('Select Lead', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary)),
           const SizedBox(height: 6),
           DropdownButtonFormField<String>(
-            value: _selectedLeadId,
+            initialValue: _selectedLeadId,
             items: widget.state.allLeads.map((l) => DropdownMenuItem(value: l.id, child: Text('${l.fullName} (${l.phone})'))).toList(),
             onChanged: (val) {
               if (val != null) setState(() => _selectedLeadId = val);
@@ -1304,7 +1402,7 @@ class _ScheduleVisitModalSheetState extends State<ScheduleVisitModalSheet> {
           Text('Target Project', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary)),
           const SizedBox(height: 6),
           DropdownButtonFormField<String>(
-            value: _selectedProjectId,
+            initialValue: _selectedProjectId,
             items: widget.state.projects.map((p) => DropdownMenuItem(value: p.id, child: Text(p.name))).toList(),
             onChanged: (val) {
               if (val != null) setState(() => _selectedProjectId = val);
@@ -1346,14 +1444,14 @@ class _ScheduleVisitModalSheetState extends State<ScheduleVisitModalSheet> {
             contentPadding: EdgeInsets.zero,
             title: const Text('Request Builder Cab Pickup for Client', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
             value: _cabRequired,
-            activeColor: AppColors.primary,
+            activeTrackColor: AppColors.primary,
             onChanged: (val) => setState(() => _cabRequired = val),
           ),
           SwitchListTile.adaptive(
             contentPadding: EdgeInsets.zero,
             title: const Text('Broker Accompanying Client', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
             value: _accompanying,
-            activeColor: AppColors.primary,
+            activeTrackColor: AppColors.primary,
             onChanged: (val) => setState(() => _accompanying = val),
           ),
           const SizedBox(height: 20),
@@ -1398,19 +1496,19 @@ class Flip7PillButton extends StatelessWidget {
     Color fg;
     switch (variant) {
       case Flip7ButtonVariant.teal:
-        bg = AppColors.primaryTeal.withOpacity(0.12);
+        bg = AppColors.primaryTeal.withValues(alpha: 0.12);
         fg = AppColors.primaryTeal;
         break;
       case Flip7ButtonVariant.sky:
-        bg = AppColors.skyBlue.withOpacity(0.12);
+        bg = AppColors.skyBlue.withValues(alpha: 0.12);
         fg = AppColors.skyBlue;
         break;
       case Flip7ButtonVariant.gold:
-        bg = AppColors.accentGold.withOpacity(0.12);
+        bg = AppColors.accentGold.withValues(alpha: 0.12);
         fg = AppColors.accentGold;
         break;
       case Flip7ButtonVariant.coral:
-        bg = AppColors.coral.withOpacity(0.12);
+        bg = AppColors.coral.withValues(alpha: 0.12);
         fg = AppColors.coral;
         break;
     }
@@ -1426,7 +1524,7 @@ class Flip7PillButton extends StatelessWidget {
         decoration: BoxDecoration(
           color: bg,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: fg.withOpacity(0.35), width: 1),
+          border: Border.all(color: fg.withValues(alpha: 0.35), width: 1),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,

@@ -1,8 +1,10 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/app_models.dart';
 import '../services/mock_data_service.dart';
 import '../services/auth_storage_service.dart';
+import '../services/biometric_service.dart';
 
 class DuplicateCheckResult {
   final bool isDuplicate;
@@ -135,6 +137,29 @@ class AppState extends ChangeNotifier {
       _isAuthenticated = true;
     }
 
+    // Load saved bank details and invoices from persistent storage
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final bankRaw = prefs.getString('saved_bank_details');
+      if (bankRaw != null && bankRaw.isNotEmpty) {
+        _savedBankDetails = BankDetailsModel.fromJson(jsonDecode(bankRaw));
+      }
+
+      final invRaw = prefs.getString('persisted_invoices');
+      if (invRaw != null && invRaw.isNotEmpty) {
+        final decoded = jsonDecode(invRaw) as List<dynamic>;
+        final stored = decoded.map((item) => CommissionInvoiceModel.fromJson(item as Map<String, dynamic>)).toList();
+        if (stored.isNotEmpty) {
+          // Merge or prioritize stored invoices
+          for (final inv in stored) {
+            if (!_invoices.any((existing) => existing.id == inv.id)) {
+              _invoices.insert(0, inv);
+            }
+          }
+        }
+      }
+    } catch (_) {}
+
     // Load saved theme preference
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -197,6 +222,16 @@ class AppState extends ChangeNotifier {
   }
 
   Future<AuthResult> biometricLogin() async {
+    final bool didAuthenticate = await BiometricService.authenticate(
+      reason: 'Scan Face ID or Fingerprint to unlock CP CRM',
+    );
+    if (!didAuthenticate) {
+      return AuthResult(
+        success: false,
+        errorMessage: 'Biometric verification cancelled or not recognized.',
+      );
+    }
+
     final users = await AuthStorageService.getRegisteredUsers();
     if (users.isNotEmpty) {
       final user = _currentUser ?? users.first;
@@ -1083,6 +1118,8 @@ class AppState extends ChangeNotifier {
     );
 
     notifyListeners();
+    _persistInvoices();
+    _persistBankDetails();
     return invoice;
   }
 
@@ -1164,12 +1201,30 @@ class AppState extends ChangeNotifier {
     if (idx != -1) {
       _invoices[idx].status = newStatus;
       notifyListeners();
+      _persistInvoices();
     }
   }
 
   void saveDefaultBankDetails(BankDetailsModel bankDetails) {
     _savedBankDetails = bankDetails;
     notifyListeners();
+    _persistBankDetails();
+  }
+
+  Future<void> _persistInvoices() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final jsonList = _invoices.map((inv) => inv.toJson()).toList();
+      await prefs.setString('persisted_invoices', jsonEncode(jsonList));
+    } catch (_) {}
+  }
+
+  Future<void> _persistBankDetails() async {
+    if (_savedBankDetails == null) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('saved_bank_details', jsonEncode(_savedBankDetails!.toJson()));
+    } catch (_) {}
   }
 }
 

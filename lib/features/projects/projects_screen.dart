@@ -210,7 +210,7 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
                   child: Image.network(
                     project.heroImageUrl,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => const Center(child: Icon(Icons.apartment, size: 48, color: Colors.grey)),
+                    errorBuilder: (_, _, _) => const Center(child: Icon(Icons.apartment, size: 48, color: Colors.grey)),
                   ),
                 ),
                 Positioned(
@@ -219,7 +219,7 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.75),
+                      color: Colors.black.withValues(alpha: 0.75),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
@@ -551,9 +551,9 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: isSelected ? color.withOpacity(0.18) : Colors.transparent,
+          color: isSelected ? color.withValues(alpha: 0.18) : Colors.transparent,
           borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: isSelected ? color : Colors.grey.withOpacity(0.3)),
+          border: Border.all(color: isSelected ? color : Colors.grey.withValues(alpha: 0.3)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -604,7 +604,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
                   ),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(color: statusColor.withOpacity(0.15), borderRadius: BorderRadius.circular(4)),
+                    decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(4)),
                     child: Text(
                       statusText,
                       style: TextStyle(color: statusColor, fontSize: 9, fontWeight: FontWeight.bold),
@@ -691,7 +691,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
               const Text('Request temporary reservation for 24 hours to finalize client booking token.'),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
-                value: selectedLeadId,
+                initialValue: selectedLeadId,
                 items: widget.state.allLeads.map((l) => DropdownMenuItem(value: l.id, child: Text(l.fullName))).toList(),
                 onChanged: (val) {
                   if (val != null) setDialogState(() => selectedLeadId = val);
@@ -750,12 +750,12 @@ class CostEstimatorSheet extends StatefulWidget {
 }
 
 class _CostEstimatorSheetState extends State<CostEstimatorSheet> {
-  double _basePrice = 8500000;
-  double _floorRise = 150000;
-  double _clubhouseCharges = 350000;
-  double _carParking = 400000;
-  double _gstRate = 0.05; // 5%
-  double _stampDutyRate = 0.056; // 5.6%
+  final double _basePrice = 8500000;
+  final double _floorRise = 150000;
+  final double _clubhouseCharges = 350000;
+  final double _carParking = 400000;
+  final double _gstRate = 0.05; // 5%
+  final double _stampDutyRate = 0.056; // 5.6%
 
   @override
   Widget build(BuildContext context) {

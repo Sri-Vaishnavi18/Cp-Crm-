@@ -77,7 +77,7 @@ class AppColors {
 class Flip7Shadows {
   static final List<BoxShadow> shadowTealGlow = [
     BoxShadow(
-      color: AppColors.primaryTeal.withOpacity(0.25),
+      color: AppColors.primaryTeal.withValues(alpha: 0.25),
       blurRadius: 12,
       offset: const Offset(0, 4),
     ),
@@ -85,7 +85,7 @@ class Flip7Shadows {
 
   static final List<BoxShadow> shadowSkyGlow = [
     BoxShadow(
-      color: AppColors.skyBlue.withOpacity(0.25),
+      color: AppColors.skyBlue.withValues(alpha: 0.25),
       blurRadius: 12,
       offset: const Offset(0, 4),
     ),
@@ -93,7 +93,7 @@ class Flip7Shadows {
 
   static final List<BoxShadow> shadowGoldGlow = [
     BoxShadow(
-      color: AppColors.accentGold.withOpacity(0.25),
+      color: AppColors.accentGold.withValues(alpha: 0.25),
       blurRadius: 12,
       offset: const Offset(0, 4),
     ),
@@ -101,7 +101,7 @@ class Flip7Shadows {
 
   static final List<BoxShadow> shadowCoralGlow = [
     BoxShadow(
-      color: AppColors.coral.withOpacity(0.25),
+      color: AppColors.coral.withValues(alpha: 0.25),
       blurRadius: 12,
       offset: const Offset(0, 4),
     ),
@@ -122,12 +122,10 @@ class AppTheme {
         primary: AppColors.primary,
         secondary: AppColors.secondary,
         surface: AppColors.lightSurface,
-        background: AppColors.lightBg,
         error: AppColors.danger,
         onPrimary: Colors.white,
         onSecondary: Colors.white,
         onSurface: AppColors.lightTextPrimary,
-        onBackground: AppColors.lightTextPrimary,
         outline: AppColors.lightBorder,
       ),
       textTheme: baseTextTheme.copyWith(
@@ -249,12 +247,10 @@ class AppTheme {
         primary: AppColors.primaryDark,
         secondary: AppColors.secondaryDark,
         surface: AppColors.darkSurface,
-        background: AppColors.darkBg,
         error: AppColors.dangerDark,
         onPrimary: Colors.white,
         onSecondary: Colors.white,
         onSurface: AppColors.darkTextPrimary,
-        onBackground: AppColors.darkTextPrimary,
         outline: AppColors.darkBorder,
       ),
       textTheme: baseTextTheme.copyWith(

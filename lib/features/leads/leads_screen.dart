@@ -402,19 +402,22 @@ class _LeadsScreenState extends State<LeadsScreen> {
                       ],
                     ),
                   )
-                : ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-                    itemCount: leads.length,
-                    itemBuilder: (context, index) {
-                      final lead = leads[index];
-                      return _buildModernLeadCard(context, lead, isDark);
-                    },
+                : RefreshIndicator(
+                    onRefresh: () async => widget.state.syncOfflineQueue(),
+                    child: ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+                      itemCount: leads.length,
+                      itemBuilder: (context, index) {
+                        final lead = leads[index];
+                        return _buildModernLeadCard(context, lead, isDark);
+                      },
+                    ),
                   ),
           ),
 
-          // Bottom Pagination Bar (Matches Reference Image)
+          // Modern Mobile Status & Record Count Bar
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
               color: isDark ? const Color(0xFF111722) : AppColors.lightSurface,
               border: Border(
@@ -429,67 +432,32 @@ class _LeadsScreenState extends State<LeadsScreen> {
               children: [
                 Row(
                   children: [
-                    Text(
-                      'Items: ',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: const BoxDecoration(
+                        color: AppColors.success,
+                        shape: BoxShape.circle,
                       ),
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: isDark ? const Color(0xFF1B2433) : AppColors.lightSurfaceSubtle,
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(
-                          color: isDark ? const Color(0xFF2D3C52) : AppColors.lightBorder,
-                          width: 1,
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Text(
-                            '100',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          Icon(
-                            Icons.keyboard_arrow_down,
-                            size: 14,
-                            color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
-                          ),
-                        ],
+                    const SizedBox(width: 8),
+                    Text(
+                      'Showing ${leads.length} of $totalCount leads',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
                       ),
                     ),
                   ],
                 ),
-                Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.chevron_left, size: 18),
-                      onPressed: () {},
-                      visualDensity: VisualDensity.compact,
-                      color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
-                    ),
-                    Text(
-                      '1-${leads.length} of $totalCount',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.chevron_right, size: 18),
-                      onPressed: () {},
-                      visualDensity: VisualDensity.compact,
-                      color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
-                    ),
-                  ],
+                Text(
+                  'Zero-OTP Protected',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                  ),
                 ),
               ],
             ),
