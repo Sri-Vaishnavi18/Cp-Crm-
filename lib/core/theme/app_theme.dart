@@ -2,6 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class AppColors {
+  // Flip7 Design System Tokens
+  static const Color primaryTeal = Color(0xFF0D9488); // Flip7 Signature Teal
+  static const Color tealDark = Color(0xFF115E59);
+  static const Color accentGold = Color(0xFFF59E0B); // Flip7 Gold Accent
+  static const Color goldDark = Color(0xFFD97706);
+  static const Color coral = Color(0xFFF43F5E); // Flip7 Crimson / Coral Red
+  static const Color skyBlue = Color(0xFF0284C7); // Flip7 Cyan / Sky Blue
+  static const Color cream = Color(0xFFFDFBF7); // Flip7 Warm Light Surface
+  static const Color primaryBg = Color(0xFFF4F6F9); // Light App Canvas
+
   // Primary Accents
   static const Color primary = Color(0xFF4F46E5); // Electric Indigo
   static const Color primaryDark = Color(0xFF6366F1);
@@ -30,14 +40,74 @@ class AppColors {
   static const Color darkBg = Color(0xFF0B0F17); // Deep Obsidian
   static const Color darkSurface = Color(0xFF151D2A); // Elevated Navy
   static const Color darkSurfaceSubtle = Color(0xFF1E293B);
+  static const Color darkSurfaceCard = Color(0xFF1E293B); // Elevated card surface
   static const Color darkBorder = Color(0xFF2E3D52);
   static const Color darkTextPrimary = Color(0xFFF8FAFC);
   static const Color darkTextSecondary = Color(0xFF94A3B8);
   static const Color darkTextMuted = Color(0xFF64748B);
 
+  // Accent Aliases
+  static const Color accent = Color(0xFFF59E0B);
+  static const Color accentDark = Color(0xFFD97706);
+
+
   // WhatsApp Branding
   static const Color whatsapp = Color(0xFF25D366);
+
+  // Gradients
+  static const LinearGradient tealGradient = LinearGradient(
+    colors: [Color(0xFF0D9488), Color(0xFF0284C7)],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
+  static const LinearGradient goldGradient = LinearGradient(
+    colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
+  static const LinearGradient skyGradient = LinearGradient(
+    colors: [Color(0xFF0284C7), Color(0xFF0EA5E9)],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
 }
+
+class Flip7Shadows {
+  static final List<BoxShadow> shadowTealGlow = [
+    BoxShadow(
+      color: AppColors.primaryTeal.withOpacity(0.25),
+      blurRadius: 12,
+      offset: const Offset(0, 4),
+    ),
+  ];
+
+  static final List<BoxShadow> shadowSkyGlow = [
+    BoxShadow(
+      color: AppColors.skyBlue.withOpacity(0.25),
+      blurRadius: 12,
+      offset: const Offset(0, 4),
+    ),
+  ];
+
+  static final List<BoxShadow> shadowGoldGlow = [
+    BoxShadow(
+      color: AppColors.accentGold.withOpacity(0.25),
+      blurRadius: 12,
+      offset: const Offset(0, 4),
+    ),
+  ];
+
+  static final List<BoxShadow> shadowCoralGlow = [
+    BoxShadow(
+      color: AppColors.coral.withOpacity(0.25),
+      blurRadius: 12,
+      offset: const Offset(0, 4),
+    ),
+  ];
+}
+
 
 class AppTheme {
   // Light Theme

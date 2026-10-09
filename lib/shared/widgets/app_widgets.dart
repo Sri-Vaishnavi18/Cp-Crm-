@@ -1368,3 +1368,163 @@ class _ScheduleVisitModalSheetState extends State<ScheduleVisitModalSheet> {
   }
 }
 
+// ==========================================
+// Flip7 Design System Buttons & Action Tokens
+// ==========================================
+
+enum Flip7ButtonVariant { teal, sky, gold, coral }
+
+class Flip7PillButton extends StatelessWidget {
+  final String label;
+  final IconData? icon;
+  final Flip7ButtonVariant variant;
+  final VoidCallback onPressed;
+  final double? height;
+  final double? width;
+
+  const Flip7PillButton({
+    super.key,
+    required this.label,
+    this.icon,
+    this.variant = Flip7ButtonVariant.teal,
+    required this.onPressed,
+    this.height,
+    this.width,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    Color bg;
+    Color fg;
+    switch (variant) {
+      case Flip7ButtonVariant.teal:
+        bg = AppColors.primaryTeal.withOpacity(0.12);
+        fg = AppColors.primaryTeal;
+        break;
+      case Flip7ButtonVariant.sky:
+        bg = AppColors.skyBlue.withOpacity(0.12);
+        fg = AppColors.skyBlue;
+        break;
+      case Flip7ButtonVariant.gold:
+        bg = AppColors.accentGold.withOpacity(0.12);
+        fg = AppColors.accentGold;
+        break;
+      case Flip7ButtonVariant.coral:
+        bg = AppColors.coral.withOpacity(0.12);
+        fg = AppColors.coral;
+        break;
+    }
+
+    return InkWell(
+      onTap: onPressed,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        height: height,
+        width: width,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        alignment: height != null ? Alignment.center : null,
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: fg.withOpacity(0.35), width: 1),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (icon != null) ...[
+              Icon(icon, size: 15, color: fg),
+              const SizedBox(width: 6),
+            ],
+            Text(
+              label,
+              style: TextStyle(
+                color: fg,
+                fontWeight: FontWeight.w700,
+                fontSize: 12.5,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class Flip7GoldCTAButton extends StatelessWidget {
+  final String label;
+  final IconData? icon;
+  final VoidCallback? onPressed;
+  final bool isLoading;
+  final double? height;
+  final double? width;
+  final bool isFullWidth;
+
+  const Flip7GoldCTAButton({
+    super.key,
+    required this.label,
+    this.icon,
+    this.onPressed,
+    this.isLoading = false,
+    this.height,
+    this.width,
+    this.isFullWidth = true,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: height,
+      width: isFullWidth ? (width ?? double.infinity) : width,
+      decoration: BoxDecoration(
+        gradient: AppColors.goldGradient,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: Flip7Shadows.shadowGoldGlow,
+      ),
+
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: isLoading ? null : onPressed,
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: height != null ? 0 : 12,
+            ),
+            child: Center(
+              child: isLoading
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : Row(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        if (icon != null) ...[
+                          Icon(icon, size: 17, color: Colors.white),
+                          const SizedBox(width: 8),
+                        ],
+                        Text(
+                          label,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 14,
+                            letterSpacing: 0.2,
+                          ),
+                        ),
+                      ],
+                    ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+
+

@@ -3,8 +3,9 @@ import '../../core/theme/app_theme.dart';
 import '../../core/models/app_models.dart';
 import '../../core/state/app_state.dart';
 import '../../core/services/url_action_service.dart';
-import '../site_visits/site_visits_screen.dart';
 import 'lead_detail_screen.dart';
+import 'bulk_import_leads_modal.dart';
+import '../../shared/widgets/app_widgets.dart';
 
 class LeadsScreen extends StatefulWidget {
   final AppState state;
@@ -45,6 +46,15 @@ class _LeadsScreenState extends State<LeadsScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => AddLeadModalSheet(state: widget.state),
+    );
+  }
+
+  void _openBulkImportModal() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => BulkImportLeadsModalSheet(state: widget.state),
     );
   }
 
@@ -133,22 +143,24 @@ class _LeadsScreenState extends State<LeadsScreen> {
                         ],
                       ),
                     ),
-                    // + New Lead Button
-                    ElevatedButton.icon(
-                      onPressed: _openLeadCreation,
-                      icon: const Icon(Icons.add, size: 18, color: Colors.white),
-                      label: const Text(
-                        'New Lead',
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF6366F1),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                        minimumSize: const Size(0, 38),
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
+                    Row(
+                      children: [
+                        Flip7PillButton(
+                          label: 'Bulk Import',
+                          icon: Icons.file_upload_outlined,
+                          variant: Flip7ButtonVariant.teal,
+                          height: 38,
+                          onPressed: _openBulkImportModal,
+                        ),
+                        const SizedBox(width: 8),
+                        Flip7GoldCTAButton(
+                          label: '+ New Lead',
+                          icon: Icons.add_rounded,
+                          height: 38,
+                          isFullWidth: false,
+                          onPressed: _openLeadCreation,
+                        ),
+                      ],
                     ),
                   ],
                 ),

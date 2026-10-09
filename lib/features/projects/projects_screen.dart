@@ -3,6 +3,9 @@ import '../../core/theme/app_theme.dart';
 import '../../core/models/app_models.dart';
 import '../../core/state/app_state.dart';
 import '../../core/services/url_action_service.dart';
+import '../../shared/widgets/app_widgets.dart';
+import 'create_project_modal.dart';
+import 'bulk_import_units_modal.dart';
 
 class ProjectsScreen extends StatefulWidget {
   final AppState state;
@@ -17,6 +20,27 @@ class ProjectsScreen extends StatefulWidget {
 class _ProjectsScreenState extends State<ProjectsScreen> {
   String _selectedCategory = 'ALL';
 
+  void _openCreateProjectModal() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => CreateProjectModalSheet(state: widget.state),
+    );
+  }
+
+  void _openBulkImportUnitsModal([String? projectId]) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => BulkImportUnitsModalSheet(
+        state: widget.state,
+        initialProjectId: projectId,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = widget.state.isDarkMode;
@@ -26,8 +50,71 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
         : allProjects.where((p) => p.type == _selectedCategory).toList();
 
     return Scaffold(
+      backgroundColor: isDark ? AppColors.darkBg : AppColors.lightBg,
       body: Column(
         children: [
+          // Top Action Header
+          Container(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+            decoration: BoxDecoration(
+              color: isDark ? AppColors.darkSurfaceCard : AppColors.lightSurface,
+              border: Border(
+                bottom: BorderSide(
+                  color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                  width: 1,
+                ),
+              ),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Projects & Inventory',
+                        style: TextStyle(
+                          fontSize: 19,
+                          fontWeight: FontWeight.w900,
+                          color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                          letterSpacing: -0.3,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'RERA inventory & live unit matrices',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Row(
+                  children: [
+                    Flip7PillButton(
+                      label: 'Bulk Units',
+                      icon: Icons.inventory_2_outlined,
+                      variant: Flip7ButtonVariant.sky,
+                      height: 38,
+                      onPressed: () => _openBulkImportUnitsModal(),
+                    ),
+                    const SizedBox(width: 8),
+                    Flip7GoldCTAButton(
+                      label: '+ Create Project',
+                      icon: Icons.add_business_rounded,
+                      height: 38,
+                      isFullWidth: false,
+                      onPressed: _openCreateProjectModal,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
           // Filter Tabs
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),

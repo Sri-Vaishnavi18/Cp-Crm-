@@ -326,7 +326,7 @@ class ProjectModel {
   final String id;
   final String name;
   final String location;
-  final String startingPrice;
+  String startingPrice;
   final String reraNumber;
   final String possessionDate;
   final String type; // 'Ongoing', 'Ready to Move', 'Pre-Launch'
@@ -561,4 +561,527 @@ class CommissionInvoiceModel {
     required this.bankDetails,
     this.notes,
   });
+}
+
+/// DTO for Parsed Lead Row during Bulk Import
+class LeadImportRow {
+  String firstName;
+  String lastName;
+  String phone;
+  String? email;
+  String budget;
+  String projectId;
+  String projectName;
+  List<String> configurations;
+  String source;
+  bool isValid;
+  String? validationError;
+  bool isDuplicate;
+  String? duplicateReason;
+
+  LeadImportRow({
+    required this.firstName,
+    required this.lastName,
+    required this.phone,
+    this.email,
+    required this.budget,
+    required this.projectId,
+    required this.projectName,
+    required this.configurations,
+    this.source = 'CHANNEL_PARTNER',
+    this.isValid = true,
+    this.validationError,
+    this.isDuplicate = false,
+    this.duplicateReason,
+  });
+
+  String get fullName => '$firstName $lastName'.trim();
+}
+
+/// CSV Parser & Validator for Leads Bulk Import
+class LeadCsvParser {
+  static const String sampleInvestorLeads = '''Name,Phone,Email,Project,Budget,Source
+Rahul Sharma,9876543210,rahul.sharma@gmail.com,Skyline Heights,1.2 - 1.5 Cr,Channel Partner
+Priya Patel,9823456781,priya.patel@yahoo.com,Elysium Greens,85 - 95 L,Digital Ads
+Amit Singh,9765432109,amit.singh@outlook.com,Aura Grand,2.0 - 2.5 Cr,Walk-in
+Sunita Rao,9988776655,sunita.rao@techcorp.in,Skyline Heights,1.0 - 1.3 Cr,Referral
+Vikram Malhotra,9123456789,vikram.m@investments.com,The Imperial Residences,3.5 - 4.5 Cr,Channel Partner''';
+
+  static const String sampleLuxuryLeads = '''Name,Phone,Email,Project,Budget,Source
+Karan Mehra,9811223344,karan.mehra@luxuryestate.in,The Imperial Residences,4.0 - 5.0 Cr,Channel Partner
+Meera Sen,9833445566,meera.sen@senenterprises.com,The Imperial Residences,3.0 - 4.0 Cr,Referral
+Arjun Kapoor,9744556677,arjun.k@startupventures.io,Skyline Heights,1.8 - 2.2 Cr,Direct Inquiry''';
+
+  static const String sampleNriLeads = '''Name,Phone,Email,Project,Budget,Source
+Rohan Nair,9871122334,rohan.nair@dubaiholdings.ae,Elysium Greens,1.5 - 2.0 Cr,Channel Partner
+Ananya Deshmukh,9866778899,ananya.d@ushealthcare.org,Aura Grand,2.2 - 2.8 Cr,Website Inquiry
+Sameer Merchant,9855667788,sameer.m@sginvestments.sg,The Imperial Residences,3.5 - 4.0 Cr,Channel Partner''';
+
+  static List<LeadImportRow> parse({
+    required String rawText,
+    required List<ProjectModel> availableProjects,
+    required bool Function(String phone) duplicateChecker,
+  }) {
+    final lines = rawText
+        .split(RegExp(r'\r?\n'))
+        .map((l) => l.trim())
+        .where((l) => l.isNotEmpty)
+        .toList();
+
+    if (lines.isEmpty) return [];
+
+    final results = <LeadImportRow>[];
+
+    // Detect if first line is header
+    int startIndex = 0;
+    final firstLine = lines.first.toLowerCase();
+    Map<String, int> headerMap = {};
+
+    if (firstLine.contains('phone') || firstLine.contains('name') || firstLine.contains('email')) {
+      startIndex = 1;
+      final headers = _splitCsvLine(lines.first).map((h) => h.toLowerCase().trim()).toList();
+      for (int i = 0; i < headers.length; i++) {
+        final h = headers[i];
+        if (h.contains('name') || h == 'full name' || h == 'client') {
+          headerMap['name'] = i;
+        } else if (h.contains('first')) {
+          headerMap['first_name'] = i;
+        } else if (h.contains('last')) {
+          headerMap['last_name'] = i;
+        } else if (h.contains('phone') || h.contains('mobile') || h.contains('contact')) {
+          headerMap['phone'] = i;
+        } else if (h.contains('email')) {
+          headerMap['email'] = i;
+        } else if (h.contains('project')) {
+          headerMap['project'] = i;
+        } else if (h.contains('budget')) {
+          headerMap['budget'] = i;
+        } else if (h.contains('source')) {
+          headerMap['source'] = i;
+        } else if (h.contains('config') || h.contains('bhk')) {
+          headerMap['config'] = i;
+        }
+      }
+    }
+
+    final defaultProject = availableProjects.isNotEmpty ? availableProjects.first : null;
+
+    for (int i = startIndex; i < lines.length; i++) {
+      final line = lines[i];
+      final cols = _splitCsvLine(line);
+      if (cols.isEmpty || cols.every((c) => c.isEmpty)) continue;
+
+      String name = '';
+      String firstName = '';
+      String lastName = '';
+      String phone = '';
+      String? email;
+      String budget = '1.0 - 1.5 Cr';
+      String projectName = defaultProject?.name ?? 'Skyline Heights';
+      String projectId = defaultProject?.id ?? 'p1';
+      String source = 'CHANNEL_PARTNER';
+      List<String> configs = ['2 BHK', '3 BHK'];
+
+      if (headerMap.isNotEmpty) {
+        if (headerMap.containsKey('name') && headerMap['name']! < cols.length) {
+          name = cols[headerMap['name']!].trim();
+        }
+        if (headerMap.containsKey('first_name') && headerMap['first_name']! < cols.length) {
+          firstName = cols[headerMap['first_name']!].trim();
+        }
+        if (headerMap.containsKey('last_name') && headerMap['last_name']! < cols.length) {
+          lastName = cols[headerMap['last_name']!].trim();
+        }
+        if (headerMap.containsKey('phone') && headerMap['phone']! < cols.length) {
+          phone = cols[headerMap['phone']!].trim();
+        }
+        if (headerMap.containsKey('email') && headerMap['email']! < cols.length) {
+          final e = cols[headerMap['email']!].trim();
+          email = e.isNotEmpty ? e : null;
+        }
+        if (headerMap.containsKey('project') && headerMap['project']! < cols.length) {
+          final pName = cols[headerMap['project']!].trim();
+          if (pName.isNotEmpty) {
+            final match = availableProjects.firstWhere(
+              (p) => p.name.toLowerCase().contains(pName.toLowerCase()) || pName.toLowerCase().contains(p.name.toLowerCase()),
+              orElse: () => defaultProject ?? ProjectModel(
+                id: 'p1',
+                name: pName,
+                location: 'Prime Location',
+                startingPrice: '85 L',
+                reraNumber: 'RERA/PRM/001',
+                possessionDate: 'Dec 2026',
+                type: 'Ongoing',
+                heroImageUrl: '',
+                galleryImages: [],
+                amenities: [],
+                approvedBanks: [],
+                distanceDetails: '',
+                towers: ['Tower A'],
+                units: [],
+              ),
+            );
+            projectName = match.name;
+            projectId = match.id;
+          }
+        }
+        if (headerMap.containsKey('budget') && headerMap['budget']! < cols.length) {
+          final b = cols[headerMap['budget']!].trim();
+          if (b.isNotEmpty) budget = b;
+        }
+        if (headerMap.containsKey('source') && headerMap['source']! < cols.length) {
+          final s = cols[headerMap['source']!].trim();
+          if (s.isNotEmpty) source = s;
+        }
+      } else {
+        // Positional fallback: Name, Phone, Email, Project, Budget, Source
+        if (cols.isNotEmpty) name = cols[0].trim();
+        if (cols.length > 1) phone = cols[1].trim();
+        if (cols.length > 2 && cols[2].trim().isNotEmpty) email = cols[2].trim();
+        if (cols.length > 3 && cols[3].trim().isNotEmpty) {
+          final pName = cols[3].trim();
+          final match = availableProjects.firstWhere(
+            (p) => p.name.toLowerCase().contains(pName.toLowerCase()) || pName.toLowerCase().contains(p.name.toLowerCase()),
+            orElse: () => defaultProject ?? ProjectModel(
+              id: 'p1',
+              name: pName,
+              location: 'Prime Location',
+              startingPrice: '85 L',
+              reraNumber: 'RERA/PRM/001',
+              possessionDate: 'Dec 2026',
+              type: 'Ongoing',
+              heroImageUrl: '',
+              galleryImages: [],
+              amenities: [],
+              approvedBanks: [],
+              distanceDetails: '',
+              towers: ['Tower A'],
+              units: [],
+            ),
+          );
+          projectName = match.name;
+          projectId = match.id;
+        }
+        if (cols.length > 4 && cols[4].trim().isNotEmpty) budget = cols[4].trim();
+        if (cols.length > 5 && cols[5].trim().isNotEmpty) source = cols[5].trim();
+      }
+
+      // Name normalization
+      if (firstName.isEmpty && lastName.isEmpty) {
+        if (name.isNotEmpty) {
+          final parts = name.split(RegExp(r'\s+'));
+          firstName = parts.first;
+          if (parts.length > 1) {
+            lastName = parts.sublist(1).join(' ');
+          }
+        } else {
+          firstName = 'Lead';
+          lastName = '#${i + 1}';
+        }
+      }
+
+      // Phone validation & normalization
+      final cleanDigits = phone.replaceAll(RegExp(r'[^\d]'), '');
+      String cleanPhone = cleanDigits;
+      if (cleanPhone.startsWith('91') && cleanPhone.length > 10) {
+        cleanPhone = cleanPhone.substring(2);
+      }
+
+      bool isValid = true;
+      String? error;
+      bool isDuplicate = false;
+      String? duplicateReason;
+
+      if (cleanPhone.length < 10) {
+        isValid = false;
+        error = 'Phone number must have at least 10 digits ($phone)';
+      } else {
+        // Format as 10-digit
+        cleanPhone = cleanPhone.substring(cleanPhone.length - 10);
+        // Check duplicate
+        if (duplicateChecker(cleanPhone)) {
+          isDuplicate = true;
+          duplicateReason = 'Active in pipeline / duplicate phone';
+        }
+      }
+
+      results.add(
+        LeadImportRow(
+          firstName: firstName,
+          lastName: lastName,
+          phone: cleanPhone.isNotEmpty ? cleanPhone : phone,
+          email: email,
+          budget: budget,
+          projectId: projectId,
+          projectName: projectName,
+          configurations: configs,
+          source: source,
+          isValid: isValid,
+          validationError: error,
+          isDuplicate: isDuplicate,
+          duplicateReason: duplicateReason,
+        ),
+      );
+    }
+
+    return results;
+  }
+
+  static List<String> _splitCsvLine(String line) {
+    if (line.contains('\t')) {
+      return line.split('\t');
+    }
+    final result = <String>[];
+    bool insideQuote = false;
+    StringBuffer current = StringBuffer();
+
+    for (int i = 0; i < line.length; i++) {
+      final char = line[i];
+      if (char == '"') {
+        insideQuote = !insideQuote;
+      } else if (char == ',' && !insideQuote) {
+        result.add(current.toString().trim());
+        current.clear();
+      } else {
+        current.write(char);
+      }
+    }
+    result.add(current.toString().trim());
+    return result;
+  }
+}
+
+/// DTO for Parsed Unit Row during Bulk Inventory Import
+class UnitImportRow {
+  String unitNo;
+  String tower;
+  int floor;
+  String bhk;
+  double carpetArea;
+  double superArea;
+  String facing;
+  double basePrice;
+  UnitStatus status;
+  bool isValid;
+  String? validationError;
+
+  UnitImportRow({
+    required this.unitNo,
+    required this.tower,
+    required this.floor,
+    required this.bhk,
+    required this.carpetArea,
+    required this.superArea,
+    required this.facing,
+    required this.basePrice,
+    required this.status,
+    this.isValid = true,
+    this.validationError,
+  });
+
+  UnitModel toUnitModel() => UnitModel(
+    unitNo: unitNo,
+    tower: tower,
+    floor: floor,
+    bhk: bhk,
+    carpetArea: carpetArea,
+    superArea: superArea,
+    facing: facing,
+    basePrice: basePrice,
+    status: status,
+  );
+}
+
+/// CSV Parser & Validator for Units / Inventory Bulk Import
+class UnitCsvParser {
+  static const String sampleTowerAUnits = '''UnitNo,Tower,Floor,BHK,CarpetArea,SuperArea,Facing,BasePrice,Status
+A-101,Tower A,1,2 BHK,780,1050,East,8500000,available
+A-102,Tower A,1,2 BHK,820,1110,North,8900000,available
+A-201,Tower A,2,3 BHK,1150,1540,East,12500000,available
+A-202,Tower A,2,3 BHK,1220,1650,North-East,13200000,blocked
+A-301,Tower A,3,3.5 BHK,1380,1850,East,15500000,available
+A-401,Tower A,4,Penthouse,2100,2850,East,26500000,sold''';
+
+  static const String sampleTowerBUnits = '''UnitNo,Tower,Floor,BHK,CarpetArea,SuperArea,Facing,BasePrice,Status
+B-101,Tower B,1,2 BHK,790,1060,West,8400000,available
+B-102,Tower B,1,2.5 BHK,950,1280,South,9800000,available
+B-201,Tower B,2,3 BHK,1180,1580,West,12800000,available
+B-301,Tower B,3,3 BHK,1250,1680,North-West,13500000,available
+B-401,Tower B,4,4 BHK,1650,2250,West,19500000,available''';
+
+  static List<UnitImportRow> parse({
+    required String rawText,
+    required List<String> availableTowers,
+    String? fallbackTower,
+  }) {
+    final lines = rawText
+        .split(RegExp(r'\r?\n'))
+        .map((l) => l.trim())
+        .where((l) => l.isNotEmpty)
+        .toList();
+
+    if (lines.isEmpty) return [];
+
+    final results = <UnitImportRow>[];
+    int startIndex = 0;
+    final firstLine = lines.first.toLowerCase();
+    Map<String, int> headerMap = {};
+
+    if (firstLine.contains('unit') || firstLine.contains('bhk') || firstLine.contains('price') || firstLine.contains('floor')) {
+      startIndex = 1;
+      final headers = _splitCsvLine(lines.first).map((h) => h.toLowerCase().trim()).toList();
+      for (int i = 0; i < headers.length; i++) {
+        final h = headers[i];
+        if (h.contains('unit') || h == 'flat' || h == 'number') {
+          headerMap['unit_no'] = i;
+        } else if (h.contains('tower') || h.contains('block') || h.contains('wing')) {
+          headerMap['tower'] = i;
+        } else if (h.contains('floor')) {
+          headerMap['floor'] = i;
+        } else if (h.contains('bhk') || h.contains('config') || h.contains('type')) {
+          headerMap['bhk'] = i;
+        } else if (h.contains('carpet') || h == 'sqft' || h == 'area') {
+          headerMap['carpet_area'] = i;
+        } else if (h.contains('super') || h.contains('built')) {
+          headerMap['super_area'] = i;
+        } else if (h.contains('facing') || h.contains('direction')) {
+          headerMap['facing'] = i;
+        } else if (h.contains('price') || h.contains('cost') || h.contains('amount')) {
+          headerMap['price'] = i;
+        } else if (h.contains('status')) {
+          headerMap['status'] = i;
+        }
+      }
+    }
+
+    final defaultTower = fallbackTower ?? (availableTowers.isNotEmpty ? availableTowers.first : 'Tower A');
+
+    for (int i = startIndex; i < lines.length; i++) {
+      final line = lines[i];
+      final cols = _splitCsvLine(line);
+      if (cols.isEmpty || cols.every((c) => c.isEmpty)) continue;
+
+      String unitNo = '';
+      String tower = defaultTower;
+      int floor = 1;
+      String bhk = '2 BHK';
+      double carpetArea = 850.0;
+      double superArea = 1150.0;
+      String facing = 'East';
+      double basePrice = 8500000.0;
+      UnitStatus status = UnitStatus.available;
+
+      if (headerMap.isNotEmpty) {
+        if (headerMap.containsKey('unit_no') && headerMap['unit_no']! < cols.length) {
+          unitNo = cols[headerMap['unit_no']!].trim();
+        }
+        if (headerMap.containsKey('tower') && headerMap['tower']! < cols.length) {
+          final t = cols[headerMap['tower']!].trim();
+          if (t.isNotEmpty) tower = t;
+        }
+        if (headerMap.containsKey('floor') && headerMap['floor']! < cols.length) {
+          final fStr = cols[headerMap['floor']!].replaceAll(RegExp(r'[^\d]'), '').trim();
+          floor = int.tryParse(fStr) ?? 1;
+        }
+        if (headerMap.containsKey('bhk') && headerMap['bhk']! < cols.length) {
+          final b = cols[headerMap['bhk']!].trim();
+          if (b.isNotEmpty) bhk = b;
+        }
+        if (headerMap.containsKey('carpet_area') && headerMap['carpet_area']! < cols.length) {
+          final cStr = cols[headerMap['carpet_area']!].replaceAll(RegExp(r'[^\d.]'), '').trim();
+          carpetArea = double.tryParse(cStr) ?? 850.0;
+        }
+        if (headerMap.containsKey('super_area') && headerMap['super_area']! < cols.length) {
+          final sStr = cols[headerMap['super_area']!].replaceAll(RegExp(r'[^\d.]'), '').trim();
+          superArea = double.tryParse(sStr) ?? (carpetArea * 1.35);
+        }
+        if (headerMap.containsKey('facing') && headerMap['facing']! < cols.length) {
+          final f = cols[headerMap['facing']!].trim();
+          if (f.isNotEmpty) facing = f;
+        }
+        if (headerMap.containsKey('price') && headerMap['price']! < cols.length) {
+          final pStr = cols[headerMap['price']!].replaceAll(RegExp(r'[^\d.]'), '').trim();
+          basePrice = double.tryParse(pStr) ?? 8500000.0;
+        }
+        if (headerMap.containsKey('status') && headerMap['status']! < cols.length) {
+          final s = cols[headerMap['status']!].toLowerCase().trim();
+          if (s.contains('sold') || s == 'booked') {
+            status = UnitStatus.sold;
+          } else if (s.contains('block') || s == 'hold') {
+            status = UnitStatus.blocked;
+          } else {
+            status = UnitStatus.available;
+          }
+        }
+      } else {
+        // Positional: UnitNo, Tower, Floor, BHK, CarpetArea, SuperArea, Facing, BasePrice, Status
+        if (cols.isNotEmpty) unitNo = cols[0].trim();
+        if (cols.length > 1 && cols[1].trim().isNotEmpty) tower = cols[1].trim();
+        if (cols.length > 2) floor = int.tryParse(cols[2].replaceAll(RegExp(r'[^\d]'), '').trim()) ?? 1;
+        if (cols.length > 3 && cols[3].trim().isNotEmpty) bhk = cols[3].trim();
+        if (cols.length > 4) carpetArea = double.tryParse(cols[4].replaceAll(RegExp(r'[^\d.]'), '').trim()) ?? 850.0;
+        if (cols.length > 5) superArea = double.tryParse(cols[5].replaceAll(RegExp(r'[^\d.]'), '').trim()) ?? (carpetArea * 1.35);
+        if (cols.length > 6 && cols[6].trim().isNotEmpty) facing = cols[6].trim();
+        if (cols.length > 7) basePrice = double.tryParse(cols[7].replaceAll(RegExp(r'[^\d.]'), '').trim()) ?? 8500000.0;
+        if (cols.length > 8) {
+          final s = cols[8].toLowerCase().trim();
+          if (s.contains('sold')) status = UnitStatus.sold;
+          else if (s.contains('block')) status = UnitStatus.blocked;
+          else status = UnitStatus.available;
+        }
+      }
+
+      bool isValid = true;
+      String? error;
+
+      if (unitNo.isEmpty) {
+        isValid = false;
+        error = 'Unit number cannot be blank';
+      } else if (basePrice <= 0) {
+        isValid = false;
+        error = 'Base price must be greater than 0';
+      }
+
+      results.add(
+        UnitImportRow(
+          unitNo: unitNo,
+          tower: tower,
+          floor: floor,
+          bhk: bhk,
+          carpetArea: carpetArea,
+          superArea: superArea,
+          facing: facing,
+          basePrice: basePrice,
+          status: status,
+          isValid: isValid,
+          validationError: error,
+        ),
+      );
+    }
+
+    return results;
+  }
+
+  static List<String> _splitCsvLine(String line) {
+    if (line.contains('\t')) {
+      return line.split('\t');
+    }
+    final result = <String>[];
+    bool insideQuote = false;
+    StringBuffer current = StringBuffer();
+
+    for (int i = 0; i < line.length; i++) {
+      final char = line[i];
+      if (char == '"') {
+        insideQuote = !insideQuote;
+      } else if (char == ',' && !insideQuote) {
+        result.add(current.toString().trim());
+        current.clear();
+      } else {
+        current.write(char);
+      }
+    }
+    result.add(current.toString().trim());
+    return result;
+  }
 }

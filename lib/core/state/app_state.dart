@@ -406,6 +406,143 @@ class AppState extends ChangeNotifier {
     return true;
   }
 
+  // Bulk Import Leads
+  int bulkImportLeads(List<LeadImportRow> validRows) {
+    if (validRows.isEmpty) return 0;
+    final now = DateTime.now();
+    int importedCount = 0;
+
+    for (int i = 0; i < validRows.length; i++) {
+      final row = validRows[i];
+      if (!row.isValid || row.isDuplicate) continue;
+
+      final lead = LeadModel(
+        id: 'lead_${now.millisecondsSinceEpoch}_$i',
+        firstName: row.firstName,
+        lastName: row.lastName,
+        phone: row.phone,
+        email: row.email,
+        budget: row.budget,
+        configurations: row.configurations,
+        projectId: row.projectId,
+        projectName: row.projectName,
+        timeline: 'Immediate (0-30 Days)',
+        notes: 'Bulk Imported on ${now.day}/${now.month}/${now.year}',
+        stage: LeadStage.newLead,
+        temperature: LeadTemperature.cold,
+        source: row.source,
+        createdAt: now,
+        isQueuedOffline: _isOffline,
+        notesList: [
+          LeadNoteItem(
+            id: 'note_${now.millisecondsSinceEpoch}_$i',
+            text: 'Bulk imported via CSV upload into ${row.projectName}',
+            author: _currentUser?.name ?? 'You',
+            createdAt: now,
+          ),
+        ],
+        activityList: [
+          LeadActivityItem(
+            id: 'act_${now.millisecondsSinceEpoch}_$i',
+            title: 'Lead imported via Bulk CSV Upload (Zero-OTP protection locked)',
+            timestamp: now,
+          ),
+        ],
+      );
+
+      _leads.insert(0, lead);
+      importedCount++;
+    }
+
+    if (importedCount > 0) {
+      _notifications.insert(
+        0,
+        AppNotificationModel(
+          id: 'notif_${now.millisecondsSinceEpoch}',
+          title: '📥 Bulk Lead Import Completed ($importedCount Leads)',
+          message: 'Successfully imported $importedCount leads into active pipeline with Zero-OTP exclusivity locked.',
+          type: 'lead',
+          timestamp: now,
+          targetRoute: '/leads',
+        ),
+      );
+      notifyListeners();
+    }
+
+    return importedCount;
+  }
+
+  // Add a New Project
+  void addProject(ProjectModel project) {
+    _projects.insert(0, project);
+
+    _notifications.insert(
+      0,
+      AppNotificationModel(
+        id: 'notif_${DateTime.now().millisecondsSinceEpoch}',
+        title: '🏢 New Project Added: ${project.name}',
+        message: '${project.name} in ${project.location} is now live with ${project.units.length} inventory units.',
+        type: 'broadcast',
+        timestamp: DateTime.now(),
+        targetRoute: '/projects',
+        targetId: project.id,
+      ),
+    );
+
+    notifyListeners();
+  }
+
+  // Bulk Import Units for a Project
+  int bulkImportUnits(String projectId, List<UnitModel> newUnits) {
+    final idx = _projects.indexWhere((p) => p.id == projectId);
+    if (idx == -1 || newUnits.isEmpty) return 0;
+
+    final project = _projects[idx];
+    int addedCount = 0;
+
+    for (final unit in newUnits) {
+      // Deduplicate unit number within same project
+      final exists = project.units.any((u) => u.unitNo.trim().toUpperCase() == unit.unitNo.trim().toUpperCase());
+      if (!exists) {
+        project.units.add(unit);
+        addedCount++;
+      }
+    }
+
+    // Update project starting price if lower priced available unit found
+    final availablePrices = project.units
+        .where((u) => u.status == UnitStatus.available && u.basePrice > 0)
+        .map((u) => u.basePrice)
+        .toList();
+    if (availablePrices.isNotEmpty) {
+      availablePrices.sort();
+      final minPrice = availablePrices.first;
+      if (minPrice >= 10000000) {
+        project.startingPrice = '${(minPrice / 10000000).toStringAsFixed(2)} Cr';
+      } else {
+        project.startingPrice = '${(minPrice / 100000).toStringAsFixed(0)} L';
+      }
+    }
+
+    if (addedCount > 0) {
+      _notifications.insert(
+        0,
+        AppNotificationModel(
+          id: 'notif_${DateTime.now().millisecondsSinceEpoch}',
+          title: '📦 Inventory Units Updated: ${project.name}',
+          message: 'Added $addedCount new units to inventory matrix for ${project.name}.',
+          type: 'broadcast',
+          timestamp: DateTime.now(),
+          targetRoute: '/projects',
+          targetId: project.id,
+        ),
+      );
+      notifyListeners();
+    }
+
+    return addedCount;
+  }
+
   void updateLeadStage(String leadId, LeadStage newStage) {
     final index = _leads.indexWhere((l) => l.id == leadId);
     if (index != -1) {
@@ -1035,4 +1172,6 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 }
+
+
 
