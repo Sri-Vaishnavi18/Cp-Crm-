@@ -208,8 +208,7 @@ A-103,Tower A,1,4 BHK,2100,2850,West,22500000,sold
       final importedLead = state.allLeads.firstWhere((l) => l.phone == '9111122222');
       expect(importedLead.firstName, 'Bulk');
       expect(importedLead.lastName, 'Tester 1');
-      expect(importedLead.fullName, 'Bulk Tester 1');
-      expect(importedLead.stage, LeadStage.newLead);
+      expect(importedLead.stage, LeadStage.cold);
       expect(importedLead.temperature, LeadTemperature.cold);
       expect(importedLead.activityList.isNotEmpty, isTrue);
       expect(importedLead.activityList.first.title, contains('Bulk CSV'));

@@ -11,19 +11,16 @@ void main() {
   });
 
   group('Lead Temperature Rule Tests', () {
-    test('LeadModel.getTemperatureForStage returns Cold for new lead and contacted', () {
-      expect(LeadModel.getTemperatureForStage(LeadStage.newLead), LeadTemperature.cold);
-      expect(LeadModel.getTemperatureForStage(LeadStage.contacted), LeadTemperature.cold);
+    test('LeadModel.getTemperatureForStage returns Cold for cold lead', () {
+      expect(LeadModel.getTemperatureForStage(LeadStage.cold), LeadTemperature.cold);
     });
 
-    test('LeadModel.getTemperatureForStage returns Warm for site visited and negotiation', () {
-      expect(LeadModel.getTemperatureForStage(LeadStage.visitScheduled), LeadTemperature.warm);
-      expect(LeadModel.getTemperatureForStage(LeadStage.visitCompleted), LeadTemperature.warm);
-      expect(LeadModel.getTemperatureForStage(LeadStage.negotiation), LeadTemperature.warm);
+    test('LeadModel.getTemperatureForStage returns Warm for site visited', () {
+      expect(LeadModel.getTemperatureForStage(LeadStage.siteVisited), LeadTemperature.warm);
     });
 
-    test('LeadModel.getTemperatureForStage returns Hot for booked / token paid', () {
-      expect(LeadModel.getTemperatureForStage(LeadStage.tokenPaid), LeadTemperature.hot);
+    test('LeadModel.getTemperatureForStage returns Hot for booked', () {
+      expect(LeadModel.getTemperatureForStage(LeadStage.booked), LeadTemperature.hot);
     });
   });
 
@@ -44,13 +41,13 @@ void main() {
       );
 
       final newLead = state.allLeads.firstWhere((l) => l.phone == '9988776655');
-      expect(newLead.stage, LeadStage.newLead);
+      expect(newLead.stage, LeadStage.cold);
       expect(newLead.temperature, LeadTemperature.cold);
       expect(newLead.notesList.length, 1);
       expect(newLead.activityList.isNotEmpty, true);
     });
 
-    test('Updating stage to visitScheduled automatically cascades temperature to Warm', () {
+    test('Updating stage to siteVisited automatically cascades temperature to Warm', () {
       final state = AppState();
       state.addLead(
         firstName: 'Ramesh',
@@ -67,12 +64,12 @@ void main() {
       final lead = state.allLeads.firstWhere((l) => l.phone == '9877001122');
       expect(lead.temperature, LeadTemperature.cold);
 
-      state.updateLeadStage(lead.id, LeadStage.visitScheduled);
-      expect(lead.stage, LeadStage.visitScheduled);
+      state.updateLeadStage(lead.id, LeadStage.siteVisited);
+      expect(lead.stage, LeadStage.siteVisited);
       expect(lead.temperature, LeadTemperature.warm);
     });
 
-    test('Updating stage to tokenPaid automatically cascades temperature to Hot', () {
+    test('Updating stage to booked automatically cascades temperature to Hot', () {
       final state = AppState();
       state.addLead(
         firstName: 'Suresh',
@@ -87,8 +84,8 @@ void main() {
       );
 
       final lead = state.allLeads.firstWhere((l) => l.phone == '9877003344');
-      state.updateLeadStage(lead.id, LeadStage.tokenPaid);
-      expect(lead.stage, LeadStage.tokenPaid);
+      state.updateLeadStage(lead.id, LeadStage.booked);
+      expect(lead.stage, LeadStage.booked);
       expect(lead.temperature, LeadTemperature.hot);
     });
 
@@ -109,6 +106,9 @@ void main() {
 
       expect(visitCode.startsWith('VIS-'), true);
       expect(lead.siteVisitHistory.isNotEmpty, true);
+
+      // CP updates status to siteVisited
+      state.updateLeadStage(lead.id, LeadStage.siteVisited);
       expect(lead.temperature, LeadTemperature.warm);
     });
   });

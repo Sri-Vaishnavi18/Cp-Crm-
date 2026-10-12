@@ -325,6 +325,38 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
                               widget.state.updateLeadStage(lead.id, stage);
                               Navigator.of(ctx).pop();
                               setState(() {});
+
+                              if (stage == LeadStage.siteVisited) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: const Text('Status updated to Site Visited! You can now upload the Site Visit invoice.'),
+                                    backgroundColor: const Color(0xFF0284C7),
+                                    duration: const Duration(seconds: 6),
+                                    action: SnackBarAction(
+                                      label: 'Upload Invoice',
+                                      textColor: Colors.white,
+                                      onPressed: () {
+                                        _showGenerateInvoiceModal(context, lead, InvoiceType.siteVisit);
+                                      },
+                                    ),
+                                  ),
+                                );
+                              } else if (stage == LeadStage.booked) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: const Text('Status updated to Booked! You can now upload the Booked invoice.'),
+                                    backgroundColor: const Color(0xFF16A34A),
+                                    duration: const Duration(seconds: 6),
+                                    action: SnackBarAction(
+                                      label: 'Upload Invoice',
+                                      textColor: Colors.white,
+                                      onPressed: () {
+                                        _showGenerateInvoiceModal(context, lead, InvoiceType.booking);
+                                      },
+                                    ),
+                                  ),
+                                );
+                              }
                             },
                             borderRadius: BorderRadius.circular(12),
                             child: Container(
@@ -1314,11 +1346,11 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
 
   // 4. STATUS & TEMPERATURE CARD (Screenshot 2)
   Widget _buildStatusAndTemperatureCard(LeadModel lead, bool isDark, Color tempColor) {
-    String siteVisitText = 'None';
-    if (lead.stage == LeadStage.visitScheduled) {
-      siteVisitText = 'Scheduled';
-    } else if (lead.stage == LeadStage.visitCompleted) {
+    String siteVisitText = 'Pending';
+    if (lead.stage == LeadStage.siteVisited) {
       siteVisitText = 'Completed';
+    } else if (lead.stage == LeadStage.booked) {
+      siteVisitText = 'Deal Booked';
     }
 
     return Container(
@@ -1379,30 +1411,34 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
 
               // Status Sub-Card
               Expanded(
-                child: _buildMetricSubCard(
-                  label: 'Status',
-                  isDark: isDark,
-                  pillContent: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.check_circle_outlined, color: Color(0xFF38BDF8), size: 12),
-                      const SizedBox(width: 4),
-                      Flexible(
-                        child: Text(
-                          lead.stage.readableTitle,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w800,
-                            color: Color(0xFF38BDF8),
+                child: InkWell(
+                  onTap: () => _showStatusPicker(context, lead),
+                  borderRadius: BorderRadius.circular(14),
+                  child: _buildMetricSubCard(
+                    label: 'Status',
+                    isDark: isDark,
+                    pillContent: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.check_circle_outlined, color: Color(0xFF38BDF8), size: 12),
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: Text(
+                            lead.stage.readableTitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF38BDF8),
+                            ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
+                    pillColor: const Color(0xFF0EA5E9).withValues(alpha: 0.15),
+                    borderColor: const Color(0xFF0EA5E9).withValues(alpha: 0.4),
                   ),
-                  pillColor: const Color(0xFF0EA5E9).withValues(alpha: 0.15),
-                  borderColor: const Color(0xFF0EA5E9).withValues(alpha: 0.4),
                 ),
               ),
               const SizedBox(width: 8),
@@ -1898,15 +1934,11 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
     final invoices = widget.state.getInvoicesForLead(lead.id);
 
     // Eligibility check
-    // Type 1 (Site Visit): Unlocked if visitScheduled, visitCompleted, negotiation, or tokenPaid (Booked)
-    final isType1Eligible = lead.stage == LeadStage.visitScheduled ||
-        lead.stage == LeadStage.visitCompleted ||
-        lead.stage == LeadStage.negotiation ||
-        lead.stage == LeadStage.tokenPaid;
+    // Type 1 (Site Visit): Unlocked ONLY if status is siteVisited or booked
+    final isType1Eligible = lead.stage == LeadStage.siteVisited || lead.stage == LeadStage.booked;
 
-    // Type 2 (Booking): Unlocked if tokenPaid (Booked)
-    // When booked, BOTH Type 1 and Type 2 are unlocked!
-    final isType2Eligible = lead.stage == LeadStage.tokenPaid;
+    // Type 2 (Booking): Unlocked ONLY if status is booked
+    final isType2Eligible = lead.stage == LeadStage.booked;
 
     final hasSiteVisitInvoice = invoices.any((inv) => inv.type == InvoiceType.siteVisit);
     final hasBookingInvoice = invoices.any((inv) => inv.type == InvoiceType.booking);
@@ -1997,10 +2029,10 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
                 Expanded(
                   child: Text(
                     isType2Eligible
-                        ? 'Lead is BOOKED: Both Site Visit & Booking invoices are unlocked!'
+                        ? 'Status is BOOKED: Both Site Visit and Booked invoices are unlocked!'
                         : (isType1Eligible
-                            ? 'Site Visit Active: Type 1 Invoice unlocked. Book deal to unlock Type 2.'
-                            : 'Invoices unlock when lead reaches Site Visit (Type 1) or Booked (Type 1 & 2).'),
+                            ? 'Status is SITE VISITED: Site Visit Invoice is unlocked! (Booked invoice unlocks when status is changed to Booked).'
+                            : 'Status is COLD: Change status to Site Visited or Booked in lead details to upload invoices.'),
                     style: TextStyle(
                       fontSize: 11.5,
                       fontWeight: FontWeight.w600,
@@ -2133,31 +2165,46 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
                 elevation: 0,
               ),
               child: Text(
-                hasGenerated ? '+ Add Another' : 'Claim (₹)',
+                hasGenerated ? '+ Add Another' : 'Upload & Claim',
                 style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11.5),
               ),
             )
           else
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1F2937) : Colors.grey.shade200,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.lock_rounded, size: 12, color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted),
-                  const SizedBox(width: 4),
-                  Text(
-                    'Locked',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+            InkWell(
+              onTap: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      title.contains('Booking')
+                          ? 'Change status to "Booked" to unlock Booked invoice upload.'
+                          : 'Change status to "Site Visited" to unlock Site Visit invoice upload.',
                     ),
+                    backgroundColor: const Color(0xFFF59E0B),
                   ),
-                ],
+                );
+              },
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF1F2937) : Colors.grey.shade200,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.lock_rounded, size: 12, color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Locked',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
         ],
@@ -2287,14 +2334,14 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
     );
   }
 
-  // Invoice Generation Modal with Amount & Bank Details Form
+  // Invoice Generation Modal with Sequential Upload Document -> Enter Amount Flow
   void _showGenerateInvoiceModal(BuildContext context, LeadModel lead, InvoiceType type) {
     final isDark = widget.state.isDarkMode;
     final isSiteVisit = type == InvoiceType.siteVisit;
 
-    // Default amount presets: ₹3,000 for site visit, ₹1,50,000 for booking
-    final defaultAmount = isSiteVisit ? '3000' : '150000';
-    final amountCtrl = TextEditingController(text: defaultAmount);
+    // Amount begins empty: User uploads document first, then types/chooses amount
+    final defaultSuggestedAmount = isSiteVisit ? '3000' : '150000';
+    final amountCtrl = TextEditingController();
     final notesCtrl = TextEditingController(
       text: isSiteVisit
           ? 'Site visit escort and presentation completed for ${lead.fullName} at ${lead.projectName}.'
@@ -2332,6 +2379,8 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
       ),
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setModalState) {
+          final isDocUploaded = attachedDoc != null;
+
           return Container(
             constraints: BoxConstraints(
               maxHeight: MediaQuery.of(context).size.height * 0.9,
@@ -2370,7 +2419,7 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Generate ${type.shortLabel}',
+                                'Upload & Claim ${type.shortLabel}',
                                 style: TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.w800,
@@ -2394,29 +2443,210 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 18),
+                  const SizedBox(height: 16),
 
-                  // 1. AMOUNT INPUT FIELD
-                  Text(
-                    'Claim Amount (₹) *',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                      color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                  // STEP 1: UPLOAD INVOICE DOCUMENT / PROOF (REQUIRED FIRST)
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: isDocUploaded
+                          ? const Color(0xFF10B981).withValues(alpha: 0.08)
+                          : (isDark ? const Color(0xFF0F172A) : AppColors.lightSurfaceSubtle),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: isDocUploaded
+                            ? const Color(0xFF10B981)
+                            : (isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1)),
+                        width: isDocUploaded ? 1.5 : 1,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: isDocUploaded
+                                    ? const Color(0xFF10B981)
+                                    : const Color(0xFF0284C7),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                isDocUploaded ? 'STEP 1 ✓ DONE' : 'STEP 1 • UPLOAD FIRST',
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.white,
+                                  letterSpacing: 0.4,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                isSiteVisit
+                                    ? 'Site Visit Invoice Document *'
+                                    : 'Booked Invoice Document *',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w800,
+                                  color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          isDocUploaded
+                              ? '✓ Attached: ${attachedDoc!.fileName} (${(attachedDoc!.sizeBytes / 1024).toStringAsFixed(1)} KB)'
+                              : (isSiteVisit
+                                  ? 'Upload site visit pass, client visitor register sheet, or sales gallery selfie photo first.'
+                                  : 'Upload signed builder booking sheet, token advance receipt, or customer allotment form first.'),
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: isDocUploaded ? FontWeight.w700 : FontWeight.w500,
+                            color: isDocUploaded
+                                ? const Color(0xFF10B981)
+                                : (isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: () async {
+                                  final doc = await DocumentPickerService.pickDocumentFromCamera();
+                                  if (doc != null) {
+                                    setModalState(() {
+                                      attachedDoc = doc;
+                                      if (amountCtrl.text.isEmpty) {
+                                        amountCtrl.text = defaultSuggestedAmount;
+                                      }
+                                    });
+                                  }
+                                },
+                                icon: const Icon(Icons.camera_alt_outlined, size: 15),
+                                label: Text(
+                                  isDocUploaded ? 'Retake Photo' : 'Camera',
+                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                                ),
+                                style: OutlinedButton.styleFrom(
+                                  visualDensity: VisualDensity.compact,
+                                  side: BorderSide(
+                                    color: isDocUploaded
+                                        ? const Color(0xFF10B981)
+                                        : (isDark ? const Color(0xFF334155) : const Color(0xFF94A3B8)),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: () async {
+                                  final doc = await DocumentPickerService.pickDocumentFromGallery();
+                                  if (doc != null) {
+                                    setModalState(() {
+                                      attachedDoc = doc;
+                                      if (amountCtrl.text.isEmpty) {
+                                        amountCtrl.text = defaultSuggestedAmount;
+                                      }
+                                    });
+                                  }
+                                },
+                                icon: const Icon(Icons.photo_library_outlined, size: 15),
+                                label: Text(
+                                  isDocUploaded ? 'Change File' : 'Upload File / Gallery',
+                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                                ),
+                                style: OutlinedButton.styleFrom(
+                                  visualDensity: VisualDensity.compact,
+                                  side: BorderSide(
+                                    color: isDocUploaded
+                                        ? const Color(0xFF10B981)
+                                        : (isDark ? const Color(0xFF334155) : const Color(0xFF94A3B8)),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
+                  const SizedBox(height: 18),
+
+                  // STEP 2: ENTER CLAIM AMOUNT (₹) - Gated on Step 1
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: isDocUploaded ? const Color(0xFF10B981) : Colors.grey.shade500,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          isDocUploaded ? 'STEP 2 • UNLOCKED' : 'STEP 2 • LOCKED',
+                          style: const TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                            letterSpacing: 0.4,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Claim Amount (₹) *',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          color: isDocUploaded
+                              ? (isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary)
+                              : (isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted),
+                        ),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 8),
+
                   TextField(
                     controller: amountCtrl,
+                    enabled: isDocUploaded,
                     keyboardType: TextInputType.number,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w800,
-                      color: Color(0xFF10B981),
+                      color: isDocUploaded
+                          ? const Color(0xFF10B981)
+                          : (isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted),
                     ),
                     decoration: InputDecoration(
-                      prefixIcon: const Icon(Icons.currency_rupee_rounded, color: Color(0xFF10B981)),
-                      hintText: 'Enter claim amount (₹)',
+                      prefixIcon: Icon(
+                        Icons.currency_rupee_rounded,
+                        color: isDocUploaded ? const Color(0xFF10B981) : Colors.grey,
+                      ),
+                      hintText: isDocUploaded
+                          ? 'Enter claim amount in ₹ (e.g. $defaultSuggestedAmount)'
+                          : 'Upload document above in Step 1 first',
+                      helperText: isDocUploaded
+                          ? '✓ Document uploaded. Type or adjust your claim amount.'
+                          : '🔒 Amount entry is locked until the invoice document is uploaded above.',
+                      helperStyle: TextStyle(
+                        fontSize: 11,
+                        color: isDocUploaded
+                            ? const Color(0xFF10B981)
+                            : (isDark ? const Color(0xFFF59E0B) : const Color(0xFFD97706)),
+                        fontWeight: FontWeight.w600,
+                      ),
+                      filled: !isDocUploaded,
+                      fillColor: !isDocUploaded
+                          ? (isDark ? const Color(0xFF0F172A) : Colors.grey.shade100)
+                          : null,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -2424,33 +2654,34 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
                   ),
                   const SizedBox(height: 8),
 
-                  // Quick preset chips
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: presetAmounts.map((amt) {
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 6),
-                          child: InkWell(
-                            onTap: () {
-                              setModalState(() {
-                                amountCtrl.text = amt;
-                              });
-                            },
-                            child: Chip(
-                              label: Text('₹$amt'),
-                              backgroundColor: isDark ? const Color(0xFF1E283A) : Colors.grey.shade100,
-                              labelStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
-                              padding: const EdgeInsets.symmetric(horizontal: 4),
+                  // Quick preset chips (Only clickable when doc is uploaded)
+                  if (isDocUploaded)
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: presetAmounts.map((amt) {
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 6),
+                            child: InkWell(
+                              onTap: () {
+                                setModalState(() {
+                                  amountCtrl.text = amt;
+                                });
+                              },
+                              child: Chip(
+                                label: Text('₹$amt'),
+                                backgroundColor: isDark ? const Color(0xFF1E283A) : Colors.grey.shade100,
+                                labelStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+                                padding: const EdgeInsets.symmetric(horizontal: 4),
+                              ),
                             ),
-                          ),
-                        );
-                      }).toList(),
+                          );
+                        }).toList(),
+                      ),
                     ),
-                  ),
                   const SizedBox(height: 18),
 
-                  // 2. BANK DETAILS SECTION
+                  // 3. BANK DETAILS SECTION
                   Row(
                     children: [
                       const Icon(Icons.account_balance_rounded, size: 16, color: AppColors.primary),
@@ -2510,107 +2741,37 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
                       hintText: 'e.g. Unit 401 Tower B booking token verified',
                     ),
                   ),
-                  const SizedBox(height: 14),
-
-                  // 3. ATTACH PROOF SECTION (Camera / Gallery Picker via DocumentPickerService)
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF0F172A) : AppColors.lightSurfaceSubtle,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: attachedDoc != null
-                            ? const Color(0xFF10B981)
-                            : (isDark ? const Color(0xFF222F43) : AppColors.lightBorder),
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(
-                              attachedDoc != null ? Icons.check_circle_rounded : Icons.attach_file_rounded,
-                              size: 16,
-                              color: attachedDoc != null ? const Color(0xFF10B981) : AppColors.primary,
-                            ),
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: Text(
-                                attachedDoc != null
-                                    ? 'Proof Attached: ${attachedDoc!.fileName}'
-                                    : 'Verification Document / Proof (Optional)',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                  color: attachedDoc != null
-                                      ? const Color(0xFF10B981)
-                                      : (isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          attachedDoc != null
-                              ? 'File size: ${(attachedDoc!.sizeBytes / 1024).toStringAsFixed(1)} KB'
-                              : 'Capture client token receipt, visit pass photo, or booking form.',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                onPressed: () async {
-                                  final doc = await DocumentPickerService.pickDocumentFromCamera();
-                                  if (doc != null) {
-                                    setModalState(() => attachedDoc = doc);
-                                  }
-                                },
-                                icon: const Icon(Icons.camera_alt_outlined, size: 14),
-                                label: const Text('Camera', style: TextStyle(fontSize: 11.5)),
-                                style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                onPressed: () async {
-                                  final doc = await DocumentPickerService.pickDocumentFromGallery();
-                                  if (doc != null) {
-                                    setModalState(() => attachedDoc = doc);
-                                  }
-                                },
-                                icon: const Icon(Icons.photo_library_outlined, size: 14),
-                                label: const Text('Gallery', style: TextStyle(fontSize: 11.5)),
-                                style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 20),
 
                   // OK / SUBMIT BUTTON
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
                       onPressed: () {
-                        final amt = double.tryParse(amountCtrl.text.replaceAll(',', '').trim()) ?? 0.0;
-                        if (amt <= 0) {
+                        // GATING CHECK 1: Document MUST be uploaded first
+                        if (attachedDoc == null) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Please enter a valid claim amount greater than 0.')),
+                            const SnackBar(
+                              content: Text('Please upload the invoice document in Step 1 first before submitting.'),
+                              backgroundColor: Color(0xFFEF4444),
+                            ),
                           );
                           return;
                         }
 
+                        // GATING CHECK 2: Amount entered after uploading
+                        final amt = double.tryParse(amountCtrl.text.replaceAll(',', '').trim()) ?? 0.0;
+                        if (amt <= 0) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Please enter a valid claim amount greater than ₹0.'),
+                              backgroundColor: Color(0xFFEF4444),
+                            ),
+                          );
+                          return;
+                        }
+
+                        // GATING CHECK 3: Bank details
                         if (holderCtrl.text.trim().isEmpty ||
                             bankCtrl.text.trim().isEmpty ||
                             accCtrl.text.trim().isEmpty ||
@@ -2631,8 +2792,8 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
 
                         final remarks = notesCtrl.text.trim();
                         final finalNotes = remarks.isNotEmpty
-                            ? (attachedDoc != null ? '$remarks [Proof: ${attachedDoc!.fileName}]' : remarks)
-                            : (attachedDoc != null ? '[Proof: ${attachedDoc!.fileName}]' : null);
+                            ? '$remarks [Proof: ${attachedDoc!.fileName}]'
+                            : '[Proof: ${attachedDoc!.fileName}]';
 
                         final createdInv = widget.state.submitCommissionInvoice(
                           leadId: lead.id,

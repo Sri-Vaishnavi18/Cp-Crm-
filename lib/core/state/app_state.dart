@@ -397,7 +397,7 @@ class AppState extends ChangeNotifier {
       projectName: projectName,
       timeline: timeline,
       notes: notes,
-      stage: LeadStage.newLead,
+      stage: LeadStage.cold,
       temperature: computedTemp,
       source: source,
       createdAt: now,
@@ -463,7 +463,7 @@ class AppState extends ChangeNotifier {
         projectName: row.projectName,
         timeline: 'Immediate (0-30 Days)',
         notes: 'Bulk Imported on ${now.day}/${now.month}/${now.year}',
-        stage: LeadStage.newLead,
+        stage: LeadStage.cold,
         temperature: LeadTemperature.cold,
         source: row.source,
         createdAt: now,
@@ -773,10 +773,7 @@ class AppState extends ChangeNotifier {
 
     _siteVisits.insert(0, visit);
 
-    // Update lead stage to VISIT_SCHEDULED and temperature to WARM
-    if (lead.stage == LeadStage.newLead || lead.stage == LeadStage.contacted) {
-      lead.stage = LeadStage.visitScheduled;
-    }
+    // Update lead temperature
     lead.temperature = LeadModel.getTemperatureForStage(lead.stage);
 
     // Add visit history log and activity (Zero-OTP)
@@ -818,10 +815,10 @@ class AppState extends ChangeNotifier {
     if (index != -1) {
       _siteVisits[index].status = 'CHECKED_IN';
       
-      // Also update lead stage to visitCompleted and temperature to warm
+      // Also update lead stage to siteVisited and temperature to warm
       final lead = _leads.firstWhere((l) => l.id == _siteVisits[index].leadId, orElse: () => _leads.first);
-      lead.stage = LeadStage.visitCompleted;
-      lead.temperature = LeadModel.getTemperatureForStage(LeadStage.visitCompleted);
+      lead.stage = LeadStage.siteVisited;
+      lead.temperature = LeadModel.getTemperatureForStage(LeadStage.siteVisited);
 
       // Add direct Zero-OTP check-in history log
       lead.siteVisitHistory.insert(
@@ -1000,26 +997,25 @@ class AppState extends ChangeNotifier {
   }
 
   // Dynamic Date-Filtered KPI Calculations
+  int get totalLeadsCount => dashboardLeads.length;
+  int get coldLeadsCount =>
+      dashboardLeads.where((l) => l.stage == LeadStage.cold).length;
   int get activeLeadsCount =>
-      dashboardLeads.where((l) => l.stage != LeadStage.lost && l.stage != LeadStage.tokenPaid).length;
+      dashboardLeads.where((l) => l.stage != LeadStage.booked).length;
+  int get siteVisitedLeadsCount =>
+      dashboardLeads.where((l) => l.stage == LeadStage.siteVisited).length;
   int get visitsScheduledCount =>
       dashboardSiteVisits.where((v) => v.status == 'SCHEDULED').length;
   int get visitsCompletedCount =>
       dashboardSiteVisits.where((v) => v.status == 'COMPLETED' || v.status == 'CHECKED_IN').length;
   int get bookingsCount =>
-      dashboardLeads.where((l) => l.stage == LeadStage.tokenPaid).length;
+      dashboardLeads.where((l) => l.stage == LeadStage.booked).length;
+  int get bookedLeadsCount => bookingsCount;
 
   // Dynamic Funnel Calculations
-  int get funnelNewLeadsCount =>
-      dashboardLeads.where((l) => l.stage == LeadStage.newLead).length;
-  int get funnelContactedCount =>
-      dashboardLeads.where((l) => l.stage == LeadStage.contacted).length;
-  int get funnelVisitScheduledCount =>
-      dashboardLeads.where((l) => l.stage == LeadStage.visitScheduled).length;
-  int get funnelVisitCompletedCount =>
-      dashboardLeads.where((l) => l.stage == LeadStage.visitCompleted).length;
-  int get funnelBookingsCount =>
-      dashboardLeads.where((l) => l.stage == LeadStage.tokenPaid).length;
+  int get funnelColdLeadsCount => coldLeadsCount;
+  int get funnelSiteVisitedCount => siteVisitedLeadsCount;
+  int get funnelBookingsCount => bookedLeadsCount;
 
   // Commission & Invoices Management
   List<CommissionInvoiceModel> getInvoicesForLead(String leadId) {
@@ -1028,6 +1024,10 @@ class AppState extends ChangeNotifier {
 
   double get totalCommissionClaimed =>
       _invoices.fold(0.0, (sum, inv) => sum + inv.amount);
+
+  double get totalCommissionEarned => totalCommissionClaimed;
+
+  int get totalInvoicesCount => _invoices.length;
 
   double get pendingCommissionAmount =>
       _invoices.where((inv) => inv.status == InvoiceStatus.pending || inv.status == InvoiceStatus.approved).fold(0.0, (sum, inv) => sum + inv.amount);
@@ -1040,6 +1040,24 @@ class AppState extends ChangeNotifier {
 
   double get bookingCommissionTotal =>
       _invoices.where((inv) => inv.type == InvoiceType.booking).fold(0.0, (sum, inv) => sum + inv.amount);
+
+  // Formatter for Indian Rupee Amounts (e.g. ₹6,000, ₹1,88,000, ₹1,94,000)
+  static String formatCurrency(double amount) {
+    final intVal = amount.toInt();
+    final str = intVal.abs().toString();
+    final prefix = amount < 0 ? '-₹' : '₹';
+    if (str.length <= 3) return '$prefix$str';
+    final last3 = str.substring(str.length - 3);
+    final rest = str.substring(0, str.length - 3);
+    final buffer = StringBuffer();
+    for (int i = 0; i < rest.length; i++) {
+      if (i > 0 && (rest.length - i) % 2 == 0) {
+        buffer.write(',');
+      }
+      buffer.write(rest[i]);
+    }
+    return '$prefix${buffer.toString()},$last3';
+  }
 
   // Commission Analytics (Format as INR Lakhs or standard amount)
   String get commissionPendingFormatted {

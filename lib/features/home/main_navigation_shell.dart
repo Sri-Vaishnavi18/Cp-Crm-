@@ -5,11 +5,12 @@ import '../../shared/widgets/app_widgets.dart';
 import '../dashboard/dashboard_screen.dart';
 import '../leads/leads_screen.dart';
 import '../projects/projects_screen.dart';
+import '../collaterals/collaterals_screen.dart';
+import '../site_visits/site_visits_screen.dart';
 import '../commissions/commissions_screen.dart';
 import '../spoc_helpdesk/spoc_screen.dart';
 import '../notifications/notifications_screen.dart';
-import '../site_visits/site_visits_screen.dart' hide ScheduleVisitModalSheet;
-import '../collaterals/collaterals_screen.dart';
+import '../profile/profile_screen.dart';
 
 class MainNavigationShell extends StatefulWidget {
   final AppState state;
@@ -22,6 +23,7 @@ class MainNavigationShell extends StatefulWidget {
 
 class _MainNavigationShellState extends State<MainNavigationShell> {
   int _currentIndex = 0;
+  String? _leadInitialFilter;
 
   void _openAddLeadModal() {
     showModalBottomSheet(
@@ -41,27 +43,6 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
     );
   }
 
-  void _openSiteVisits() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (ctx) => SiteVisitsScreen(
-          state: widget.state,
-          onOpenSchedule: _openScheduleVisitModal,
-        ),
-      ),
-    );
-  }
-
-  void _openCollaterals() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (ctx) => CollateralsScreen(
-          state: widget.state,
-        ),
-      ),
-    );
-  }
-
   void _openNotifications() {
     Navigator.of(context).push(
       MaterialPageRoute(builder: (ctx) => NotificationCenterScreen(state: widget.state)),
@@ -74,139 +55,227 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
     );
   }
 
-  void _openProfileModal() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => UserProfileModalSheet(state: widget.state),
+  void _openProfileScreen() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (ctx) => ProfileScreen(state: widget.state)),
+    );
+  }
+
+  void _openSiteVisitsScreen() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (ctx) => SiteVisitsScreen(
+          state: widget.state,
+          onOpenSchedule: _openScheduleVisitModal,
+          onBack: () => Navigator.of(context).maybePop(),
+        ),
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     final isDark = widget.state.isDarkMode;
-    final rera = widget.state.currentUser?.reraNumber ?? 'N/A';
-    final safeRera = rera.length > 18 ? '${rera.substring(0, 18)}...' : rera;
 
     final screens = [
       DashboardScreen(
         state: widget.state,
-        onNavigateTab: (idx) => setState(() => _currentIndex = idx),
+        onNavigateTab: (idx) => setState(() {
+          _leadInitialFilter = null;
+          _currentIndex = idx;
+        }),
         onOpenAddLead: _openAddLeadModal,
         onOpenScheduleVisit: _openScheduleVisitModal,
-        onOpenProfile: _openProfileModal,
-        onOpenSiteVisits: _openSiteVisits,
-        onOpenCollaterals: _openCollaterals,
+        onOpenProfile: _openProfileScreen,
+        onOpenSiteVisits: _openSiteVisitsScreen,
+        onOpenCollaterals: () => setState(() => _currentIndex = 3),
         onOpenSpocHelpdesk: _openSpocHelpdesk,
+        onOpenNotifications: _openNotifications,
+        onOpenCommissions: () => setState(() => _currentIndex = 4),
+        onOpenLeadsWithFilter: (filter) => setState(() {
+          _leadInitialFilter = filter;
+          _currentIndex = 1;
+        }),
       ),
       LeadsScreen(
+        key: ValueKey(_leadInitialFilter ?? 'all_leads'),
         state: widget.state,
+        initialFilter: _leadInitialFilter,
         onOpenAddLead: _openAddLeadModal,
+        onBack: () => setState(() => _currentIndex = 0),
       ),
       ProjectsScreen(
         state: widget.state,
+        onBack: () => setState(() => _currentIndex = 0),
+      ),
+      CollateralsScreen(
+        state: widget.state,
+        onBack: () => setState(() => _currentIndex = 0),
       ),
       CommissionsScreen(
         state: widget.state,
+        onBack: () => setState(() => _currentIndex = 0),
       ),
-    ];
-
-    final titles = [
-      widget.state.currentUser?.firmName ?? 'CP CRM',
-      'Leads & Deals Pipeline',
-      'Active Projects & Inventory',
-      'Project Commissions & Ledger',
-    ];
-
-    final subtitles = [
-      'RERA: $safeRera',
-      'Zero-OTP Algorithmic Protection',
-      'Live Tower & Unit Status Matrix',
-      'Project-wise Invoices & Settlements',
     ];
 
     return Scaffold(
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(68),
-        child: AppHeader(
-          title: titles[_currentIndex],
-          subtitle: subtitles[_currentIndex],
-          onThemeToggle: widget.state.toggleTheme,
-          isDark: isDark,
-          unreadCount: widget.state.unreadNotificationCount,
-          onNotificationTap: _openNotifications,
-          isOffline: widget.state.isOffline,
-          onOfflineToggle: () {
-            widget.state.toggleOfflineMode();
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  widget.state.isOffline
-                      ? 'Offline Mode Active: New leads will queue locally until reconnected.'
-                      : 'Back Online: Offline lead queue synced successfully!',
+      body: Stack(
+        children: [
+          IndexedStack(
+            index: _currentIndex,
+            children: screens,
+          ),
+          if (_currentIndex == 0)
+            Positioned(
+              right: 20,
+              bottom: 80,
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: _openSpocHelpdesk,
+                  borderRadius: BorderRadius.circular(30),
+                  child: Container(
+                    width: 54,
+                    height: 54,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF2563EB),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF2563EB).withValues(alpha: 0.4),
+                          blurRadius: 14,
+                          offset: const Offset(0, 5),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.headset_mic_rounded,
+                      color: Colors.white,
+                      size: 26,
+                    ),
+                  ),
                 ),
               ),
-            );
-          },
-          onProfileTap: _openProfileModal,
-          profileInitials: (widget.state.currentUser?.name.isNotEmpty == true)
-              ? widget.state.currentUser!.name.substring(0, 1).toUpperCase()
-              : 'CP',
-        ),
-      ),
-      body: IndexedStack(
-        index: _currentIndex,
-        children: screens,
+            ),
+        ],
       ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
-          color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
-          border: Border(top: BorderSide(color: isDark ? AppColors.darkBorder : AppColors.lightBorder, width: 1)),
+          color: isDark ? AppColors.darkSurface : Colors.white,
+          border: Border(
+            top: BorderSide(
+              color: isDark ? AppColors.darkBorder : const Color(0xFFE5E9F0),
+              width: 1,
+            ),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 10,
+              offset: const Offset(0, -2),
+            ),
+          ],
         ),
-        child: NavigationBar(
-          selectedIndex: _currentIndex,
-          onDestinationSelected: (idx) => setState(() => _currentIndex = idx),
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          destinations: [
-            const NavigationDestination(
-              icon: Icon(Icons.dashboard_outlined),
-              selectedIcon: Icon(Icons.dashboard, color: AppColors.primary),
-              label: 'Dashboard',
-            ),
-            NavigationDestination(
-              icon: Badge(
-                label: Text('${widget.state.allLeads.length}'),
-                child: const Icon(Icons.people_outline),
+        padding: const EdgeInsets.only(top: 8, bottom: 8),
+        child: SafeArea(
+          top: false,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildBottomNavItem(
+                index: 0,
+                label: 'Dashboard',
+                activeIcon: Icons.home_rounded,
+                inactiveIcon: Icons.grid_view_outlined,
+                isDark: isDark,
               ),
-              selectedIcon: Badge(
-                label: Text('${widget.state.allLeads.length}'),
-                child: const Icon(Icons.people, color: AppColors.primary),
+              _buildBottomNavItem(
+                index: 1,
+                label: 'Leads',
+                activeIcon: Icons.people_alt_rounded,
+                inactiveIcon: Icons.people_alt_outlined,
+                badgeCount: 5,
+                isDark: isDark,
               ),
-              label: 'Leads',
-            ),
-            const NavigationDestination(
-              icon: Icon(Icons.apartment_outlined),
-              selectedIcon: Icon(Icons.apartment, color: AppColors.primary),
-              label: 'Projects',
-            ),
-            const NavigationDestination(
-              icon: Icon(Icons.account_balance_wallet_outlined),
-              selectedIcon: Icon(Icons.account_balance_wallet, color: AppColors.primary),
-              label: 'Commissions',
+              _buildBottomNavItem(
+                index: 2,
+                label: 'Projects',
+                activeIcon: Icons.apartment_rounded,
+                inactiveIcon: Icons.apartment_outlined,
+                isDark: isDark,
+              ),
+              _buildBottomNavItem(
+                index: 3,
+                label: 'Collateral',
+                activeIcon: Icons.folder_rounded,
+                inactiveIcon: Icons.folder_outlined,
+                isDark: isDark,
+              ),
+              _buildBottomNavItem(
+                index: 4,
+                label: 'Commissions',
+                activeIcon: Icons.account_balance_wallet_rounded,
+                inactiveIcon: Icons.account_balance_wallet_outlined,
+                isDark: isDark,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBottomNavItem({
+    required int index,
+    required String label,
+    required IconData activeIcon,
+    required IconData inactiveIcon,
+    required bool isDark,
+    int? badgeCount,
+  }) {
+    final isSelected = _currentIndex == index;
+    final color = isSelected
+        ? const Color(0xFF2563EB)
+        : (isDark ? AppColors.darkTextSecondary : const Color(0xFF64748B));
+
+    Widget iconWidget = Icon(
+      isSelected ? activeIcon : inactiveIcon,
+      color: color,
+      size: 24,
+    );
+
+    if (badgeCount != null && badgeCount > 0) {
+      iconWidget = Badge(
+        label: Text(
+          '$badgeCount',
+          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
+        ),
+        backgroundColor: const Color(0xFFEF4444),
+        child: iconWidget,
+      );
+    }
+
+    return InkWell(
+      onTap: () => setState(() => _currentIndex = index),
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            iconWidget,
+            const SizedBox(height: 3),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                color: color,
+              ),
             ),
           ],
         ),
       ),
-      floatingActionButton: _currentIndex == 0
-          ? FloatingActionButton(
-              onPressed: _openSpocHelpdesk,
-              backgroundColor: AppColors.secondary,
-              tooltip: 'Builder SPOC Directory',
-              child: const Icon(Icons.support_agent, color: Colors.white),
-            )
-          : null,
     );
   }
 }

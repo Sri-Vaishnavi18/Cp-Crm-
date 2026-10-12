@@ -123,27 +123,38 @@ void main() {
         ),
       );
 
-      // Verify Pipeline Health is rendered
-      expect(find.text('Pipeline Health'), findsOneWidget);
-      expect(find.text('New'), findsOneWidget);
-      expect(find.text('Visit Set'), findsOneWidget);
-      expect(find.text('Visit Done'), findsOneWidget);
-      expect(find.text('Booked'), findsOneWidget);
+      // Verify 7 Analytics Metrics: Lead Pipeline Analytics (3 cards)
+      expect(find.text('Total Leads'), findsOneWidget);
+      expect(find.text('Sitevisited Leads'), findsOneWidget);
+      expect(find.text('Booked Leads'), findsOneWidget);
 
-      // Verify Builder Announcements is NOT present
-      expect(find.text('Builder Announcements & Pre-Launches'), findsNothing);
+      // Verify Realtor Header & Sync badge
+      expect(find.text('REALTOR'), findsOneWidget);
+      expect(find.text('SYNCED'), findsOneWidget);
 
-      // Verify Leads section is rendered with lead names
-      expect(find.text('Leads'), findsOneWidget);
-      expect(find.text('View All'), findsOneWidget);
-      expect(find.text('Deepak Verma'), findsOneWidget);
-      expect(find.text('Ananya Iyer'), findsOneWidget);
+      // Verify Today's Activity and Quick Actions sections are removed
+      expect(find.text("Today's Activity"), findsNothing);
+      expect(find.text('Quick Actions'), findsNothing);
 
-      // Verify Commission Analytics Cards are rendered
-      expect(find.text('Commission Pending'), findsOneWidget);
-      expect(find.text('Commission Received'), findsOneWidget);
-      expect(find.text(state.commissionPendingFormatted), findsOneWidget);
-      expect(find.text(state.commissionReceivedFormatted), findsOneWidget);
+      // Verify 7 Analytics Metrics: 2x2 Commission & Financial Analytics Cards (4 cards)
+      expect(find.text('Commission Recieved', skipOffstage: false), findsOneWidget);
+      expect(find.text('₹6,000', skipOffstage: false), findsWidgets);
+      expect(find.text('Commission Pending', skipOffstage: false), findsOneWidget);
+      expect(find.text('₹1,88,000', skipOffstage: false), findsWidgets);
+      expect(find.text('Invoices', skipOffstage: false), findsOneWidget);
+      expect(find.text('4 Invoices', skipOffstage: false), findsOneWidget);
+      expect(find.text('Total Commission Earned', skipOffstage: false), findsOneWidget);
+      expect(find.text('₹1,94,000', skipOffstage: false), findsWidgets);
+
+      // Verify Settlement Destination Bank Card & Edit Action
+      expect(find.text('Settlement Destination Bank', skipOffstage: false), findsOneWidget);
+      expect(find.textContaining('HDFC Bank Ltd', skipOffstage: false), findsOneWidget);
+      expect(find.text('Edit', skipOffstage: false), findsOneWidget);
+
+      // Verify Pipeline Conversion Funnel & Brokerage Performance Graph
+      expect(find.text('Pipeline Conversion Funnel', skipOffstage: false), findsOneWidget);
+      expect(find.text('Brokerage Trajectory', skipOffstage: false), findsOneWidget);
+      expect(find.text('6-Month Settled vs Pending', skipOffstage: false), findsOneWidget);
     });
   });
 }

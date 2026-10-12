@@ -7,12 +7,18 @@ import 'project_commission_table_screen.dart';
 class CommissionsScreen extends StatefulWidget {
   final AppState state;
   final bool showBackButton;
+  final VoidCallback? onBack;
 
   const CommissionsScreen({
     super.key,
     required this.state,
     this.showBackButton = false,
+    this.onBack,
   });
+
+  static void showEditBankModal(BuildContext context, AppState state, {VoidCallback? onSaved}) {
+    _CommissionsScreenState.showEditBankModal(context, state, onSaved: onSaved);
+  }
 
   @override
   State<CommissionsScreen> createState() => _CommissionsScreenState();
@@ -21,11 +27,11 @@ class CommissionsScreen extends StatefulWidget {
 class _CommissionsScreenState extends State<CommissionsScreen> {
   String _projectSearchQuery = '';
 
-  void _showEditBankModal(BuildContext context) {
-    final isDark = widget.state.isDarkMode;
-    final currentBank = widget.state.savedBankDetails ??
+  static void showEditBankModal(BuildContext context, AppState state, {VoidCallback? onSaved}) {
+    final isDark = state.isDarkMode;
+    final currentBank = state.savedBankDetails ??
         BankDetailsModel(
-          accountHolder: widget.state.currentUser?.firmName ?? 'Channel Partner',
+          accountHolder: state.currentUser?.firmName ?? 'Channel Partner',
           bankName: 'HDFC Bank Ltd',
           accountNumber: '',
           ifscCode: '',
@@ -144,9 +150,9 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
                       upiId: upiCtrl.text.trim().isNotEmpty ? upiCtrl.text.trim() : null,
                     );
 
-                    widget.state.saveDefaultBankDetails(updatedBank);
+                    state.saveDefaultBankDetails(updatedBank);
                     Navigator.of(ctx).pop();
-                    setState(() {});
+                    onSaved?.call();
 
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
@@ -170,6 +176,10 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
     );
   }
 
+  void _showEditBankModal(BuildContext context) {
+    showEditBankModal(context, widget.state, onSaved: () => setState(() {}));
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = widget.state.isDarkMode;
@@ -182,70 +192,87 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
     }).toList();
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0B0F17) : AppColors.lightBg,
+      backgroundColor: isDark ? AppColors.darkBg : const Color(0xFFF4F7FB),
       body: SafeArea(
         child: Column(
           children: [
-            // Top App Bar (Optional back button if opened as modal/route)
-            if (widget.showBackButton || Navigator.of(context).canPop())
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF0B0F17) : AppColors.lightSurface,
-                  border: Border(
-                    bottom: BorderSide(
-                      color: isDark ? const Color(0xFF1E293B) : AppColors.lightBorder,
-                      width: 1,
-                    ),
+            // Top App Bar
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: isDark ? AppColors.darkSurface : Colors.white,
+                border: Border(
+                  bottom: BorderSide(
+                    color: isDark ? AppColors.darkBorder : const Color(0xFFE5E9F0),
+                    width: 1,
                   ),
                 ),
-                child: Row(
-                  children: [
+              ),
+              child: Row(
+                children: [
+                  if (widget.onBack != null || widget.showBackButton || Navigator.of(context).canPop()) ...[
                     InkWell(
-                      onTap: () => Navigator.of(context).pop(),
+                      onTap: widget.onBack ?? () => Navigator.of(context).maybePop(),
                       borderRadius: BorderRadius.circular(8),
                       child: Padding(
                         padding: const EdgeInsets.all(4.0),
                         child: Icon(
-                          Icons.arrow_back,
-                          color: isDark ? Colors.white : AppColors.lightTextPrimary,
-                          size: 24,
+                          Icons.arrow_back_ios_new_rounded,
+                          color: isDark ? AppColors.darkTextPrimary : const Color(0xFF0F172A),
+                          size: 20,
                         ),
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Project Commissions',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w800,
-                              color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
-                              letterSpacing: -0.3,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            'Select a project to view invoices & payout table',
-                            style: TextStyle(
-                              fontSize: 11.5,
-                              color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
-                            ),
-                          ),
-                        ],
+                    const SizedBox(width: 10),
+                  ] else ...[
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFDCFCE7),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      alignment: Alignment.center,
+                      child: const Icon(
+                        Icons.account_balance_wallet_rounded,
+                        color: Color(0xFF16A34A),
+                        size: 20,
                       ),
                     ),
-                    IconButton(
-                      onPressed: () => _showEditBankModal(context),
-                      icon: const Icon(Icons.account_balance_wallet_outlined, color: AppColors.primary),
-                      tooltip: 'Settlement Bank Account',
-                    ),
+                    const SizedBox(width: 10),
                   ],
-                ),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Commissions & Payouts',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: isDark ? AppColors.darkTextPrimary : const Color(0xFF0F172A),
+                            letterSpacing: -0.3,
+                          ),
+                        ),
+                        const SizedBox(height: 1),
+                        Text(
+                          'Track project brokerage slabs & invoice settlements',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: isDark ? AppColors.darkTextSecondary : const Color(0xFF64748B),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => _showEditBankModal(context),
+                    icon: const Icon(Icons.account_balance_outlined, color: Color(0xFF2563EB)),
+                    tooltip: 'Settlement Bank Account',
+                  ),
+                ],
               ),
+            ),
 
             // Scrollable Content
             Expanded(
@@ -377,10 +404,10 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF131A26) : AppColors.lightSurface,
+        color: isDark ? AppColors.darkSurface : Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isDark ? const Color(0xFF222F43) : AppColors.lightBorder,
+          color: isDark ? AppColors.darkBorder : const Color(0xFFE5E9F0),
           width: 1,
         ),
       ),
@@ -431,10 +458,10 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF161F2E) : AppColors.lightSurfaceSubtle,
+        color: isDark ? AppColors.darkSurface : Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isDark ? const Color(0xFF26364D) : AppColors.lightBorder,
+          color: isDark ? AppColors.darkBorder : const Color(0xFFE5E9F0),
         ),
       ),
       child: Row(
@@ -495,10 +522,10 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF131A26) : AppColors.lightSurface,
+        color: isDark ? AppColors.darkSurface : Colors.white,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: isDark ? const Color(0xFF222F43) : AppColors.lightBorder,
+          color: isDark ? AppColors.darkBorder : const Color(0xFFE5E9F0),
           width: 1,
         ),
       ),

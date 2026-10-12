@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/state/app_state.dart';
-import '../../shared/widgets/app_widgets.dart';
-import '../leads/lead_detail_screen.dart';
 import '../commissions/commissions_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
@@ -14,6 +12,9 @@ class DashboardScreen extends StatelessWidget {
   final VoidCallback? onOpenSiteVisits;
   final VoidCallback? onOpenCollaterals;
   final VoidCallback? onOpenSpocHelpdesk;
+  final VoidCallback? onOpenNotifications;
+  final VoidCallback? onOpenCommissions;
+  final Function(String filter)? onOpenLeadsWithFilter;
 
   const DashboardScreen({
     super.key,
@@ -25,769 +26,1444 @@ class DashboardScreen extends StatelessWidget {
     this.onOpenSiteVisits,
     this.onOpenCollaterals,
     this.onOpenSpocHelpdesk,
+    this.onOpenNotifications,
+    this.onOpenCommissions,
+    this.onOpenLeadsWithFilter,
   });
-
-  Future<void> _openCalendarPicker(BuildContext context) async {
-    final now = DateTime.now();
-    final initialRange = state.customDateRange ??
-        DateTimeRange(
-          start: now.subtract(const Duration(days: 7)),
-          end: now,
-        );
-
-    final picked = await showDateRangePicker(
-      context: context,
-      firstDate: DateTime(2022),
-      lastDate: now.add(const Duration(days: 365)),
-      initialDateRange: initialRange,
-      helpText: 'SELECT TIMELINE / DATE RANGE',
-      cancelText: 'CANCEL',
-      confirmText: 'APPLY FILTER',
-      saveText: 'APPLY',
-      builder: (context, child) {
-        final isDark = Theme.of(context).brightness == Brightness.dark;
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: isDark
-                ? ColorScheme.dark(
-                    primary: AppColors.primary,
-                    onPrimary: Colors.white,
-                    surface: AppColors.darkSurface,
-                    onSurface: Colors.white,
-                    secondary: AppColors.secondary,
-                  )
-                : ColorScheme.light(
-                    primary: AppColors.primary,
-                    onPrimary: Colors.white,
-                    surface: Colors.white,
-                    onSurface: AppColors.lightTextPrimary,
-                    secondary: AppColors.secondary,
-                  ), dialogTheme: DialogThemeData(backgroundColor: isDark ? AppColors.darkBg : Colors.white),
-          ),
-          child: child!,
-        );
-      },
-    );
-
-    if (picked != null) {
-      state.setCustomDateRange(picked);
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
     final isDark = state.isDarkMode;
+    final user = state.currentUser;
+    final userName = user?.name.isNotEmpty == true ? user!.name : 'Vaishu';
+    final rera = user?.reraNumber.isNotEmpty == true ? user!.reraNumber : '0283838';
+    final safeRera = rera.startsWith('RERA:') ? rera : 'RERA: $rera';
 
     return Scaffold(
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Welcome & Partner Badge Header
-            InkWell(
-              onTap: onOpenProfile ??
-                  () {
-                    showModalBottomSheet(
-                      context: context,
-                      isScrollControlled: true,
-                      backgroundColor: Colors.transparent,
-                      builder: (ctx) => UserProfileModalSheet(state: state),
-                    );
-                  },
-              borderRadius: BorderRadius.circular(12),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Welcome back,',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Row(
-                        children: [
-                          Text(
-                            state.currentUser?.name ?? 'Vaishu',
-                            style: TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.w800,
-                              color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
-                              letterSpacing: -0.3,
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          const Icon(Icons.keyboard_arrow_down, size: 20, color: AppColors.primary),
-                        ],
-                      ),
-                    ],
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF6366F1).withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: const Color(0xFF6366F1).withValues(alpha: 0.4)),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.check, size: 14, color: Color(0xFF6366F1)),
-                        const SizedBox(width: 4),
-                        Text(
-                          state.currentUser?.isAgency == true ? 'AGENCY' : 'REALTOR',
-                          style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w800,
-                            color: Color(0xFF6366F1),
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+      backgroundColor: isDark ? AppColors.darkBg : const Color(0xFFF4F7FB),
+      body: SafeArea(
+        bottom: false,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 90),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 1. Top Custom App Bar (Briefcase + Vaishu + RERA + SYNCED + moon + bell + V avatar)
+              _buildTopBar(context, userName, safeRera, isDark),
+              const SizedBox(height: 16),
+
+              // 2. Hero Skyline Banner Card (Welcome back, Vaishu 👋 | REALTOR)
+              _buildHeroSkylineCard(context, userName, isDark),
+              const SizedBox(height: 16),
+
+              // 3. Lead Pipeline Analytics (Total Leads, Sitevisited Leads, Booked Leads)
+              _buildLeadAnalyticsSection(context, isDark),
+              const SizedBox(height: 16),
+
+              // 4. Commission Financial 2x2 Grid (Commission Recieved, Commission Pending, Invoices, Total Commission Earned)
+              _buildCommissionFinancialGrid(context, isDark),
+              const SizedBox(height: 12),
+
+              // 5. Settlement Destination Bank Card (Exact screenshot match)
+              _buildSettlementBankCard(context, isDark),
+              const SizedBox(height: 20),
+
+              // 6. Pipeline Conversion Funnel
+              _buildConversionFunnelSection(context, isDark),
+              const SizedBox(height: 20),
+
+              // 7. Brokerage & Revenue Performance Trajectory Graph
+              _buildBrokeragePerformanceGraph(context, isDark),
+              const SizedBox(height: 24),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Top Bar matching reference screenshot
+  Widget _buildTopBar(BuildContext context, String userName, String safeRera, bool isDark) {
+    return Row(
+      children: [
+        // Blue briefcase rounded container
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: const Color(0xFF2563EB),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          alignment: Alignment.center,
+          child: const Icon(
+            Icons.business_center_rounded,
+            color: Colors.white,
+            size: 20,
+          ),
+        ),
+        const SizedBox(width: 10),
+
+        // Name & RERA Number
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                userName,
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                  color: isDark ? AppColors.darkTextPrimary : const Color(0xFF0F172A),
+                  letterSpacing: -0.2,
+                ),
+              ),
+              const SizedBox(height: 1),
+              Text(
+                safeRera,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  color: isDark ? AppColors.darkTextSecondary : const Color(0xFF64748B),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // SYNCED pill badge
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: const Color(0xFFDCFCE7),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.cloud_done_rounded, color: Color(0xFF16A34A), size: 12),
+              SizedBox(width: 4),
+              Text(
+                'SYNCED',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF16A34A),
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 8),
+
+        // Dark mode moon icon
+        IconButton(
+          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+          padding: EdgeInsets.zero,
+          icon: Icon(
+            isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+            size: 20,
+            color: isDark ? AppColors.darkTextSecondary : const Color(0xFF475569),
+          ),
+          onPressed: state.toggleTheme,
+        ),
+
+        // Notification Bell with red badge
+        IconButton(
+          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+          padding: EdgeInsets.zero,
+          icon: Badge(
+            smallSize: 8,
+            backgroundColor: const Color(0xFFEF4444),
+            child: Icon(
+              Icons.notifications_none_rounded,
+              size: 22,
+              color: isDark ? AppColors.darkTextSecondary : const Color(0xFF475569),
+            ),
+          ),
+          onPressed: onOpenNotifications,
+        ),
+        const SizedBox(width: 4),
+
+        // User Avatar "V"
+        InkWell(
+          onTap: onOpenProfile,
+          borderRadius: BorderRadius.circular(18),
+          child: Container(
+            width: 34,
+            height: 34,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              color: Color(0xFF2563EB),
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              userName.isNotEmpty ? userName.substring(0, 1).toUpperCase() : 'V',
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
               ),
             ),
-            const SizedBox(height: 16),
+          ),
+        ),
+      ],
+    );
+  }
 
-            // Date / Timeline Filter Bar
-            _buildDateFilterBar(context, isDark),
-            const SizedBox(height: 12),
+  // Hero Skyline Card matching reference screenshot
+  Widget _buildHeroSkylineCard(BuildContext context, String userName, bool isDark) {
+    return Container(
+      width: double.infinity,
+      height: 132,
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF1E3A8A), Color(0xFF2563EB)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF2563EB).withValues(alpha: 0.28),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          // Subtle Skyline Silhouette Graphic on the right
+          Positioned(
+            right: 0,
+            bottom: 0,
+            top: 0,
+            width: 170,
+            child: ClipRRect(
+              borderRadius: const BorderRadius.horizontal(right: Radius.circular(20)),
+              child: CustomPaint(
+                painter: _SkylinePainter(),
+              ),
+            ),
+          ),
 
-            // Active Filter Notice / Pill (if filtered)
-            if (state.isDateFilterActive) ...[
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
-                ),
-                child: Row(
+          // Content
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Icon(Icons.filter_alt, size: 16, color: AppColors.primary),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Filtered by: ${state.dateFilterLabel} (${state.dashboardLeads.length} leads, ${state.dashboardSiteVisits.length} visits)',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.primary,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                    Text(
+                      'Welcome back,',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.white.withValues(alpha: 0.85),
                       ),
                     ),
-                    InkWell(
-                      onTap: () => state.resetDashboardDateFilter(),
-                      borderRadius: BorderRadius.circular(6),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: isDark ? AppColors.darkSurface : Colors.white,
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.refresh, size: 12, color: isDark ? Colors.white70 : AppColors.lightTextSecondary),
-                            const SizedBox(width: 4),
-                            Text(
-                              'Reset',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                color: isDark ? Colors.white70 : AppColors.lightTextSecondary,
-                              ),
+                    // REALTOR purple badge
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF8B5CF6),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.verified_user_rounded, color: Colors.white, size: 12),
+                          SizedBox(width: 4),
+                          Text(
+                            'REALTOR',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white,
+                              letterSpacing: 0.5,
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
-              ),
-              const SizedBox(height: 12),
-            ],
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '$userName 👋',
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                        letterSpacing: -0.4,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      "Let's close more deals today!",
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w400,
+                        color: Colors.white.withValues(alpha: 0.8),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-            // Quick Action Hub (1-Tap Field Utilities)
-            _buildQuickActionsHub(context, isDark),
-            const SizedBox(height: 16),
-
-            // Analytics KPI Cards Grid (6 Cards: Leads, Visits, Bookings, Commissions)
-            GridView.count(
-              crossAxisCount: 2,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-              childAspectRatio: MediaQuery.sizeOf(context).width < 360
-                  ? 1.05
-                  : (MediaQuery.sizeOf(context).width > 600
-                      ? 1.6
-                      : (MediaQuery.textScalerOf(context).scale(1.0) > 1.15 ? 1.12 : 1.28)),
+  // Lead Pipeline Analytics: Total Leads, Sitevisited Leads, Booked Leads
+  Widget _buildLeadAnalyticsSection(BuildContext context, bool isDark) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Section Header
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
               children: [
-                // 1. Active Leads Card
-                StatKpiCard(
-                  title: 'Active Leads',
-                  value: '${state.activeLeadsCount}',
-                  icon: Icons.groups_rounded,
-                  accentColor: const Color(0xFF3B82F6), // Blue
-                  secondaryGraphic: _buildBarChartGraphic(const Color(0xFF3B82F6)),
-                  subtext: 'Zero-OTP protection locked',
-                  onTap: () => onNavigateTab(1),
+                Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEEF2FF),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  alignment: Alignment.center,
+                  child: const Icon(
+                    Icons.insights_rounded,
+                    color: Color(0xFF4F46E5),
+                    size: 16,
+                  ),
                 ),
-
-                // 2. Visits Scheduled Card
-                StatKpiCard(
-                  title: 'Visits Scheduled',
-                  value: '${state.visitsScheduledCount}',
-                  icon: Icons.calendar_month_rounded,
-                  accentColor: const Color(0xFFF59E0B), // Amber / Orange
-                  secondaryGraphic: _buildClockGraphic(const Color(0xFFF59E0B)),
-                  subtext: 'Digital passes generated',
-                  onTap: onOpenSiteVisits ?? () => onNavigateTab(1),
+                const SizedBox(width: 8),
+                Text(
+                  'Lead Pipeline Analytics',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: isDark ? AppColors.darkTextPrimary : const Color(0xFF0F172A),
+                  ),
                 ),
-
-                // 3. Visits Completed Card
-                StatKpiCard(
-                  title: 'Visits Completed',
-                  value: '${state.visitsCompletedCount}',
-                  icon: Icons.fact_check_rounded,
-                  accentColor: const Color(0xFF10B981), // Teal / Emerald
-                  secondaryGraphic: _buildSealGraphic(const Color(0xFF10B981)),
-                  subtext: 'Site tours completed',
-                  onTap: onOpenSiteVisits ?? () => onNavigateTab(1),
+              ],
+            ),
+            InkWell(
+              onTap: () {
+                if (onOpenLeadsWithFilter != null) {
+                  onOpenLeadsWithFilter!('All');
+                } else {
+                  onNavigateTab(1);
+                }
+              },
+              child: const Text(
+                'View Leads →',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF2563EB),
                 ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
 
-                // 4. Bookings / Holds Card
-                StatKpiCard(
-                  title: 'Bookings / Holds',
-                  value: '${state.bookingsCount}',
-                  icon: Icons.military_tech_rounded,
-                  accentColor: const Color(0xFF06B6D4), // Cyan
-                  secondaryGraphic: _buildHandshakeGraphic(const Color(0xFF06B6D4)),
-                  subtext: 'Deals closed / hold active',
-                  onTap: () => onNavigateTab(1),
+        // 3 Cards Row: Total Leads, Sitevisited Leads, Booked Leads
+        Row(
+          children: [
+            // Card 1: Total Leads
+            Expanded(
+              child: _buildLeadMetricCard(
+                context: context,
+                icon: Icons.people_alt_rounded,
+                iconBgColor: const Color(0xFFEEF2FF),
+                iconColor: const Color(0xFF4F46E5),
+                trendText: 'Ingested',
+                trendBgColor: const Color(0xFFEEF2FF),
+                trendTextColor: const Color(0xFF4F46E5),
+                value: '${state.totalLeadsCount}',
+                label: 'Total Leads',
+                subtext: 'Pipeline Leads',
+                subtextColor: const Color(0xFF4F46E5),
+                onTap: () {
+                  if (onOpenLeadsWithFilter != null) {
+                    onOpenLeadsWithFilter!('All');
+                  } else {
+                    onNavigateTab(1);
+                  }
+                },
+                isDark: isDark,
+              ),
+            ),
+            const SizedBox(width: 8),
+
+            // Card 2: Sitevisited Leads
+            Expanded(
+              child: _buildLeadMetricCard(
+                context: context,
+                icon: Icons.location_on_rounded,
+                iconBgColor: const Color(0xFFE0F2FE),
+                iconColor: const Color(0xFF0284C7),
+                trendText: 'Tours',
+                trendBgColor: const Color(0xFFE0F2FE),
+                trendTextColor: const Color(0xFF0284C7),
+                value: '${state.siteVisitedLeadsCount}',
+                label: 'Sitevisited Leads',
+                subtext: 'Visits Done',
+                subtextColor: const Color(0xFF0284C7),
+                onTap: () {
+                  if (onOpenLeadsWithFilter != null) {
+                    onOpenLeadsWithFilter!('Site Visit');
+                  } else {
+                    onNavigateTab(1);
+                  }
+                },
+                isDark: isDark,
+              ),
+            ),
+            const SizedBox(width: 8),
+
+            // Card 3: Booked Leads
+            Expanded(
+              child: _buildLeadMetricCard(
+                context: context,
+                icon: Icons.workspace_premium_rounded,
+                iconBgColor: const Color(0xFFDCFCE7),
+                iconColor: const Color(0xFF16A34A),
+                trendText: 'Token Paid',
+                trendBgColor: const Color(0xFFDCFCE7),
+                trendTextColor: const Color(0xFF16A34A),
+                value: '${state.bookedLeadsCount}',
+                label: 'Booked Leads',
+                subtext: 'Deals Closed',
+                subtextColor: const Color(0xFF16A34A),
+                onTap: () {
+                  if (onOpenLeadsWithFilter != null) {
+                    onOpenLeadsWithFilter!('Booked');
+                  } else {
+                    onNavigateTab(1);
+                  }
+                },
+                isDark: isDark,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLeadMetricCard({
+    required BuildContext context,
+    required IconData icon,
+    required Color iconBgColor,
+    required Color iconColor,
+    required String trendText,
+    required Color trendBgColor,
+    required Color trendTextColor,
+    required String value,
+    required String label,
+    required String subtext,
+    required Color subtextColor,
+    required VoidCallback onTap,
+    required bool isDark,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.darkSurface : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isDark ? AppColors.darkBorder : const Color(0xFFE5E9F0),
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.02),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Container(
+                  width: 30,
+                  height: 30,
+                  decoration: BoxDecoration(
+                    color: iconBgColor,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  alignment: Alignment.center,
+                  child: Icon(icon, color: iconColor, size: 16),
                 ),
-
-                // 5. Commission Pending Card
-                StatKpiCard(
-                  title: 'Commission Pending',
-                  value: state.commissionPendingFormatted,
-                  icon: Icons.hourglass_top_rounded,
-                  accentColor: const Color(0xFFF43F5E), // Rose / Coral
-                  secondaryGraphic: _buildPendingGraphic(const Color(0xFFF43F5E)),
-                  subtext: 'Invoice in builder audit',
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (ctx) => CommissionsScreen(state: state),
-                      ),
-                    );
-                  },
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: trendBgColor,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    trendText,
+                    style: TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w700,
+                      color: trendTextColor,
+                    ),
+                  ),
                 ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.w800,
+                color: isDark ? AppColors.darkTextPrimary : const Color(0xFF0F172A),
+                letterSpacing: -0.4,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: isDark ? AppColors.darkTextPrimary : const Color(0xFF0F172A),
+                height: 1.2,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 2),
+            Text(
+              subtext,
+              style: TextStyle(
+                fontSize: 9.5,
+                fontWeight: FontWeight.w500,
+                color: subtextColor,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
-                // 6. Commission Received Card
-                StatKpiCard(
-                  title: 'Commission Received',
-                  value: state.commissionReceivedFormatted,
-                  icon: Icons.account_balance_wallet_rounded,
-                  accentColor: const Color(0xFF8B5CF6), // Purple
-                  secondaryGraphic: _buildReceivedGraphic(const Color(0xFF8B5CF6)),
-                  subtext: 'Disbursed to RERA bank',
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (ctx) => CommissionsScreen(state: state),
-                      ),
-                    );
-                  },
+  // 2x2 Commission & Financial Analytics Cards
+  Widget _buildCommissionFinancialGrid(BuildContext context, bool isDark) {
+    final earned = AppState.formatCurrency(state.totalCommissionEarned);
+    final received = AppState.formatCurrency(state.paidCommissionAmount);
+    final pending = AppState.formatCurrency(state.pendingCommissionAmount);
+    final totalInvoices = '${state.totalInvoicesCount} Invoices';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Section Header
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFD1FAE5),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  alignment: Alignment.center,
+                  child: const Icon(
+                    Icons.account_balance_wallet_rounded,
+                    color: Color(0xFF059669),
+                    size: 16,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Commission & Financial Analytics',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: isDark ? AppColors.darkTextPrimary : const Color(0xFF0F172A),
+                  ),
+                ),
+              ],
+            ),
+            InkWell(
+              onTap: onOpenCommissions ?? () => onNavigateTab(4),
+              child: const Text(
+                'Ledger →',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF2563EB),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+
+        Row(
+          children: [
+            // Card 1: Commission Recieved
+            Expanded(
+              child: _buildFinancialMetricCard(
+                title: 'Commission Recieved',
+                value: received,
+                valueColor: const Color(0xFF10B981),
+                icon: Icons.check_circle_rounded,
+                iconColor: const Color(0xFF10B981),
+                iconBgColor: const Color(0xFFD1FAE5),
+                isIconCircle: true,
+                subtext: 'Disbursed to bank',
+                onTap: onOpenCommissions ?? () => onNavigateTab(4),
+                isDark: isDark,
+              ),
+            ),
+            const SizedBox(width: 12),
+
+            // Card 2: Commission Pending
+            Expanded(
+              child: _buildFinancialMetricCard(
+                title: 'Commission Pending',
+                value: pending,
+                valueColor: const Color(0xFFF59E0B),
+                icon: Icons.hourglass_top_rounded,
+                iconColor: const Color(0xFFF59E0B),
+                iconBgColor: const Color(0xFFFEF3C7),
+                isIconCircle: true,
+                subtext: 'In clearance queue',
+                onTap: onOpenCommissions ?? () => onNavigateTab(4),
+                isDark: isDark,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            // Card 3: Invoices
+            Expanded(
+              child: _buildFinancialMetricCard(
+                title: 'Invoices',
+                value: totalInvoices,
+                valueColor: const Color(0xFF0284C7),
+                icon: Icons.receipt_long_rounded,
+                iconColor: const Color(0xFF0284C7),
+                iconBgColor: const Color(0xFFE0F2FE),
+                isIconCircle: false,
+                subtext: 'GST claims raised',
+                onTap: onOpenCommissions ?? () => onNavigateTab(4),
+                isDark: isDark,
+              ),
+            ),
+            const SizedBox(width: 12),
+
+            // Card 4: Total Commission Earned
+            Expanded(
+              child: _buildFinancialMetricCard(
+                title: 'Total Commission Earned',
+                value: earned,
+                valueColor: const Color(0xFF6366F1),
+                icon: Icons.account_balance_wallet_rounded,
+                iconColor: const Color(0xFF6366F1),
+                iconBgColor: const Color(0xFFEDE9FE),
+                isIconCircle: false,
+                subtext: 'Lifetime brokerage',
+                onTap: onOpenCommissions ?? () => onNavigateTab(4),
+                isDark: isDark,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFinancialMetricCard({
+    required String title,
+    required String value,
+    required Color valueColor,
+    required IconData icon,
+    required Color iconColor,
+    required Color iconBgColor,
+    required bool isIconCircle,
+    String? subtext,
+    required VoidCallback onTap,
+    required bool isDark,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        padding: const EdgeInsets.all(15),
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.darkSurface : Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: isDark ? AppColors.darkBorder : const Color(0xFFE2E8F0),
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.02),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? AppColors.darkTextSecondary : const Color(0xFF64748B),
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: iconBgColor,
+                    shape: isIconCircle ? BoxShape.circle : BoxShape.rectangle,
+                    borderRadius: isIconCircle ? null : BorderRadius.circular(8),
+                  ),
+                  alignment: Alignment.center,
+                  child: Icon(icon, color: iconColor, size: 16),
                 ),
               ],
             ),
             const SizedBox(height: 18),
-
-            // Pipeline Health Stepper Card (Reacts to Date Filter)
-            PipelineFunnelBar(
-              newCount: state.funnelNewLeadsCount,
-              contactedCount: state.funnelContactedCount,
-              visitFixedCount: state.funnelVisitScheduledCount,
-              visitDoneCount: state.funnelVisitCompletedCount,
-              bookedCount: state.funnelBookingsCount,
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                color: valueColor,
+                letterSpacing: -0.3,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
-            const SizedBox(height: 22),
-
-            // Leads Section Header (Replaces Builder Announcements & Activity Stream)
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    Text(
-                      'Leads',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                        color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Text(
-                        '${state.dashboardLeads.length}',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.primary,
-                        ),
-                      ),
-                    ),
-                  ],
+            if (subtext != null) ...[
+              const SizedBox(height: 3),
+              Text(
+                subtext,
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w500,
+                  color: isDark ? AppColors.darkTextSecondary : const Color(0xFF94A3B8),
                 ),
-                TextButton.icon(
-                  onPressed: () => onNavigateTab(1), // Jumps to Leads tab
-                  icon: const Icon(Icons.arrow_forward, size: 14, color: AppColors.primary),
-                  label: const Text(
-                    'View All',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.primary,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Settlement Destination Bank matching the reference image with interactive Edit action
+  Widget _buildSettlementBankCard(BuildContext context, bool isDark) {
+    final bankName = state.savedBankDetails?.bankName ?? 'HDFC Bank Ltd';
+    final displayBank = bankName.toLowerCase().contains('ltd') ? bankName : '$bankName Ltd';
+    final acc = state.savedBankDetails?.accountNumber ?? '7263';
+    final last4 = acc.length >= 4 ? acc.substring(acc.length - 4) : '7263';
+    final ifsc = state.savedBankDetails?.ifscCode ?? 'HDFC0001234';
+    final bankText = '$displayBank (•••• •••• $last4) • IFSC: $ifsc';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkSurface : Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: isDark ? AppColors.darkBorder : const Color(0xFFE2E8F0),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.02),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: const BoxDecoration(
+              color: Color(0xFFDBEAFE),
+              shape: BoxShape.circle,
+            ),
+            alignment: Alignment.center,
+            child: const Icon(
+              Icons.verified_rounded,
+              color: Color(0xFF2563EB),
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Settlement Destination Bank',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: isDark ? AppColors.darkTextPrimary : const Color(0xFF0F172A),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  bankText,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w400,
+                    color: isDark ? AppColors.darkTextSecondary : const Color(0xFF64748B),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          TextButton(
+            onPressed: () {
+              CommissionsScreen.showEditBankModal(context, state);
+            },
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            child: const Text(
+              'Edit',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF2563EB),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Pipeline Conversion Funnel Section
+  Widget _buildConversionFunnelSection(BuildContext context, bool isDark) {
+    final total = state.totalLeadsCount > 0 ? state.totalLeadsCount : 1;
+    final cold = state.coldLeadsCount;
+    final visited = state.siteVisitedLeadsCount;
+    final booked = state.bookedLeadsCount;
+    final winRate = state.totalLeadsCount > 0 ? ((booked / state.totalLeadsCount) * 100).toInt() : 0;
+
+    final coldPct = (cold / total).clamp(0.0, 1.0);
+    final coldLabel = '${(coldPct * 100).toStringAsFixed(0)}%';
+
+    final visitedPct = (visited / total).clamp(0.0, 1.0);
+    final visitedLabel = '${(visitedPct * 100).toStringAsFixed(0)}%';
+
+    final bookedPct = (booked / total).clamp(0.0, 1.0);
+    final bookedLabel = '${(bookedPct * 100).toStringAsFixed(0)}%';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkSurface : Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: isDark ? AppColors.darkBorder : const Color(0xFFE2E8F0),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.02),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEEF2FF),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    alignment: Alignment.center,
+                    child: const Icon(
+                      Icons.filter_alt_rounded,
+                      color: Color(0xFF4F46E5),
+                      size: 18,
                     ),
                   ),
-                  style: TextButton.styleFrom(
-                    visualDensity: VisualDensity.compact,
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                  const SizedBox(width: 10),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Pipeline Conversion Funnel',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: isDark ? AppColors.darkTextPrimary : const Color(0xFF0F172A),
+                        ),
+                      ),
+                      Text(
+                        'Lead qualification to closure velocity',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: isDark ? AppColors.darkTextSecondary : const Color(0xFF64748B),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFDCFCE7),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '$winRate% Win Rate',
+                  style: const TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF16A34A),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // Funnel Stage 1: Cold Leads
+          _buildFunnelStageItem(
+            stageName: '1. Cold Leads',
+            countText: '$cold Leads',
+            percentage: coldPct > 0 ? coldPct : 0.2,
+            percentLabel: coldLabel,
+            gradientColors: [const Color(0xFF6366F1), const Color(0xFF818CF8)],
+            dropOffText: '$visitedLabel progress to site visit',
+            isDark: isDark,
+          ),
+          const SizedBox(height: 8),
+
+          // Funnel Stage 2: Site Visits Completed
+          _buildFunnelStageItem(
+            stageName: '2. Site Visited Leads',
+            countText: '$visited Visited',
+            percentage: visitedPct > 0 ? visitedPct : 0.2,
+            percentLabel: visitedLabel,
+            gradientColors: [const Color(0xFF0284C7), const Color(0xFF38BDF8)],
+            dropOffText: '$bookedLabel progress to booking',
+            isDark: isDark,
+          ),
+          const SizedBox(height: 8),
+
+          // Funnel Stage 3: Booked & Commissioned
+          _buildFunnelStageItem(
+            stageName: '3. Booked Leads',
+            countText: '$booked Closed Deals',
+            percentage: bookedPct > 0 ? bookedPct : 0.2,
+            percentLabel: bookedLabel,
+            gradientColors: [const Color(0xFF059669), const Color(0xFF34D399)],
+            dropOffText: null,
+            isDark: isDark,
+          ),
+          const SizedBox(height: 14),
+
+          // Funnel Summary Footnotes
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF161F2E) : const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: isDark ? AppColors.darkBorder : const Color(0xFFE2E8F0),
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildFunnelMiniStat('Avg Cycle', '4.2 Days', const Color(0xFF2563EB), isDark),
+                Container(width: 1, height: 24, color: isDark ? AppColors.darkBorder : const Color(0xFFCBD5E1)),
+                _buildFunnelMiniStat('Lead → Visit', '${(visitedPct * 100).toStringAsFixed(1)}%', const Color(0xFF0EA5E9), isDark),
+                Container(width: 1, height: 24, color: isDark ? AppColors.darkBorder : const Color(0xFFCBD5E1)),
+                _buildFunnelMiniStat('Visit → Close', '${visited > 0 ? ((booked / visited) * 100).toStringAsFixed(1) : '0.0'}%', const Color(0xFF10B981), isDark),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFunnelMiniStat(String label, String value, Color valueColor, bool isDark) {
+    return Column(
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w500,
+            color: isDark ? AppColors.darkTextSecondary : const Color(0xFF64748B),
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w800,
+            color: valueColor,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFunnelStageItem({
+    required String stageName,
+    required String countText,
+    required double percentage,
+    required String percentLabel,
+    required List<Color> gradientColors,
+    required String? dropOffText,
+    required bool isDark,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              stageName,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: isDark ? AppColors.darkTextPrimary : const Color(0xFF1E293B),
+              ),
+            ),
+            Row(
+              children: [
+                Text(
+                  countText,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: isDark ? AppColors.darkTextPrimary : const Color(0xFF0F172A),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: gradientColors[0].withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    percentLabel,
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: gradientColors[0],
+                    ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 10),
-
-            // Leads List with structured details
-            if (state.dashboardLeads.isEmpty)
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 20),
-                decoration: BoxDecoration(
-                  color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.person_search_outlined,
-                      size: 38,
-                      color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      'No Leads in this Timeframe',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Try choosing another date filter or reset to All Time.',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 14),
-                    OutlinedButton.icon(
-                      onPressed: () => state.resetDashboardDateFilter(),
-                      icon: const Icon(Icons.refresh, size: 14),
-                      label: const Text('Reset Filter'),
-                      style: OutlinedButton.styleFrom(
-                        visualDensity: VisualDensity.compact,
-                        foregroundColor: AppColors.primary,
-                        side: const BorderSide(color: AppColors.primary),
-                      ),
-                    ),
-                  ],
-                ),
-              )
-            else
-              ...state.dashboardLeads.map((lead) {
-                return DashboardLeadCard(
-                  lead: lead,
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (ctx) => LeadDetailScreen(state: state, leadId: lead.id),
-                      ),
-                    );
-                  },
-                );
-              }),
           ],
         ),
-      ),
-    );
-  }
-
-  // Date Filter Bar Widget with Horizontal Scrolling Chips
-  Widget _buildDateFilterBar(BuildContext context, bool isDark) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      physics: const BouncingScrollPhysics(),
-      child: Row(
-        children: [
-          // Today Chip
-          _buildFilterChip(
-            label: 'Today',
-            isSelected: state.dashboardDatePreset == DashboardDatePreset.today,
-            isDark: isDark,
-            onTap: () => state.setDashboardDatePreset(DashboardDatePreset.today),
-          ),
-          const SizedBox(width: 8),
-
-          // Yesterday Chip
-          _buildFilterChip(
-            label: 'Yesterday',
-            isSelected: state.dashboardDatePreset == DashboardDatePreset.yesterday,
-            isDark: isDark,
-            onTap: () => state.setDashboardDatePreset(DashboardDatePreset.yesterday),
-          ),
-          const SizedBox(width: 8),
-
-          // 7 Days Chip
-          _buildFilterChip(
-            label: '7 Days',
-            isSelected: state.dashboardDatePreset == DashboardDatePreset.last7Days,
-            isDark: isDark,
-            onTap: () => state.setDashboardDatePreset(DashboardDatePreset.last7Days),
-          ),
-          const SizedBox(width: 8),
-
-          // 30 Days Chip
-          _buildFilterChip(
-            label: '30 Days',
-            isSelected: state.dashboardDatePreset == DashboardDatePreset.last30Days,
-            isDark: isDark,
-            onTap: () => state.setDashboardDatePreset(DashboardDatePreset.last30Days),
-          ),
-          const SizedBox(width: 8),
-
-          // Calendar Custom Range Picker Chip
-          InkWell(
-            onTap: () => _openCalendarPicker(context),
-            borderRadius: BorderRadius.circular(10),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        const SizedBox(height: 5),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final barWidth = constraints.maxWidth * percentage;
+            return Container(
+              height: 14,
+              width: constraints.maxWidth,
               decoration: BoxDecoration(
-                color: state.dashboardDatePreset == DashboardDatePreset.custom
-                    ? AppColors.primary
-                    : (isDark ? AppColors.darkSurface : AppColors.lightSurface),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: state.dashboardDatePreset == DashboardDatePreset.custom
-                      ? AppColors.primary
-                      : (isDark ? AppColors.darkBorder : AppColors.lightBorder),
-                  width: 1,
-                ),
+                color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                borderRadius: BorderRadius.circular(7),
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.calendar_month_outlined,
-                    size: 15,
-                    color: state.dashboardDatePreset == DashboardDatePreset.custom
-                        ? Colors.white
-                        : (isDark ? Colors.white70 : AppColors.lightTextPrimary),
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    state.dashboardDatePreset == DashboardDatePreset.custom ? state.dateFilterLabel : 'Calendar',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: state.dashboardDatePreset == DashboardDatePreset.custom
-                          ? Colors.white
-                          : (isDark ? Colors.white70 : AppColors.lightTextPrimary),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          // Reset / All Time Button
-          if (state.isDateFilterActive) ...[
-            const SizedBox(width: 8),
-            InkWell(
-              onTap: () => state.resetDashboardDateFilter(),
-              borderRadius: BorderRadius.circular(10),
+              alignment: Alignment.centerLeft,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                width: barWidth,
                 decoration: BoxDecoration(
-                  color: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.05),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.close, size: 14, color: isDark ? Colors.white60 : Colors.black54),
-                    const SizedBox(width: 4),
-                    Text(
-                      'Reset',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: isDark ? Colors.white60 : Colors.black54,
-                      ),
-                    ),
-                  ],
+                  gradient: LinearGradient(colors: gradientColors),
+                  borderRadius: BorderRadius.circular(7),
                 ),
               ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFilterChip({
-    required String label,
-    required bool isSelected,
-    required bool isDark,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? AppColors.primary
-              : (isDark ? AppColors.darkSurface : AppColors.lightSurface),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: isSelected ? AppColors.primary : (isDark ? AppColors.darkBorder : AppColors.lightBorder),
-            width: 1,
-          ),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: AppColors.primary.withValues(alpha: 0.3),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
+            );
+          },
+        ),
+        if (dropOffText != null) ...[
+          const SizedBox(height: 3),
+          Padding(
+            padding: const EdgeInsets.only(left: 4),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.south_rounded,
+                  size: 11,
+                  color: isDark ? AppColors.darkTextSecondary : const Color(0xFF94A3B8),
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  dropOffText,
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w500,
+                    color: isDark ? AppColors.darkTextSecondary : const Color(0xFF94A3B8),
                   ),
-                ]
-              : null,
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-            color: isSelected
-                ? Colors.white
-                : (isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary),
+                ),
+              ],
+            ),
           ),
-        ),
-      ),
-    );
-  }
-
-  // Right-side Mini Illustrations for Stat Cards
-  Widget _buildBarChartGraphic(Color color) {
-    return Container(
-      padding: const EdgeInsets.all(6),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          Container(width: 3, height: 8, decoration: BoxDecoration(color: color.withValues(alpha: 0.4), borderRadius: BorderRadius.circular(2))),
-          const SizedBox(width: 2),
-          Container(width: 3, height: 14, decoration: BoxDecoration(color: color.withValues(alpha: 0.7), borderRadius: BorderRadius.circular(2))),
-          const SizedBox(width: 2),
-          Container(width: 3, height: 20, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(2))),
         ],
-      ),
+      ],
     );
   }
 
-  Widget _buildClockGraphic(Color color) {
-    return Container(
-      padding: const EdgeInsets.all(6),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        shape: BoxShape.circle,
-      ),
-      child: Icon(Icons.alarm_on_rounded, size: 18, color: color),
-    );
-  }
-
-  Widget _buildSealGraphic(Color color) {
-    return Container(
-      padding: const EdgeInsets.all(6),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        shape: BoxShape.circle,
-      ),
-      child: Icon(Icons.verified_rounded, size: 18, color: color),
-    );
-  }
-
-  Widget _buildHandshakeGraphic(Color color) {
-    return Container(
-      padding: const EdgeInsets.all(6),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Icon(Icons.handshake_rounded, size: 18, color: color),
-    );
-  }
-
-  Widget _buildPendingGraphic(Color color) {
-    return Container(
-      padding: const EdgeInsets.all(6),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Icon(Icons.schedule_send_rounded, size: 18, color: color),
-    );
-  }
-
-  Widget _buildReceivedGraphic(Color color) {
-    return Container(
-      padding: const EdgeInsets.all(6),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        shape: BoxShape.circle,
-      ),
-      child: Icon(Icons.check_circle_rounded, size: 18, color: color),
-    );
-  }
-
-  Widget _buildQuickActionsHub(BuildContext context, bool isDark) {
-    final actions = [
-      _QuickActionItem(
-        label: '+ Add Lead',
-        icon: Icons.person_add_alt_1_rounded,
-        color: AppColors.primary,
-        onTap: onOpenAddLead,
-      ),
-      _QuickActionItem(
-        label: '📅 Visit',
-        icon: Icons.calendar_month_rounded,
-        color: const Color(0xFFF59E0B),
-        onTap: onOpenScheduleVisit,
-      ),
-      _QuickActionItem(
-        label: '🎟️ Passes',
-        icon: Icons.qr_code_rounded,
-        color: const Color(0xFF10B981),
-        onTap: onOpenSiteVisits ?? () => onNavigateTab(1),
-      ),
-      _QuickActionItem(
-        label: '📤 Share Kit',
-        icon: Icons.send_to_mobile_rounded,
-        color: const Color(0xFF0284C7),
-        onTap: onOpenCollaterals ?? () => onNavigateTab(2),
-      ),
-      _QuickActionItem(
-        label: '🏢 Projects',
-        icon: Icons.apartment_rounded,
-        color: const Color(0xFF8B5CF6),
-        onTap: () => onNavigateTab(2),
-      ),
+  // Brokerage & Revenue Performance Trend Graph
+  Widget _buildBrokeragePerformanceGraph(BuildContext context, bool isDark) {
+    // 6-month data trajectory (May to Oct)
+    final monthlyData = [
+      {'month': 'MAY', 'settled': 15.0, 'pending': 40.0, 'current': false},
+      {'month': 'JUN', 'settled': 25.0, 'pending': 60.0, 'current': false},
+      {'month': 'JUL', 'settled': 40.0, 'pending': 85.0, 'current': false},
+      {'month': 'AUG', 'settled': 30.0, 'pending': 110.0, 'current': false},
+      {'month': 'SEP', 'settled': 50.0, 'pending': 140.0, 'current': false},
+      {'month': 'OCT', 'settled': 6.0, 'pending': 188.0, 'current': true},
     ];
+    const maxVal = 200.0;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: isDark ? AppColors.darkSurface : Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
-          width: 1,
+          color: isDark ? AppColors.darkBorder : const Color(0xFFE2E8F0),
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.02),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: actions.map((item) {
-          return InkWell(
-            onTap: item.onTap,
-            borderRadius: BorderRadius.circular(12),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header with Legend
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
                 children: [
                   Container(
-                    width: 42,
-                    height: 42,
+                    width: 32,
+                    height: 32,
                     decoration: BoxDecoration(
-                      color: item.color.withValues(alpha: 0.12),
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: item.color.withValues(alpha: 0.25),
-                        width: 1.2,
-                      ),
+                      color: const Color(0xFFDCFCE7),
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Icon(item.icon, color: item.color, size: 20),
+                    alignment: Alignment.center,
+                    child: const Icon(
+                      Icons.bar_chart_rounded,
+                      color: Color(0xFF16A34A),
+                      size: 20,
+                    ),
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    item.label,
-                    style: TextStyle(
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w700,
-                      color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
-                    ),
+                  const SizedBox(width: 10),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Brokerage Trajectory',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: isDark ? AppColors.darkTextPrimary : const Color(0xFF0F172A),
+                        ),
+                      ),
+                      Text(
+                        '6-Month Settled vs Pending',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: isDark ? AppColors.darkTextSecondary : const Color(0xFF64748B),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
+              InkWell(
+                onTap: onOpenCommissions ?? () => onNavigateTab(4),
+                child: const Text(
+                  'Ledger →',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF2563EB),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+
+          // Legend Row
+          Row(
+            children: [
+              Container(width: 8, height: 8, decoration: const BoxDecoration(color: Color(0xFF10B981), shape: BoxShape.circle)),
+              const SizedBox(width: 5),
+              Text(
+                'Settled: ${AppState.formatCurrency(state.paidCommissionAmount)}',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: isDark ? AppColors.darkTextSecondary : const Color(0xFF475569),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Container(width: 8, height: 8, decoration: const BoxDecoration(color: Color(0xFFF59E0B), shape: BoxShape.circle)),
+              const SizedBox(width: 5),
+              Text(
+                'Pending: ${AppState.formatCurrency(state.pendingCommissionAmount)}',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: isDark ? AppColors.darkTextSecondary : const Color(0xFF475569),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // Bar Graph Canvas
+          SizedBox(
+            height: 135,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                // Y-axis markers
+                Column(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text('₹200K', style: TextStyle(fontSize: 9, color: isDark ? AppColors.darkTextSecondary : const Color(0xFF94A3B8))),
+                    Text('₹100K', style: TextStyle(fontSize: 9, color: isDark ? AppColors.darkTextSecondary : const Color(0xFF94A3B8))),
+                    Text('₹0', style: TextStyle(fontSize: 9, color: isDark ? AppColors.darkTextSecondary : const Color(0xFF94A3B8))),
+                  ],
+                ),
+                const SizedBox(width: 8),
+
+                // Chart Bars Area
+                Expanded(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: monthlyData.map((data) {
+                      final settled = data['settled'] as double;
+                      final pending = data['pending'] as double;
+                      final isCurrent = data['current'] as bool;
+                      final month = data['month'] as String;
+
+                      final settledH = (settled / maxVal) * 78;
+                      final pendingH = (pending / maxVal) * 78;
+
+                      return Column(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          if (isCurrent)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                              margin: const EdgeInsets.only(bottom: 2),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF2563EB),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                AppState.formatCurrency(state.totalCommissionEarned),
+                                style: const TextStyle(fontSize: 8, fontWeight: FontWeight.w700, color: Colors.white),
+                              ),
+                            ),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              // Settled Bar (Emerald)
+                              Container(
+                                width: 9,
+                                height: settledH.clamp(4.0, 78.0),
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFF10B981),
+                                  borderRadius: BorderRadius.vertical(top: Radius.circular(3)),
+                                ),
+                              ),
+                              const SizedBox(width: 3),
+                              // Pending Bar (Amber)
+                              Container(
+                                width: 9,
+                                height: pendingH.clamp(4.0, 78.0),
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFFF59E0B),
+                                  borderRadius: BorderRadius.vertical(top: Radius.circular(3)),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            month,
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: isCurrent ? FontWeight.w800 : FontWeight.w600,
+                              color: isCurrent
+                                  ? const Color(0xFF2563EB)
+                                  : (isDark ? AppColors.darkTextSecondary : const Color(0xFF64748B)),
+                            ),
+                          ),
+                        ],
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ],
             ),
-          );
-        }).toList(),
+          ),
+          const SizedBox(height: 14),
+
+          // Bottom Insight Box
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF161F2E) : const Color(0xFFF0FDF4),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: isDark ? AppColors.darkBorder : const Color(0xFFBBF7D0),
+              ),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.tips_and_updates_rounded, size: 14, color: Color(0xFF16A34A)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Prestige Sunshine Sanctuary holds ₹1.50L in clearance queue.',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? AppColors.darkTextPrimary : const Color(0xFF166534),
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
+
 }
 
-class _QuickActionItem {
-  final String label;
-  final IconData icon;
-  final Color color;
-  final VoidCallback onTap;
+// Custom Painter for subtle skyscraper skyline on the hero card
+class _SkylinePainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.12)
+      ..style = PaintingStyle.fill;
 
-  _QuickActionItem({
-    required this.label,
-    required this.icon,
-    required this.color,
-    required this.onTap,
-  });
+    final path = Path();
+    // Tower 1
+    path.addRect(Rect.fromLTWH(size.width - 150, size.height * 0.45, 26, size.height * 0.55));
+    // Tower 2 (tallest)
+    path.addRect(Rect.fromLTWH(size.width - 118, size.height * 0.15, 36, size.height * 0.85));
+    // Spire
+    path.moveTo(size.width - 100, size.height * 0.15);
+    path.lineTo(size.width - 100, size.height * 0.05);
+    path.lineTo(size.width - 98, size.height * 0.15);
+    path.close();
+    // Tower 3
+    path.addRect(Rect.fromLTWH(size.width - 76, size.height * 0.35, 30, size.height * 0.65));
+    // Tower 4
+    path.addRect(Rect.fromLTWH(size.width - 42, size.height * 0.50, 26, size.height * 0.50));
+
+    canvas.drawPath(path, paint);
+
+    // Subtle window grids
+    final windowPaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.22)
+      ..strokeWidth = 1.2
+      ..style = PaintingStyle.stroke;
+
+    for (double y = size.height * 0.25; y < size.height; y += 12) {
+      canvas.drawLine(Offset(size.width - 112, y), Offset(size.width - 88, y), windowPaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

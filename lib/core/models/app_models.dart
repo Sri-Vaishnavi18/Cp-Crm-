@@ -158,51 +158,31 @@ class LeadActivityItem {
 }
 
 enum LeadStage {
-  newLead,
-  contacted,
-  visitScheduled,
-  visitCompleted,
-  negotiation,
-  tokenPaid,
-  lost,
+  cold,
+  siteVisited,
+  booked,
 }
 
 extension LeadStageExtension on LeadStage {
   String get displayName {
     switch (this) {
-      case LeadStage.newLead:
-        return 'NEW';
-      case LeadStage.contacted:
-        return 'CONTACTED';
-      case LeadStage.visitScheduled:
-        return 'VISIT SCHEDULED';
-      case LeadStage.visitCompleted:
-        return 'VISIT COMPLETED';
-      case LeadStage.negotiation:
-        return 'NEGOTIATION';
-      case LeadStage.tokenPaid:
+      case LeadStage.cold:
+        return 'COLD';
+      case LeadStage.siteVisited:
+        return 'SITE VISITED';
+      case LeadStage.booked:
         return 'BOOKED';
-      case LeadStage.lost:
-        return 'LOST';
     }
   }
 
   String get readableTitle {
     switch (this) {
-      case LeadStage.newLead:
-        return 'Lead Created';
-      case LeadStage.contacted:
-        return 'Contacted';
-      case LeadStage.visitScheduled:
-        return 'Site Visit Scheduled';
-      case LeadStage.visitCompleted:
-        return 'Site Visit Completed';
-      case LeadStage.negotiation:
-        return 'Negotiation';
-      case LeadStage.tokenPaid:
+      case LeadStage.cold:
+        return 'Cold';
+      case LeadStage.siteVisited:
+        return 'Site Visited';
+      case LeadStage.booked:
         return 'Booked';
-      case LeadStage.lost:
-        return 'Lost';
     }
   }
 }
@@ -258,34 +238,23 @@ class LeadModel {
 
   static LeadTemperature getTemperatureForStage(LeadStage stage) {
     switch (stage) {
-      case LeadStage.newLead:
-      case LeadStage.contacted:
-      case LeadStage.lost:
+      case LeadStage.cold:
         return LeadTemperature.cold;
-      case LeadStage.visitScheduled:
-      case LeadStage.visitCompleted:
-      case LeadStage.negotiation:
+      case LeadStage.siteVisited:
         return LeadTemperature.warm;
-      case LeadStage.tokenPaid:
+      case LeadStage.booked:
         return LeadTemperature.hot;
     }
   }
 
   int get pipelineStepIndex {
     switch (stage) {
-      case LeadStage.newLead:
+      case LeadStage.cold:
         return 0;
-      case LeadStage.contacted:
+      case LeadStage.siteVisited:
         return 1;
-      case LeadStage.visitScheduled:
-      case LeadStage.visitCompleted:
+      case LeadStage.booked:
         return 2;
-      case LeadStage.negotiation:
-        return 3;
-      case LeadStage.tokenPaid:
-        return 4;
-      case LeadStage.lost:
-        return 1;
     }
   }
 }

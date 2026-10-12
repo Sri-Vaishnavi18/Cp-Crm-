@@ -549,39 +549,23 @@ class DashboardLeadCard extends StatelessWidget {
 
   Color _getStageColor(LeadStage stage) {
     switch (stage) {
-      case LeadStage.newLead:
-        return const Color(0xFF3B82F6); // Blue
-      case LeadStage.contacted:
-        return const Color(0xFF8B5CF6); // Purple
-      case LeadStage.visitScheduled:
-        return const Color(0xFFF59E0B); // Amber
-      case LeadStage.visitCompleted:
-        return const Color(0xFF14B8A6); // Teal
-      case LeadStage.negotiation:
-        return const Color(0xFF6366F1); // Indigo
-      case LeadStage.tokenPaid:
+      case LeadStage.cold:
+        return const Color(0xFF64748B); // Slate / Grey
+      case LeadStage.siteVisited:
+        return const Color(0xFF38BDF8); // Sky Blue
+      case LeadStage.booked:
         return const Color(0xFF10B981); // Emerald
-      case LeadStage.lost:
-        return const Color(0xFFEF4444); // Red
     }
   }
 
   String _getStageText(LeadStage stage) {
     switch (stage) {
-      case LeadStage.visitCompleted:
-        return 'SITE TOUR COMPLETE';
-      case LeadStage.visitScheduled:
-        return 'VISIT SCHEDULED';
-      case LeadStage.negotiation:
-        return 'NEGOTIATION';
-      case LeadStage.tokenPaid:
-        return 'TOKEN / BOOKED';
-      case LeadStage.newLead:
-        return 'NEW LEAD';
-      case LeadStage.contacted:
-        return 'CONTACTED';
-      case LeadStage.lost:
-        return 'LOST';
+      case LeadStage.cold:
+        return 'COLD';
+      case LeadStage.siteVisited:
+        return 'SITE VISITED';
+      case LeadStage.booked:
+        return 'BOOKED';
     }
   }
 

@@ -12,26 +12,27 @@ class AppColors {
   static const Color cream = Color(0xFFFDFBF7); // Flip7 Warm Light Surface
   static const Color primaryBg = Color(0xFFF4F6F9); // Light App Canvas
 
-  // Primary Accents
-  static const Color primary = Color(0xFF4F46E5); // Electric Indigo
-  static const Color primaryDark = Color(0xFF6366F1);
+  // Primary Accents (Matching Reference Image Royal Blue)
+  static const Color primary = Color(0xFF2563EB); // Electric Royal Blue
+  static const Color primaryDark = Color(0xFF3B82F6);
+  static const Color royalBlue = Color(0xFF2563EB);
   static const Color secondary = Color(0xFF0EA5E9); // Sky Cyan
   static const Color secondaryDark = Color(0xFF38BDF8);
 
   // Status Colors
-  static const Color success = Color(0xFF10B981); // Available / Converted
+  static const Color success = Color(0xFF16A34A); // Converted / Green
   static const Color successDark = Color(0xFF34D399);
-  static const Color warning = Color(0xFFF59E0B); // Blocked / In-Progress
+  static const Color warning = Color(0xFFEA580C); // Orange / Warning
   static const Color warningDark = Color(0xFFFBBF24);
-  static const Color danger = Color(0xFFEF4444); // Sold / Lost
+  static const Color danger = Color(0xFFEF4444); // Lost / Red
   static const Color dangerDark = Color(0xFFF87171);
-  static const Color info = Color(0xFF3B82F6);
+  static const Color info = Color(0xFF2563EB);
 
   // Light Theme Palette
-  static const Color lightBg = Color(0xFFF8FAFC); // Porcelain Slate
+  static const Color lightBg = Color(0xFFF4F7FB); // Soft Pale Canvas from reference
   static const Color lightSurface = Color(0xFFFFFFFF);
   static const Color lightSurfaceSubtle = Color(0xFFF1F5F9);
-  static const Color lightBorder = Color(0xFFE2E8F0);
+  static const Color lightBorder = Color(0xFFE5E9F0);
   static const Color lightTextPrimary = Color(0xFF0F172A);
   static const Color lightTextSecondary = Color(0xFF64748B);
   static const Color lightTextMuted = Color(0xFF94A3B8);

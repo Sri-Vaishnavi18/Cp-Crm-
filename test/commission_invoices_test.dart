@@ -1,6 +1,8 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:cp_crm/core/models/app_models.dart';
 import 'package:cp_crm/core/state/app_state.dart';
+import 'package:cp_crm/features/commissions/commissions_screen.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -87,12 +89,9 @@ void main() {
     });
 
     test('Lead Stage to Temperature Automatic Sync', () {
-      expect(LeadModel.getTemperatureForStage(LeadStage.newLead), LeadTemperature.cold);
-      expect(LeadModel.getTemperatureForStage(LeadStage.contacted), LeadTemperature.cold);
-      expect(LeadModel.getTemperatureForStage(LeadStage.visitScheduled), LeadTemperature.warm);
-      expect(LeadModel.getTemperatureForStage(LeadStage.visitCompleted), LeadTemperature.warm);
-      expect(LeadModel.getTemperatureForStage(LeadStage.negotiation), LeadTemperature.warm);
-      expect(LeadModel.getTemperatureForStage(LeadStage.tokenPaid), LeadTemperature.hot);
+      expect(LeadModel.getTemperatureForStage(LeadStage.cold), LeadTemperature.cold);
+      expect(LeadModel.getTemperatureForStage(LeadStage.siteVisited), LeadTemperature.warm);
+      expect(LeadModel.getTemperatureForStage(LeadStage.booked), LeadTemperature.hot);
     });
 
     test('AppState Commission calculations and invoice submission', () {
@@ -201,35 +200,42 @@ void main() {
     });
 
     test('Invoice Unlocking Eligibility Logic Verification', () {
-      // Rule 1: New Lead -> Locked for both Type 1 and Type 2
-      final newLeadStage = LeadStage.newLead;
-      final isType1ForNew = newLeadStage == LeadStage.visitScheduled ||
-          newLeadStage == LeadStage.visitCompleted ||
-          newLeadStage == LeadStage.negotiation ||
-          newLeadStage == LeadStage.tokenPaid;
-      final isType2ForNew = newLeadStage == LeadStage.tokenPaid;
-      expect(isType1ForNew, isFalse);
-      expect(isType2ForNew, isFalse);
+      // Rule 1: Cold -> Locked for both Type 1 and Type 2
+      final coldStage = LeadStage.cold;
+      final isType1ForCold = coldStage == LeadStage.siteVisited || coldStage == LeadStage.booked;
+      final isType2ForCold = coldStage == LeadStage.booked;
+      expect(isType1ForCold, isFalse);
+      expect(isType2ForCold, isFalse);
 
-      // Rule 2: Site Visit Scheduled / Completed -> Type 1 Unlocked, Type 2 Locked
-      final visitStage = LeadStage.visitCompleted;
-      final isType1ForVisit = visitStage == LeadStage.visitScheduled ||
-          visitStage == LeadStage.visitCompleted ||
-          visitStage == LeadStage.negotiation ||
-          visitStage == LeadStage.tokenPaid;
-      final isType2ForVisit = visitStage == LeadStage.tokenPaid;
+      // Rule 2: Site Visited -> Type 1 Unlocked, Type 2 Locked
+      final visitStage = LeadStage.siteVisited;
+      final isType1ForVisit = visitStage == LeadStage.siteVisited || visitStage == LeadStage.booked;
+      final isType2ForVisit = visitStage == LeadStage.booked;
       expect(isType1ForVisit, isTrue);
       expect(isType2ForVisit, isFalse);
 
-      // Rule 3: Booked (tokenPaid) -> BOTH Type 1 and Type 2 are Unlocked!
-      final bookedStage = LeadStage.tokenPaid;
-      final isType1ForBooked = bookedStage == LeadStage.visitScheduled ||
-          bookedStage == LeadStage.visitCompleted ||
-          bookedStage == LeadStage.negotiation ||
-          bookedStage == LeadStage.tokenPaid;
-      final isType2ForBooked = bookedStage == LeadStage.tokenPaid;
+      // Rule 3: Booked -> BOTH Type 1 and Type 2 are Unlocked!
+      final bookedStage = LeadStage.booked;
+      final isType1ForBooked = bookedStage == LeadStage.siteVisited || bookedStage == LeadStage.booked;
+      final isType2ForBooked = bookedStage == LeadStage.booked;
       expect(isType1ForBooked, isTrue);
       expect(isType2ForBooked, isTrue);
+    });
+
+    testWidgets('CommissionsScreen renders financial KPI grid and project directory', (WidgetTester tester) async {
+      final state = AppState();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CommissionsScreen(state: state, showBackButton: true),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Commissions & Payouts'), findsOneWidget);
+      expect(find.text('Total Claimed'), findsOneWidget);
+      expect(find.text('Amount Received'), findsOneWidget);
+      expect(find.text('Pending Clearance'), findsOneWidget);
+      expect(find.text('Settlement Destination Bank'), findsOneWidget);
     });
   });
 }
