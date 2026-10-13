@@ -64,6 +64,49 @@ class _CreateProjectModalSheetState extends State<CreateProjectModalSheet> {
     'ICICI Bank',
   };
 
+  // Custom Units configured for this project
+  final List<UnitModel> _customUnits = [];
+
+  // Controllers for adding a unit
+  final TextEditingController _unitNoController = TextEditingController();
+  final TextEditingController _unitFloorController = TextEditingController(text: '1');
+  final TextEditingController _unitTowerController = TextEditingController(text: 'Tower A');
+  final TextEditingController _unitCarpetController = TextEditingController(text: '950');
+  final TextEditingController _unitPriceController = TextEditingController(text: '8500000');
+  String _unitBhk = '2 BHK';
+  String _unitFacing = 'East';
+  UnitStatus _unitStatus = UnitStatus.available;
+
+  @override
+  void initState() {
+    super.initState();
+    // Pre-populate 2 starter units so the project has immediate inventory
+    _customUnits.addAll([
+      UnitModel(
+        unitNo: 'A-101',
+        tower: 'Tower A',
+        floor: 1,
+        bhk: '2 BHK',
+        carpetArea: 850.0,
+        superArea: 1150.0,
+        facing: 'East',
+        basePrice: 8500000.0,
+        status: UnitStatus.available,
+      ),
+      UnitModel(
+        unitNo: 'A-201',
+        tower: 'Tower A',
+        floor: 2,
+        bhk: '3 BHK',
+        carpetArea: 1200.0,
+        superArea: 1620.0,
+        facing: 'North',
+        basePrice: 12500000.0,
+        status: UnitStatus.available,
+      ),
+    ]);
+  }
+
   @override
   void dispose() {
     _nameController.dispose();
@@ -74,7 +117,58 @@ class _CreateProjectModalSheetState extends State<CreateProjectModalSheet> {
     _towersController.dispose();
     _distanceController.dispose();
     _heroImageController.dispose();
+    _unitNoController.dispose();
+    _unitFloorController.dispose();
+    _unitTowerController.dispose();
+    _unitCarpetController.dispose();
+    _unitPriceController.dispose();
     super.dispose();
+  }
+
+  void _addUnit() {
+    final unitNo = _unitNoController.text.trim();
+    if (unitNo.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter Unit Number (e.g. A-102 or 305).'),
+          backgroundColor: AppColors.coral,
+        ),
+      );
+      return;
+    }
+
+    final floor = int.tryParse(_unitFloorController.text.trim()) ?? 1;
+    final carpet = double.tryParse(_unitCarpetController.text.trim()) ?? 900.0;
+    final superArea = carpet * 1.35;
+    final price = double.tryParse(_unitPriceController.text.trim()) ?? 8500000.0;
+    final tower = _unitTowerController.text.trim().isNotEmpty
+        ? _unitTowerController.text.trim()
+        : 'Tower A';
+
+    setState(() {
+      _customUnits.add(
+        UnitModel(
+          unitNo: unitNo,
+          tower: tower,
+          floor: floor,
+          bhk: _unitBhk,
+          carpetArea: carpet,
+          superArea: superArea,
+          facing: _unitFacing,
+          basePrice: price,
+          status: _unitStatus,
+        ),
+      );
+      _unitNoController.clear();
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Unit "$unitNo" added to $tower!'),
+        duration: const Duration(seconds: 1),
+        backgroundColor: const Color(0xFF16A34A),
+      ),
+    );
   }
 
   void _submitProject() {
@@ -103,35 +197,37 @@ class _CreateProjectModalSheetState extends State<CreateProjectModalSheet> {
         ? _reraController.text.trim().toUpperCase()
         : 'PRM/KA/RERA/${now.year}/${(1000 + widget.state.projects.length + 1)}';
 
-    // Seed default starter units for each tower
-    final initialUnits = <UnitModel>[];
-    for (final tower in towersList) {
-      initialUnits.add(
-        UnitModel(
-          unitNo: '${tower.contains(' ') ? tower.split(' ').last : tower[0]}-101',
-          tower: tower,
-          floor: 1,
-          bhk: '2 BHK',
-          carpetArea: 850.0,
-          superArea: 1150.0,
-          facing: 'East',
-          basePrice: 8500000.0,
-          status: UnitStatus.available,
-        ),
-      );
-      initialUnits.add(
-        UnitModel(
-          unitNo: '${tower.contains(' ') ? tower.split(' ').last : tower[0]}-201',
-          tower: tower,
-          floor: 2,
-          bhk: '3 BHK',
-          carpetArea: 1200.0,
-          superArea: 1620.0,
-          facing: 'North',
-          basePrice: 12500000.0,
-          status: UnitStatus.available,
-        ),
-      );
+    // Use customized units or fallback starter units
+    final finalUnits = List<UnitModel>.from(_customUnits);
+    if (finalUnits.isEmpty) {
+      for (final tower in towersList) {
+        finalUnits.add(
+          UnitModel(
+            unitNo: '${tower.contains(' ') ? tower.split(' ').last : tower[0]}-101',
+            tower: tower,
+            floor: 1,
+            bhk: '2 BHK',
+            carpetArea: 850.0,
+            superArea: 1150.0,
+            facing: 'East',
+            basePrice: 8500000.0,
+            status: UnitStatus.available,
+          ),
+        );
+        finalUnits.add(
+          UnitModel(
+            unitNo: '${tower.contains(' ') ? tower.split(' ').last : tower[0]}-201',
+            tower: tower,
+            floor: 2,
+            bhk: '3 BHK',
+            carpetArea: 1200.0,
+            superArea: 1620.0,
+            facing: 'North',
+            basePrice: 12500000.0,
+            status: UnitStatus.available,
+          ),
+        );
+      }
     }
 
     final project = ProjectModel(
@@ -151,17 +247,18 @@ class _CreateProjectModalSheetState extends State<CreateProjectModalSheet> {
       approvedBanks: _selectedBanks.toList(),
       distanceDetails: _distanceController.text.trim(),
       towers: towersList,
-      units: initialUnits,
+      units: finalUnits,
     );
 
+    final messenger = ScaffoldMessenger.of(context);
     widget.state.addProject(project);
 
     Navigator.of(context).pop();
 
-    ScaffoldMessenger.of(context).showSnackBar(
+    messenger.showSnackBar(
       SnackBar(
-        content: Text('🎉 Project "${project.name}" added successfully with ${initialUnits.length} starter units!'),
-        backgroundColor: AppColors.primaryTeal,
+        content: Text('🎉 Project "${project.name}" added successfully with ${finalUnits.length} units!'),
+        backgroundColor: const Color(0xFF16A34A),
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -473,6 +570,271 @@ class _CreateProjectModalSheetState extends State<CreateProjectModalSheet> {
                           ),
                         );
                       }).toList(),
+                    ),
+                    const SizedBox(height: 18),
+
+                    // Project Units & Inventory Column (Add units to project)
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                width: 28,
+                                height: 28,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF2563EB).withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Icon(Icons.grid_view_rounded, size: 16, color: Color(0xFF2563EB)),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Add Units to Project (${_customUnits.length})',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                    color: isDark ? AppColors.darkTextPrimary : const Color(0xFF0F172A),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+
+                          // Row 1: Tower, Unit No, Floor
+                          Row(
+                            children: [
+                              Expanded(
+                                flex: 2,
+                                child: TextField(
+                                  controller: _unitTowerController,
+                                  decoration: const InputDecoration(
+                                    isDense: true,
+                                    labelText: 'Tower',
+                                    hintText: 'Tower A',
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                flex: 2,
+                                child: TextField(
+                                  controller: _unitNoController,
+                                  decoration: const InputDecoration(
+                                    isDense: true,
+                                    labelText: 'Unit No *',
+                                    hintText: 'e.g. 101',
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                flex: 1,
+                                child: TextField(
+                                  controller: _unitFloorController,
+                                  keyboardType: TextInputType.number,
+                                  decoration: const InputDecoration(
+                                    isDense: true,
+                                    labelText: 'Floor',
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+
+                          // Row 2: BHK, Facing, Status Dropdowns
+                          Row(
+                            children: [
+                              Expanded(
+                                child: DropdownButtonFormField<String>(
+                                  initialValue: _unitBhk,
+                                  isDense: true,
+                                  decoration: const InputDecoration(labelText: 'BHK', isDense: true),
+                                  dropdownColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+                                  items: ['1 BHK', '2 BHK', '2.5 BHK', '3 BHK', '4 BHK', 'Penthouse'].map((b) {
+                                    return DropdownMenuItem(value: b, child: Text(b, style: const TextStyle(fontSize: 12)));
+                                  }).toList(),
+                                  onChanged: (val) {
+                                    if (val != null) setState(() => _unitBhk = val);
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: DropdownButtonFormField<String>(
+                                  initialValue: _unitFacing,
+                                  isDense: true,
+                                  decoration: const InputDecoration(labelText: 'Facing', isDense: true),
+                                  dropdownColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+                                  items: ['East', 'West', 'North', 'South', 'North-East'].map((f) {
+                                    return DropdownMenuItem(value: f, child: Text(f, style: const TextStyle(fontSize: 12)));
+                                  }).toList(),
+                                  onChanged: (val) {
+                                    if (val != null) setState(() => _unitFacing = val);
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: DropdownButtonFormField<UnitStatus>(
+                                  initialValue: _unitStatus,
+                                  isDense: true,
+                                  decoration: const InputDecoration(labelText: 'Status', isDense: true),
+                                  dropdownColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+                                  items: [
+                                    const DropdownMenuItem(value: UnitStatus.available, child: Text('Available', style: TextStyle(fontSize: 12, color: Color(0xFF16A34A)))),
+                                    const DropdownMenuItem(value: UnitStatus.blocked, child: Text('Blocked', style: TextStyle(fontSize: 12, color: Color(0xFFEA580C)))),
+                                    const DropdownMenuItem(value: UnitStatus.sold, child: Text('Sold', style: TextStyle(fontSize: 12, color: Color(0xFFDC2626)))),
+                                  ],
+                                  onChanged: (val) {
+                                    if (val != null) setState(() => _unitStatus = val);
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+
+                          // Row 3: Carpet Area & Base Price
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  controller: _unitCarpetController,
+                                  keyboardType: TextInputType.number,
+                                  decoration: const InputDecoration(
+                                    isDense: true,
+                                    labelText: 'Carpet (sq.ft)',
+                                    hintText: '850',
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: TextField(
+                                  controller: _unitPriceController,
+                                  keyboardType: TextInputType.number,
+                                  decoration: const InputDecoration(
+                                    isDense: true,
+                                    labelText: 'Base Price (₹)',
+                                    hintText: '8500000',
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+
+                          // Button: + Add Unit to List
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              onPressed: _addUnit,
+                              icon: const Icon(Icons.add_home_rounded, size: 16),
+                              label: const Text('+ Add Unit to Project', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF2563EB),
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 10),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+
+                          // Configured Units Preview Chips List
+                          if (_customUnits.isNotEmpty) ...[
+                            Text(
+                              'Configured Units (${_customUnits.length})',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: isDark ? AppColors.darkTextSecondary : const Color(0xFF64748B),
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            ..._customUnits.asMap().entries.map((entry) {
+                              final idx = entry.key;
+                              final u = entry.value;
+                              final isAvail = u.status == UnitStatus.available;
+                              final statusColor = isAvail
+                                  ? const Color(0xFF16A34A)
+                                  : (u.status == UnitStatus.blocked ? const Color(0xFFEA580C) : const Color(0xFFDC2626));
+                              final formattedPrice = u.basePrice >= 10000000
+                                  ? '₹${(u.basePrice / 10000000).toStringAsFixed(2)} Cr'
+                                  : '₹${(u.basePrice / 100000).toStringAsFixed(0)} L';
+
+                              return Container(
+                                margin: const EdgeInsets.only(bottom: 6),
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: isDark ? const Color(0xFF0F172A) : Colors.white,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                                    width: 0.8,
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: statusColor.withValues(alpha: 0.15),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        u.unitNo,
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w800,
+                                          color: statusColor,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        '${u.tower} • ${u.bhk} • Floor ${u.floor} • $formattedPrice',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w500,
+                                          color: isDark ? AppColors.darkTextPrimary : const Color(0xFF334155),
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    InkWell(
+                                      onTap: () {
+                                        setState(() {
+                                          _customUnits.removeAt(idx);
+                                        });
+                                      },
+                                      child: const Padding(
+                                        padding: EdgeInsets.all(4.0),
+                                        child: Icon(Icons.close_rounded, size: 16, color: Color(0xFFEF4444)),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }),
+                          ],
+                        ],
+                      ),
                     ),
                     const SizedBox(height: 20),
                   ],

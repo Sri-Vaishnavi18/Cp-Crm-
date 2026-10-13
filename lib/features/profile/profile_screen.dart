@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/state/app_state.dart';
 import '../commissions/commissions_screen.dart';
+import '../docs/docs_screen.dart';
 import '../notifications/notifications_screen.dart';
 import '../spoc_helpdesk/spoc_screen.dart';
 import '../../shared/widgets/app_widgets.dart';
@@ -267,11 +268,32 @@ class ProfileScreen extends StatelessWidget {
                     },
                     isDark: isDark,
                   ),
+                  _buildDivider(isDark),
+                  _buildMenuItem(
+                    context: context,
+                    icon: Icons.folder_shared_outlined,
+                    title: 'KYC Documents & Invoices',
+                    badgeText: '${(state.kycCompletionPercentage * 100).toInt()}% KYC',
+                    isPillBadge: true,
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (ctx) => DocsScreen(
+                            state: state,
+                            onBack: () => Navigator.of(context).maybePop(),
+                          ),
+                        ),
+                      );
+                    },
+                    isDark: isDark,
+                  ),
+                  _buildDivider(isDark),
                   _buildMenuItem(
                     context: context,
                     icon: Icons.account_balance_wallet_outlined,
                     title: 'Commissions & Payouts',
                     badgeText: state.commissionPendingFormatted,
+                    isPillBadge: true,
                     onTap: () {
                       Navigator.of(context).push(
                         MaterialPageRoute(builder: (ctx) => CommissionsScreen(state: state, showBackButton: true)),
@@ -356,8 +378,11 @@ class ProfileScreen extends StatelessWidget {
     required VoidCallback onTap,
     required bool isDark,
     String? badgeText,
+    bool isPillBadge = false,
     bool isDestructive = false,
   }) {
+    final isPill = isPillBadge || (badgeText != null && badgeText.length > 2);
+
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
@@ -387,17 +412,31 @@ class ProfileScreen extends StatelessWidget {
             ),
             if (badgeText != null) ...[
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                decoration: const BoxDecoration(
-                  color: Color(0xFFEF4444),
-                  shape: BoxShape.circle,
+                padding: EdgeInsets.symmetric(
+                  horizontal: isPill ? 8 : 7,
+                  vertical: isPill ? 3 : 2,
+                ),
+                decoration: BoxDecoration(
+                  color: isPill
+                      ? (isDark ? const Color(0xFF065F46) : const Color(0xFFDCFCE7))
+                      : const Color(0xFFEF4444),
+                  borderRadius: isPill ? BorderRadius.circular(10) : null,
+                  shape: isPill ? BoxShape.rectangle : BoxShape.circle,
+                  border: isPill
+                      ? Border.all(
+                          color: isDark ? const Color(0xFF10B981) : const Color(0xFF86EFAC),
+                          width: 1,
+                        )
+                      : null,
                 ),
                 child: Text(
                   badgeText,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
-                    color: Colors.white,
+                    color: isPill
+                        ? (isDark ? const Color(0xFF6EE7B7) : const Color(0xFF15803D))
+                        : Colors.white,
                   ),
                 ),
               ),
@@ -438,6 +477,7 @@ class ProfileScreen extends StatelessWidget {
           ElevatedButton(
             onPressed: () async {
               Navigator.of(ctx).pop();
+              Navigator.of(context).popUntil((route) => route.isFirst);
               await state.logout();
             },
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFEF4444)),

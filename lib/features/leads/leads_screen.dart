@@ -100,16 +100,19 @@ class _LeadsScreenState extends State<LeadsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = widget.state.isDarkMode;
-    final leads = _getFilteredLeads();
+    return ListenableBuilder(
+      listenable: widget.state,
+      builder: (context, _) {
+        final isDark = widget.state.isDarkMode;
+        final leads = _getFilteredLeads();
 
-    // Tab counts
-    final allCount = widget.state.allLeads.length;
-    final coldCount = widget.state.allLeads.where((l) => l.stage == LeadStage.cold).length;
-    final siteVisitedCount = widget.state.allLeads.where((l) => l.stage == LeadStage.siteVisited).length;
-    final bookedCount = widget.state.allLeads.where((l) => l.stage == LeadStage.booked).length;
+        // Tab counts
+        final allCount = widget.state.allLeads.length;
+        final coldCount = widget.state.allLeads.where((l) => l.stage == LeadStage.cold).length;
+        final siteVisitedCount = widget.state.allLeads.where((l) => l.stage == LeadStage.siteVisited).length;
+        final bookedCount = widget.state.allLeads.where((l) => l.stage == LeadStage.booked).length;
 
-    return Scaffold(
+        return Scaffold(
       backgroundColor: isDark ? AppColors.darkBg : const Color(0xFFF4F7FB),
       body: SafeArea(
         bottom: false,
@@ -304,6 +307,8 @@ class _LeadsScreenState extends State<LeadsScreen> {
         ),
       ),
     );
+      },
+    );
   }
 
   // Segmented Pill Tab
@@ -393,15 +398,6 @@ class _LeadsScreenState extends State<LeadsScreen> {
       badgeTextColor = const Color(0xFF64748B);
     }
 
-    // Avatar image or fallback
-    final avatarUrls = [
-      'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&q=80', // Rahul
-      'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&q=80', // Priya
-      'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&q=80', // Amit
-      'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&q=80', // Sneha
-    ];
-    final avatarUrl = avatarUrls[index % avatarUrls.length];
-
     // Source icon & label
     IconData sourceIcon = Icons.language_rounded;
     String sourceLabel = lead.source.isNotEmpty ? lead.source : 'Website';
@@ -445,31 +441,10 @@ class _LeadsScreenState extends State<LeadsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Top Row: Avatar + Name & Info + Status Pill + 3-dots
+          // Top Row: Name & Info + Status Pill + 3-dots
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Avatar photo
-              ClipOval(
-                child: Image.network(
-                  avatarUrl,
-                  width: 44,
-                  height: 44,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => Container(
-                    width: 44,
-                    height: 44,
-                    color: const Color(0xFF2563EB).withValues(alpha: 0.1),
-                    alignment: Alignment.center,
-                    child: Text(
-                      lead.fullName.isNotEmpty ? lead.fullName.substring(0, 1) : 'U',
-                      style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF2563EB)),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-
               // Name + Subtitle (BHK • Budget) + Project
               Expanded(
                 child: Column(

@@ -25,17 +25,21 @@ class UrlActionService {
     }
   }
 
-  /// 1-Tap Pre-configured WhatsApp Chat (`https://wa.me/`)
+  /// 1-Tap Pre-configured WhatsApp Chat (`https://wa.me/` or `https://api.whatsapp.com/send`)
   static Future<bool> openWhatsApp(
     BuildContext context, {
-    required String phoneNumber,
+    String? phoneNumber,
     required String message,
   }) async {
-    final cleanNumber = phoneNumber.replaceAll(RegExp(r'[^\d]'), '');
-    // Ensure country code is present (defaulting to 91 if 10-digit Indian number)
-    final formattedNumber = cleanNumber.length == 10 ? '91$cleanNumber' : cleanNumber;
     final encodedMessage = Uri.encodeComponent(message);
-    final url = 'https://wa.me/$formattedNumber?text=$encodedMessage';
+    final String url;
+    if (phoneNumber != null && phoneNumber.trim().isNotEmpty) {
+      final cleanNumber = phoneNumber.replaceAll(RegExp(r'[^\d]'), '');
+      final formattedNumber = cleanNumber.length == 10 ? '91$cleanNumber' : cleanNumber;
+      url = 'https://wa.me/$formattedNumber?text=$encodedMessage';
+    } else {
+      url = 'https://api.whatsapp.com/send?text=$encodedMessage';
+    }
     final uri = Uri.parse(url);
 
     try {

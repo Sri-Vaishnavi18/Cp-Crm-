@@ -41,7 +41,7 @@ enum DashboardDatePreset {
 
 class AppState extends ChangeNotifier {
   // Theme Management
-  ThemeMode _themeMode = ThemeMode.dark;
+  ThemeMode _themeMode = ThemeMode.light;
   ThemeMode get themeMode => _themeMode;
   bool get isDarkMode => _themeMode == ThemeMode.dark;
 
@@ -63,6 +63,8 @@ class AppState extends ChangeNotifier {
   List<AppNotificationModel> _notifications = [];
   List<CommissionInvoiceModel> _invoices = [];
   BankDetailsModel? _savedBankDetails;
+  List<CpDocumentModel> _cpDocuments = [];
+  List<ReceivedInvoiceModel> _receivedInvoices = [];
 
   // Date Filter State
   DashboardDatePreset _dashboardDatePreset = DashboardDatePreset.allTime;
@@ -99,11 +101,36 @@ class AppState extends ChangeNotifier {
   List<AppNotificationModel> get notifications => _notifications;
   List<CommissionInvoiceModel> get allInvoices => _invoices;
   BankDetailsModel? get savedBankDetails => _savedBankDetails;
+  List<CpDocumentModel> get cpDocuments => _cpDocuments;
+  List<ReceivedInvoiceModel> get receivedInvoices => _receivedInvoices;
+
+  int get missingMandatoryDocsCount =>
+      _cpDocuments.where((d) => d.isMandatory && (d.status == CpDocumentStatus.missing || d.status == CpDocumentStatus.expired)).length;
+
+  int get pendingReviewDocsCount =>
+      _cpDocuments.where((d) => d.status == CpDocumentStatus.underReview).length;
+
+  double get kycCompletionPercentage {
+    final mandatory = _cpDocuments.where((d) => d.isMandatory).toList();
+    if (mandatory.isEmpty) return 1.0;
+    final verified = mandatory.where((d) => d.status == CpDocumentStatus.verified).length;
+    return verified / mandatory.length;
+  }
+
+  double get totalReceivedDisbursedAmount =>
+      _receivedInvoices.fold(0.0, (acc, item) => acc + item.grossAmount);
+
+  double get totalNetReceivedAmount =>
+      _receivedInvoices.fold(0.0, (acc, item) => acc + item.netAmount);
+
+  double get totalTdsDeductedAmount =>
+      _receivedInvoices.fold(0.0, (acc, item) => acc + item.tdsAmount);
 
   int get unreadNotificationCount => _notifications.where((n) => !n.isRead).length;
 
   // Constructor
-  AppState() {
+  AppState({bool initialIsDark = false}) {
+    _themeMode = initialIsDark ? ThemeMode.dark : ThemeMode.light;
     _initData();
   }
 
@@ -116,6 +143,38 @@ class AppState extends ChangeNotifier {
     _notifications = MockDataService.getNotifications();
     _invoices = MockDataService.getInitialInvoices();
     _savedBankDetails = MockDataService.getInitialBankDetails();
+    _cpDocuments = MockDataService.getInitialCpDocuments();
+    _receivedInvoices = MockDataService.getInitialReceivedInvoices();
+
+    // Load persisted leads if available
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final leadsRaw = prefs.getString('persisted_leads');
+      if (leadsRaw != null && leadsRaw.isNotEmpty) {
+        final decoded = jsonDecode(leadsRaw) as List<dynamic>;
+        final stored = decoded.map((item) => LeadModel.fromJson(item as Map<String, dynamic>)).toList();
+        if (stored.isNotEmpty) {
+          _leads = stored;
+        }
+      }
+    } catch (_) {}
+
+    // Load persisted projects if available
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final projectsRaw = prefs.getString('persisted_projects');
+      if (projectsRaw != null && projectsRaw.isNotEmpty) {
+        final decoded = jsonDecode(projectsRaw) as List<dynamic>;
+        final stored = decoded.map((item) => ProjectModel.fromJson(item as Map<String, dynamic>)).toList();
+        if (stored.isNotEmpty) {
+          for (final proj in stored) {
+            if (!_projects.any((p) => p.id == proj.id)) {
+              _projects.insert(0, proj);
+            }
+          }
+        }
+      }
+    } catch (_) {}
 
     // Check saved session in local device storage
     try {
@@ -125,16 +184,13 @@ class AppState extends ChangeNotifier {
         _currentUser = activeUser;
         _isAuthenticated = true;
       } else {
-        // Default to active demo user session so Dashboard & Leads are immediately accessible
-        _currentUser = _savedUsers.isNotEmpty ? _savedUsers.first : MockDataService.getInitialUser();
-        if (_currentUser != null) {
-          await AuthStorageService.setActiveSession(_currentUser!.id);
-        }
-        _isAuthenticated = true;
+        // Fresh start: do not auto-authenticate, prompt Login Screen
+        _currentUser = null;
+        _isAuthenticated = false;
       }
     } catch (_) {
-      _currentUser = MockDataService.getInitialUser();
-      _isAuthenticated = true;
+      _currentUser = null;
+      _isAuthenticated = false;
     }
 
     // Load saved bank details and invoices from persistent storage
@@ -158,13 +214,33 @@ class AppState extends ChangeNotifier {
           }
         }
       }
+
+      final docsRaw = prefs.getString('persisted_cp_documents');
+      if (docsRaw != null && docsRaw.isNotEmpty) {
+        final decoded = jsonDecode(docsRaw) as List<dynamic>;
+        final stored = decoded.map((item) => CpDocumentModel.fromJson(item as Map<String, dynamic>)).toList();
+        if (stored.isNotEmpty) {
+          _cpDocuments = stored;
+        }
+      }
+
+      final recRaw = prefs.getString('persisted_received_invoices');
+      if (recRaw != null && recRaw.isNotEmpty) {
+        final decoded = jsonDecode(recRaw) as List<dynamic>;
+        final stored = decoded.map((item) => ReceivedInvoiceModel.fromJson(item as Map<String, dynamic>)).toList();
+        if (stored.isNotEmpty) {
+          _receivedInvoices = stored;
+        }
+      }
     } catch (_) {}
 
     // Load saved theme preference
     try {
       final prefs = await SharedPreferences.getInstance();
-      final isDark = prefs.getBool('is_dark_mode') ?? true;
-      _themeMode = isDark ? ThemeMode.dark : ThemeMode.light;
+      if (prefs.containsKey('is_dark_mode')) {
+        final isDark = prefs.getBool('is_dark_mode')!;
+        _themeMode = isDark ? ThemeMode.dark : ThemeMode.light;
+      }
     } catch (_) {}
 
     notifyListeners();
@@ -422,6 +498,7 @@ class AppState extends ChangeNotifier {
     );
 
     _leads.insert(0, newLead);
+    _persistLeads();
 
     // Also trigger notification
     _notifications.insert(
@@ -439,6 +516,16 @@ class AppState extends ChangeNotifier {
 
     notifyListeners();
     return true;
+  }
+
+  Future<void> _persistLeads() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        'persisted_leads',
+        jsonEncode(_leads.map((l) => l.toJson()).toList()),
+      );
+    } catch (_) {}
   }
 
   // Bulk Import Leads
@@ -525,6 +612,7 @@ class AppState extends ChangeNotifier {
     );
 
     notifyListeners();
+    _persistProjects();
   }
 
   // Bulk Import Units for a Project
@@ -573,6 +661,7 @@ class AppState extends ChangeNotifier {
         ),
       );
       notifyListeners();
+      _persistProjects();
     }
 
     return addedCount;
@@ -1242,6 +1331,131 @@ class AppState extends ChangeNotifier {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('saved_bank_details', jsonEncode(_savedBankDetails!.toJson()));
+    } catch (_) {}
+  }
+
+  Future<void> _persistProjects() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final jsonList = _projects.map((p) => p.toJson()).toList();
+      await prefs.setString('persisted_projects', jsonEncode(jsonList));
+    } catch (_) {}
+  }
+
+  Future<void> updateProjectBrochure({
+    required String projectId,
+    required String fileName,
+    required String fileSize,
+  }) async {
+    final idx = _projects.indexWhere((p) => p.id == projectId);
+    if (idx != -1) {
+      _projects[idx].brochureFileName = fileName;
+      _projects[idx].brochureFileSize = fileSize;
+      _projects[idx].brochureUpdatedAt = DateTime.now();
+      notifyListeners();
+      await _persistProjects();
+    }
+  }
+
+  // ==========================================
+  // CP DOCUMENTS & RECEIVED INVOICES ACTIONS
+  // ==========================================
+
+  Future<void> uploadOrUpdateDocument({
+    required String documentId,
+    required String documentNumber,
+    required String fileName,
+    String? fileSize,
+    DateTime? expiresAt,
+    String? remarks,
+    CpDocumentType? documentType,
+    String? title,
+  }) async {
+    final idx = _cpDocuments.indexWhere((d) => d.id == documentId);
+    final now = DateTime.now();
+    if (idx != -1) {
+      final old = _cpDocuments[idx];
+      _cpDocuments[idx] = old.copyWith(
+        documentNumber: documentNumber,
+        fileName: fileName,
+        fileSize: fileSize ?? '1.4 MB',
+        uploadedAt: now,
+        expiresAt: expiresAt,
+        status: CpDocumentStatus.underReview,
+        remarks: remarks ?? 'Uploaded on ${now.day}/${now.month}/${now.year} - verification in review',
+      );
+    } else {
+      _cpDocuments.add(
+        CpDocumentModel(
+          id: documentId,
+          type: documentType ?? CpDocumentType.other,
+          title: title ?? 'Uploaded Document',
+          documentNumber: documentNumber,
+          fileName: fileName,
+          fileSize: fileSize ?? '1.2 MB',
+          uploadedAt: now,
+          expiresAt: expiresAt,
+          status: CpDocumentStatus.underReview,
+          isMandatory: false,
+          remarks: remarks ?? 'Uploaded on ${now.day}/${now.month}/${now.year}',
+        ),
+      );
+    }
+
+    _notifications.insert(
+      0,
+      AppNotificationModel(
+        id: 'notif_${now.millisecondsSinceEpoch}',
+        title: 'Document Uploaded for Verification',
+        message: 'Document #$documentNumber submitted successfully and is currently under compliance review.',
+        type: 'broadcast',
+        timestamp: now,
+      ),
+    );
+
+    notifyListeners();
+    _persistCpDocuments();
+  }
+
+  Future<void> deleteDocument(String documentId) async {
+    final idx = _cpDocuments.indexWhere((d) => d.id == documentId);
+    if (idx != -1) {
+      final doc = _cpDocuments[idx];
+      if (doc.isMandatory) {
+        _cpDocuments[idx] = doc.copyWith(
+          documentNumber: '',
+          fileName: null,
+          fileSize: null,
+          uploadedAt: null,
+          status: CpDocumentStatus.missing,
+        );
+      } else {
+        _cpDocuments.removeAt(idx);
+      }
+      notifyListeners();
+      _persistCpDocuments();
+    }
+  }
+
+  void addReceivedInvoice(ReceivedInvoiceModel invoice) {
+    _receivedInvoices.insert(0, invoice);
+    notifyListeners();
+    _persistReceivedInvoices();
+  }
+
+  Future<void> _persistCpDocuments() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final jsonList = _cpDocuments.map((d) => d.toJson()).toList();
+      await prefs.setString('persisted_cp_documents', jsonEncode(jsonList));
+    } catch (_) {}
+  }
+
+  Future<void> _persistReceivedInvoices() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final jsonList = _receivedInvoices.map((inv) => inv.toJson()).toList();
+      await prefs.setString('persisted_received_invoices', jsonEncode(jsonList));
     } catch (_) {}
   }
 }

@@ -145,9 +145,11 @@ class _AddLeadModalSheetState extends State<AddLeadModalSheet> {
       source: _selectedSource,
     );
 
+    final messenger = ScaffoldMessenger.of(context);
+    final leadName = _firstNameController.text.trim();
     Navigator.of(context).pop();
 
-    ScaffoldMessenger.of(context).showSnackBar(
+    messenger.showSnackBar(
       SnackBar(
         backgroundColor: const Color(0xFF10B981),
         behavior: SnackBarBehavior.floating,
@@ -158,7 +160,7 @@ class _AddLeadModalSheetState extends State<AddLeadModalSheet> {
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                'Lead "${_firstNameController.text}" registered with 60-day Zero-OTP exclusivity!',
+                'Lead "$leadName" registered with 60-day Zero-OTP exclusivity!',
                 style: const TextStyle(fontWeight: FontWeight.w600),
               ),
             ),

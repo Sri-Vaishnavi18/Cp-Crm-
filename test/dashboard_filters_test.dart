@@ -128,8 +128,7 @@ void main() {
       expect(find.text('Sitevisited Leads'), findsOneWidget);
       expect(find.text('Booked Leads'), findsOneWidget);
 
-      // Verify Realtor Header & Sync badge
-      expect(find.text('REALTOR'), findsOneWidget);
+      // Verify Sync badge in top bar
       expect(find.text('SYNCED'), findsOneWidget);
 
       // Verify Today's Activity and Quick Actions sections are removed

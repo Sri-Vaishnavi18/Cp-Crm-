@@ -291,5 +291,72 @@ A-103,Tower A,1,4 BHK,2100,2850,West,22500000,sold
       expect(targetProject.startingPrice.contains('45 L') || targetProject.startingPrice.contains('45'), isTrue);
       expect(state.notifications.first.title, contains('Inventory Units Updated'));
     });
+
+    test('UnitModel and ProjectModel toJson and fromJson serialization works', () {
+      final unit = UnitModel(
+        unitNo: 'A-502',
+        tower: 'Tower A',
+        floor: 5,
+        bhk: '3 BHK',
+        carpetArea: 1420,
+        superArea: 1890,
+        facing: 'East',
+        basePrice: 16500000,
+        status: UnitStatus.available,
+      );
+
+      final unitJson = unit.toJson();
+      final fromJsonUnit = UnitModel.fromJson(unitJson);
+      expect(fromJsonUnit.unitNo, 'A-502');
+      expect(fromJsonUnit.tower, 'Tower A');
+      expect(fromJsonUnit.floor, 5);
+      expect(fromJsonUnit.bhk, '3 BHK');
+      expect(fromJsonUnit.facing, 'East');
+      expect(fromJsonUnit.basePrice, 16500000);
+      expect(fromJsonUnit.status, UnitStatus.available);
+
+      final project = ProjectModel(
+        id: 'proj_test_json',
+        name: 'Test Project',
+        location: 'Hyderabad',
+        startingPrice: '1.65 Cr',
+        reraNumber: 'P02400001234',
+        possessionDate: 'Ready',
+        type: 'Ready to Move',
+        heroImageUrl: 'https://example.com/test.jpg',
+        galleryImages: [],
+        amenities: ['Gym', 'Pool'],
+        approvedBanks: ['HDFC'],
+        distanceDetails: 'Near Metro',
+        towers: ['Tower A'],
+        units: [unit],
+      );
+
+      final projectJson = project.toJson();
+      final fromJsonProject = ProjectModel.fromJson(projectJson);
+      expect(fromJsonProject.id, 'proj_test_json');
+      expect(fromJsonProject.name, 'Test Project');
+      expect(fromJsonProject.units.length, 1);
+      expect(fromJsonProject.units.first.unitNo, 'A-502');
+    });
+
+    test('All mock projects have populated units and towers for unit matrix visibility', () {
+      final state = AppState();
+      for (final project in state.projects) {
+        expect(project.units, isNotEmpty, reason: '${project.name} should have units visible');
+        expect(project.towers, isNotEmpty, reason: '${project.name} should have towers defined');
+        final availableUnits = project.units.where((u) => u.status == UnitStatus.available);
+        expect(availableUnits, isNotEmpty, reason: '${project.name} should have available units');
+      }
+    });
+
+    test('Lead site visits exist in state and link to lead details', () {
+      final state = AppState();
+      expect(state.siteVisits, isNotEmpty);
+      final sampleVisit = state.siteVisits.first;
+      expect(sampleVisit.projectName, isNotEmpty);
+      expect(sampleVisit.clientName, isNotEmpty);
+      expect(sampleVisit.visitCode, isNotEmpty);
+    });
   });
 }

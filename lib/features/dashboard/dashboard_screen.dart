@@ -14,6 +14,7 @@ class DashboardScreen extends StatelessWidget {
   final VoidCallback? onOpenSpocHelpdesk;
   final VoidCallback? onOpenNotifications;
   final VoidCallback? onOpenCommissions;
+  final VoidCallback? onOpenDocs;
   final Function(String filter)? onOpenLeadsWithFilter;
 
   const DashboardScreen({
@@ -28,6 +29,7 @@ class DashboardScreen extends StatelessWidget {
     this.onOpenSpocHelpdesk,
     this.onOpenNotifications,
     this.onOpenCommissions,
+    this.onOpenDocs,
     this.onOpenLeadsWithFilter,
   });
 
@@ -52,11 +54,7 @@ class DashboardScreen extends StatelessWidget {
               _buildTopBar(context, userName, safeRera, isDark),
               const SizedBox(height: 16),
 
-              // 2. Hero Skyline Banner Card (Welcome back, Vaishu 👋 | REALTOR)
-              _buildHeroSkylineCard(context, userName, isDark),
-              const SizedBox(height: 16),
-
-              // 3. Lead Pipeline Analytics (Total Leads, Sitevisited Leads, Booked Leads)
+              // 2. Lead Pipeline Analytics (Total Leads, Sitevisited Leads, Booked Leads)
               _buildLeadAnalyticsSection(context, isDark),
               const SizedBox(height: 16),
 
@@ -211,116 +209,6 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  // Hero Skyline Card matching reference screenshot
-  Widget _buildHeroSkylineCard(BuildContext context, String userName, bool isDark) {
-    return Container(
-      width: double.infinity,
-      height: 132,
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF1E3A8A), Color(0xFF2563EB)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF2563EB).withValues(alpha: 0.28),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Stack(
-        children: [
-          // Subtle Skyline Silhouette Graphic on the right
-          Positioned(
-            right: 0,
-            bottom: 0,
-            top: 0,
-            width: 170,
-            child: ClipRRect(
-              borderRadius: const BorderRadius.horizontal(right: Radius.circular(20)),
-              child: CustomPaint(
-                painter: _SkylinePainter(),
-              ),
-            ),
-          ),
-
-          // Content
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Welcome back,',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.white.withValues(alpha: 0.85),
-                      ),
-                    ),
-                    // REALTOR purple badge
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF8B5CF6),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.verified_user_rounded, color: Colors.white, size: 12),
-                          SizedBox(width: 4),
-                          Text(
-                            'REALTOR',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w800,
-                              color: Colors.white,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '$userName 👋',
-                      style: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                        letterSpacing: -0.4,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      "Let's close more deals today!",
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w400,
-                        color: Colors.white.withValues(alpha: 0.8),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   // Lead Pipeline Analytics: Total Leads, Sitevisited Leads, Booked Leads
   Widget _buildLeadAnalyticsSection(BuildContext context, bool isDark) {
@@ -676,8 +564,8 @@ class DashboardScreen extends StatelessWidget {
                 iconColor: const Color(0xFF0284C7),
                 iconBgColor: const Color(0xFFE0F2FE),
                 isIconCircle: false,
-                subtext: 'GST claims raised',
-                onTap: onOpenCommissions ?? () => onNavigateTab(4),
+                subtext: 'KYC & Payout Vouchers',
+                onTap: onOpenDocs ?? () => onNavigateTab(3),
                 isDark: isDark,
               ),
             ),
@@ -1426,44 +1314,4 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-}
-
-// Custom Painter for subtle skyscraper skyline on the hero card
-class _SkylinePainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.12)
-      ..style = PaintingStyle.fill;
-
-    final path = Path();
-    // Tower 1
-    path.addRect(Rect.fromLTWH(size.width - 150, size.height * 0.45, 26, size.height * 0.55));
-    // Tower 2 (tallest)
-    path.addRect(Rect.fromLTWH(size.width - 118, size.height * 0.15, 36, size.height * 0.85));
-    // Spire
-    path.moveTo(size.width - 100, size.height * 0.15);
-    path.lineTo(size.width - 100, size.height * 0.05);
-    path.lineTo(size.width - 98, size.height * 0.15);
-    path.close();
-    // Tower 3
-    path.addRect(Rect.fromLTWH(size.width - 76, size.height * 0.35, 30, size.height * 0.65));
-    // Tower 4
-    path.addRect(Rect.fromLTWH(size.width - 42, size.height * 0.50, 26, size.height * 0.50));
-
-    canvas.drawPath(path, paint);
-
-    // Subtle window grids
-    final windowPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.22)
-      ..strokeWidth = 1.2
-      ..style = PaintingStyle.stroke;
-
-    for (double y = size.height * 0.25; y < size.height; y += 12) {
-      canvas.drawLine(Offset(size.width - 112, y), Offset(size.width - 88, y), windowPaint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

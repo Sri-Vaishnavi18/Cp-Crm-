@@ -3,7 +3,8 @@ import '../../core/models/app_models.dart';
 import '../../core/state/app_state.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/services/url_action_service.dart';
-import '../commissions/project_commission_table_screen.dart';
+import '../../core/services/file_download_service.dart';
+import '../../core/services/document_picker_service.dart';
 
 class ProjectDetailScreen extends StatefulWidget {
   final AppState state;
@@ -22,7 +23,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
   @override
   void initState() {
     super.initState();
-    _selectedTower = widget.project.towers.isNotEmpty ? widget.project.towers.first : '';
+    _selectedTower = 'All Towers';
   }
 
   @override
@@ -30,7 +31,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
     final isDark = widget.state.isDarkMode;
     final p = widget.project;
     final units = p.units.where((u) {
-      final matchTower = u.tower == _selectedTower;
+      final matchTower = _selectedTower == 'All Towers' || _selectedTower.isEmpty || u.tower == _selectedTower;
       final matchStatus = _selectedUnitFilter == 'ALL' ||
           (_selectedUnitFilter == 'AVAILABLE' && u.status == UnitStatus.available) ||
           (_selectedUnitFilter == 'BLOCKED' && u.status == UnitStatus.blocked) ||
@@ -48,18 +49,9 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
             onPressed: () => _openCostEstimator(context, p),
           ),
           IconButton(
-            icon: const Icon(Icons.account_balance_wallet_outlined),
-            tooltip: 'Commission Slabs & Invoices',
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (ctx) => ProjectCommissionTableScreen(
-                    state: widget.state,
-                    project: p,
-                  ),
-                ),
-              );
-            },
+            icon: const Icon(Icons.picture_as_pdf_outlined),
+            tooltip: 'Add / View Brochure',
+            onPressed: () => _openBrochureUploadModal(context, p),
           ),
         ],
       ),
@@ -132,66 +124,8 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
                   ),
                   const SizedBox(height: 12),
 
-                  // Project Commission Slabs & Invoices Banner
-                  InkWell(
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (ctx) => ProjectCommissionTableScreen(
-                            state: widget.state,
-                            project: p,
-                          ),
-                        ),
-                      );
-                    },
-                    borderRadius: BorderRadius.circular(12),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFDCFCE7),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xFF86EFAC)),
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 32,
-                            height: 32,
-                            decoration: const BoxDecoration(
-                              color: Color(0xFF16A34A),
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(Icons.account_balance_wallet_rounded, color: Colors.white, size: 18),
-                          ),
-                          const SizedBox(width: 10),
-                          const Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Commission Slab: 2.5% - 3.5%',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w700,
-                                    color: Color(0xFF14532D),
-                                  ),
-                                ),
-                                SizedBox(height: 1),
-                                Text(
-                                  'Tap to view unit payouts & raise invoices',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: Color(0xFF166534),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const Icon(Icons.arrow_forward_ios_rounded, size: 12, color: Color(0xFF16A34A)),
-                        ],
-                      ),
-                    ),
-                  ),
+                  // Project Brochure & Collateral Section
+                  _buildBrochureCard(context, p, isDark),
                   const SizedBox(height: 20),
 
                   // Interactive Unit Inventory Explorer Section
@@ -213,7 +147,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
                     SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       child: Row(
-                        children: p.towers.map((t) {
+                        children: ['All Towers', ...p.towers].map((t) {
                           final isSelected = _selectedTower == t;
                           return Padding(
                             padding: const EdgeInsets.only(right: 8),
@@ -267,21 +201,52 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
                   const SizedBox(height: 12),
 
                   // Units Grid
-                  GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      crossAxisSpacing: 10,
-                      mainAxisSpacing: 10,
-                      childAspectRatio: 1.15,
+                  if (units.isEmpty)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 16),
+                      decoration: BoxDecoration(
+                        color: isDark ? AppColors.darkSurface : Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                        ),
+                      ),
+                      child: Column(
+                        children: [
+                          Icon(
+                            Icons.domain_disabled_rounded,
+                            size: 36,
+                            color: isDark ? Colors.grey.shade600 : Colors.grey.shade400,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'No units match the selected filters',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        crossAxisSpacing: 10,
+                        mainAxisSpacing: 10,
+                        childAspectRatio: 1.15,
+                      ),
+                      itemCount: units.length,
+                      itemBuilder: (context, index) {
+                        final u = units[index];
+                        return _buildUnitCard(context, u, isDark);
+                      },
                     ),
-                    itemCount: units.length,
-                    itemBuilder: (context, index) {
-                      final u = units[index];
-                      return _buildUnitCard(context, u, isDark);
-                    },
-                  ),
                   const SizedBox(height: 24),
 
                   // Master Amenities
@@ -525,6 +490,383 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (ctx) => CostEstimatorSheet(state: widget.state, project: project),
+    );
+  }
+
+  Widget _buildBrochureCard(BuildContext context, ProjectModel p, bool isDark) {
+    final brochureName = p.brochureFileName ?? '${p.name.replaceAll(' ', '_')}_Brochure.pdf';
+    final brochureSize = p.brochureFileSize ?? '3.4 MB';
+    final hasCustomBrochure = p.brochureFileName != null;
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkSurface : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? AppColors.darkBorder : const Color(0xFFE2E8F0),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEF4444).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.picture_as_pdf_rounded,
+                  color: Color(0xFFDC2626),
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            'Project Brochure & Collateral',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                              color: isDark ? AppColors.darkTextPrimary : const Color(0xFF0F172A),
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF16A34A).withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            hasCustomBrochure ? 'Custom Upload' : 'Official PDF',
+                            style: const TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF16A34A),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '$brochureName • $brochureSize',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDark ? AppColors.darkTextSecondary : const Color(0xFF64748B),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Divider(height: 1, color: isDark ? AppColors.darkBorder : const Color(0xFFF1F5F9)),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+                    side: BorderSide(color: isDark ? AppColors.darkBorder : const Color(0xFFCBD5E1)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  icon: const Icon(Icons.cloud_upload_outlined, size: 15, color: Color(0xFF2563EB)),
+                  label: Text(
+                    hasCustomBrochure ? 'Replace' : '+ Add Brochure',
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF2563EB)),
+                  ),
+                  onPressed: () => _openBrochureUploadModal(context, p),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+                    side: const BorderSide(color: Color(0xFF25D366)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  icon: const Icon(Icons.share_rounded, size: 15, color: Color(0xFF16A34A)),
+                  label: const Text(
+                    'Share WhatsApp',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF16A34A)),
+                  ),
+                  onPressed: () {
+                    final shareText = '🌟 *${p.name}* (${p.location})\n'
+                        '💰 Starting at *${p.startingPrice}*\n'
+                        '🏢 Status: ${p.type} • Possession: ${p.possessionDate}\n'
+                        '📋 RERA: ${p.reraNumber}\n'
+                        '📄 Attached Brochure: $brochureName ($brochureSize)\n\n'
+                        'Shared by ${widget.state.currentUser?.firmName ?? 'Channel Partner'}.\n'
+                        'Contact: ${widget.state.currentUser?.phone ?? ''}';
+                    UrlActionService.openWhatsApp(context, message: shareText);
+                  },
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+                    backgroundColor: const Color(0xFF2563EB),
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  icon: const Icon(Icons.download_rounded, size: 15),
+                  label: const Text(
+                    'Download',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                  ),
+                  onPressed: () async {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Downloading brochure: $brochureName...'),
+                        backgroundColor: const Color(0xFF2563EB),
+                        duration: const Duration(seconds: 1),
+                      ),
+                    );
+                    await FileDownloadService.downloadProjectBrochurePdf(
+                      projectName: p.name,
+                      location: p.location,
+                      startingPrice: p.startingPrice,
+                      fileName: brochureName,
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _openBrochureUploadModal(BuildContext context, ProjectModel p) {
+    final isDark = widget.state.isDarkMode;
+    String pickedName = p.brochureFileName ?? '${p.name.replaceAll(' ', '_')}_Brochure.pdf';
+    String pickedSize = p.brochureFileSize ?? '3.4 MB';
+    bool hasSelectedNew = false;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (modalCtx, setModalState) {
+          return Container(
+            padding: EdgeInsets.only(
+              top: 20,
+              left: 20,
+              right: 20,
+              bottom: MediaQuery.of(modalCtx).viewInsets.bottom + 24,
+            ),
+            decoration: BoxDecoration(
+              color: isDark ? AppColors.darkSurface : Colors.white,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: isDark ? AppColors.darkBorder : const Color(0xFFCBD5E1),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF2563EB).withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.picture_as_pdf_rounded, color: Color(0xFF2563EB), size: 24),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Add Project Brochure',
+                              style: TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w800,
+                                color: isDark ? AppColors.darkTextPrimary : const Color(0xFF0F172A),
+                              ),
+                            ),
+                            Text(
+                              'Upload official marketing deck or brochure for ${p.name}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: isDark ? AppColors.darkTextSecondary : const Color(0xFF64748B),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    'Select PDF File *',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: isDark ? AppColors.darkTextPrimary : const Color(0xFF334155),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  InkWell(
+                    onTap: () async {
+                      final picked = await DocumentPickerService.pickAnyDocument(accept: '.pdf');
+                      if (picked != null) {
+                        setModalState(() {
+                          pickedName = picked.fileName;
+                          pickedSize = picked.formattedSize;
+                          hasSelectedNew = true;
+                        });
+                      }
+                    },
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                      decoration: BoxDecoration(
+                        color: isDark ? AppColors.darkBg : const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: hasSelectedNew
+                              ? const Color(0xFF16A34A)
+                              : const Color(0xFF2563EB).withValues(alpha: 0.4),
+                          width: hasSelectedNew ? 1.5 : 1,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.picture_as_pdf_rounded,
+                            color: hasSelectedNew ? const Color(0xFF16A34A) : const Color(0xFFDC2626),
+                            size: 28,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  pickedName,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    color: isDark ? AppColors.darkTextPrimary : const Color(0xFF1E293B),
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  hasSelectedNew ? 'Ready to attach • $pickedSize' : 'Tap to browse PDF on your device',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: hasSelectedNew
+                                        ? const Color(0xFF16A34A)
+                                        : (isDark ? AppColors.darkTextSecondary : const Color(0xFF64748B)),
+                                    fontWeight: hasSelectedNew ? FontWeight.bold : FontWeight.normal,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (hasSelectedNew)
+                            const Icon(Icons.check_circle_rounded, color: Color(0xFF16A34A), size: 20)
+                          else
+                            const Icon(Icons.file_upload_outlined, color: Color(0xFF2563EB), size: 20),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF2563EB),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        elevation: 0,
+                      ),
+                      onPressed: () {
+                        widget.state.updateProjectBrochure(
+                          projectId: p.id,
+                          fileName: pickedName,
+                          fileSize: pickedSize,
+                        );
+                        setState(() {
+                          p.brochureFileName = pickedName;
+                          p.brochureFileSize = pickedSize;
+                          p.brochureUpdatedAt = DateTime.now();
+                        });
+                        Navigator.of(ctx).pop();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Brochure attached successfully for ${p.name}!'),
+                            backgroundColor: const Color(0xFF16A34A),
+                          ),
+                        );
+                      },
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.check_circle_outline, size: 18),
+                          SizedBox(width: 8),
+                          Text('Save Project Brochure', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 }

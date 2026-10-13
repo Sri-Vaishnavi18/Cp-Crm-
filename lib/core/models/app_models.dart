@@ -141,6 +141,22 @@ class LeadNoteItem {
     required this.author,
     required this.createdAt,
   });
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'text': text,
+        'author': author,
+        'createdAt': createdAt.toIso8601String(),
+      };
+
+  factory LeadNoteItem.fromJson(Map<String, dynamic> json) => LeadNoteItem(
+        id: json['id'] as String? ?? '',
+        text: json['text'] as String? ?? '',
+        author: json['author'] as String? ?? '',
+        createdAt: json['createdAt'] != null
+            ? DateTime.tryParse(json['createdAt'] as String) ?? DateTime.now()
+            : DateTime.now(),
+      );
 }
 
 class LeadActivityItem {
@@ -155,6 +171,22 @@ class LeadActivityItem {
     required this.timestamp,
     this.subtitle,
   });
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'title': title,
+        'timestamp': timestamp.toIso8601String(),
+        'subtitle': subtitle,
+      };
+
+  factory LeadActivityItem.fromJson(Map<String, dynamic> json) => LeadActivityItem(
+        id: json['id'] as String? ?? '',
+        title: json['title'] as String? ?? '',
+        timestamp: json['timestamp'] != null
+            ? DateTime.tryParse(json['timestamp'] as String) ?? DateTime.now()
+            : DateTime.now(),
+        subtitle: json['subtitle'] as String?,
+      );
 }
 
 enum LeadStage {
@@ -236,6 +268,68 @@ class LeadModel {
 
   String get fullName => '$firstName $lastName'.trim();
 
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'firstName': firstName,
+        'lastName': lastName,
+        'phone': phone,
+        'altPhone': altPhone,
+        'email': email,
+        'budget': budget,
+        'configurations': configurations,
+        'projectId': projectId,
+        'projectName': projectName,
+        'timeline': timeline,
+        'notes': notes,
+        'stage': stage.name,
+        'temperature': temperature.name,
+        'source': source,
+        'createdAt': createdAt.toIso8601String(),
+        'isQueuedOffline': isQueuedOffline,
+        'notesList': notesList.map((n) => n.toJson()).toList(),
+        'siteVisitHistory': siteVisitHistory,
+        'activityList': activityList.map((a) => a.toJson()).toList(),
+      };
+
+  factory LeadModel.fromJson(Map<String, dynamic> json) {
+    return LeadModel(
+      id: json['id'] as String? ?? 'lead_${DateTime.now().millisecondsSinceEpoch}',
+      firstName: json['firstName'] as String? ?? '',
+      lastName: json['lastName'] as String? ?? '',
+      phone: json['phone'] as String? ?? '',
+      altPhone: json['altPhone'] as String?,
+      email: json['email'] as String?,
+      budget: json['budget'] as String? ?? '',
+      configurations: (json['configurations'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
+      projectId: json['projectId'] as String? ?? '',
+      projectName: json['projectName'] as String? ?? '',
+      timeline: json['timeline'] as String? ?? '',
+      notes: json['notes'] as String? ?? '',
+      stage: LeadStage.values.firstWhere(
+        (s) => s.name == json['stage'],
+        orElse: () => LeadStage.cold,
+      ),
+      temperature: LeadTemperature.values.firstWhere(
+        (t) => t.name == json['temperature'],
+        orElse: () => LeadTemperature.cold,
+      ),
+      source: json['source'] as String? ?? 'CHANNEL_PARTNER',
+      createdAt: json['createdAt'] != null
+          ? DateTime.tryParse(json['createdAt'] as String) ?? DateTime.now()
+          : DateTime.now(),
+      isQueuedOffline: json['isQueuedOffline'] as bool? ?? false,
+      notesList: (json['notesList'] as List<dynamic>?)
+              ?.map((e) => LeadNoteItem.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+      siteVisitHistory: (json['siteVisitHistory'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
+      activityList: (json['activityList'] as List<dynamic>?)
+              ?.map((e) => LeadActivityItem.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+    );
+  }
+
   static LeadTemperature getTemperatureForStage(LeadStage stage) {
     switch (stage) {
       case LeadStage.cold:
@@ -289,6 +383,35 @@ class UnitModel {
     required this.status,
     this.holdExpiresAt,
   });
+
+  Map<String, dynamic> toJson() => {
+    'unitNo': unitNo,
+    'tower': tower,
+    'floor': floor,
+    'bhk': bhk,
+    'carpetArea': carpetArea,
+    'superArea': superArea,
+    'facing': facing,
+    'basePrice': basePrice,
+    'status': status.name,
+    'holdExpiresAt': holdExpiresAt,
+  };
+
+  factory UnitModel.fromJson(Map<String, dynamic> json) => UnitModel(
+    unitNo: json['unitNo'] as String? ?? '',
+    tower: json['tower'] as String? ?? '',
+    floor: (json['floor'] as num?)?.toInt() ?? 1,
+    bhk: json['bhk'] as String? ?? '2 BHK',
+    carpetArea: (json['carpetArea'] as num?)?.toDouble() ?? 800.0,
+    superArea: (json['superArea'] as num?)?.toDouble() ?? 1100.0,
+    facing: json['facing'] as String? ?? 'East',
+    basePrice: (json['basePrice'] as num?)?.toDouble() ?? 0.0,
+    status: UnitStatus.values.firstWhere(
+      (s) => s.name == json['status'],
+      orElse: () => UnitStatus.available,
+    ),
+    holdExpiresAt: json['holdExpiresAt'] as String?,
+  );
 }
 
 class ProjectModel {
@@ -306,6 +429,9 @@ class ProjectModel {
   final String distanceDetails;
   final List<String> towers;
   final List<UnitModel> units;
+  String? brochureFileName;
+  String? brochureFileSize;
+  DateTime? brochureUpdatedAt;
 
   ProjectModel({
     required this.id,
@@ -322,7 +448,52 @@ class ProjectModel {
     required this.distanceDetails,
     required this.towers,
     required this.units,
+    this.brochureFileName,
+    this.brochureFileSize,
+    this.brochureUpdatedAt,
   });
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'name': name,
+    'location': location,
+    'startingPrice': startingPrice,
+    'reraNumber': reraNumber,
+    'possessionDate': possessionDate,
+    'type': type,
+    'heroImageUrl': heroImageUrl,
+    'galleryImages': galleryImages,
+    'amenities': amenities,
+    'approvedBanks': approvedBanks,
+    'distanceDetails': distanceDetails,
+    'towers': towers,
+    'units': units.map((u) => u.toJson()).toList(),
+    'brochureFileName': brochureFileName,
+    'brochureFileSize': brochureFileSize,
+    'brochureUpdatedAt': brochureUpdatedAt?.toIso8601String(),
+  };
+
+  factory ProjectModel.fromJson(Map<String, dynamic> json) => ProjectModel(
+    id: json['id'] as String? ?? '',
+    name: json['name'] as String? ?? '',
+    location: json['location'] as String? ?? '',
+    startingPrice: json['startingPrice'] as String? ?? '',
+    reraNumber: json['reraNumber'] as String? ?? '',
+    possessionDate: json['possessionDate'] as String? ?? '',
+    type: json['type'] as String? ?? 'Ongoing',
+    heroImageUrl: json['heroImageUrl'] as String? ?? '',
+    galleryImages: (json['galleryImages'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
+    amenities: (json['amenities'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
+    approvedBanks: (json['approvedBanks'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
+    distanceDetails: json['distanceDetails'] as String? ?? '',
+    towers: (json['towers'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
+    units: (json['units'] as List<dynamic>?)?.map((e) => UnitModel.fromJson(e as Map<String, dynamic>)).toList() ?? [],
+    brochureFileName: json['brochureFileName'] as String?,
+    brochureFileSize: json['brochureFileSize'] as String?,
+    brochureUpdatedAt: json['brochureUpdatedAt'] != null
+        ? DateTime.tryParse(json['brochureUpdatedAt'].toString())
+        : null,
+  );
 }
 
 class SiteVisitModel {
@@ -1098,3 +1269,313 @@ B-401,Tower B,4,4 BHK,1650,2250,West,19500000,available''';
     return result;
   }
 }
+
+// ==========================================
+// CP DOCUMENTS & RECEIVED INVOICES MODELS
+// ==========================================
+
+enum CpDocumentType {
+  reraCertificate,
+  panCard,
+  gstCertificate,
+  aadhaarCard,
+  cpAgreement,
+  cancelledCheque,
+  other,
+}
+
+extension CpDocumentTypeExtension on CpDocumentType {
+  String get displayName {
+    switch (this) {
+      case CpDocumentType.reraCertificate:
+        return 'RERA Certificate';
+      case CpDocumentType.panCard:
+        return 'PAN Card';
+      case CpDocumentType.gstCertificate:
+        return 'GST Certificate';
+      case CpDocumentType.aadhaarCard:
+        return 'Aadhaar / ID Proof';
+      case CpDocumentType.cpAgreement:
+        return 'CP Agreement / MOU';
+      case CpDocumentType.cancelledCheque:
+        return 'Bank Proof / Cheque';
+      case CpDocumentType.other:
+        return 'Other Document';
+    }
+  }
+
+  String get category {
+    switch (this) {
+      case CpDocumentType.reraCertificate:
+      case CpDocumentType.panCard:
+      case CpDocumentType.aadhaarCard:
+        return 'Mandatory (KYC)';
+      case CpDocumentType.gstCertificate:
+        return 'Tax & Legal';
+      case CpDocumentType.cpAgreement:
+        return 'Agreements';
+      case CpDocumentType.cancelledCheque:
+        return 'Banking';
+      case CpDocumentType.other:
+        return 'General';
+    }
+  }
+}
+
+enum CpDocumentStatus {
+  verified,
+  underReview,
+  missing,
+  expired,
+}
+
+extension CpDocumentStatusExtension on CpDocumentStatus {
+  String get displayName {
+    switch (this) {
+      case CpDocumentStatus.verified:
+        return 'Verified';
+      case CpDocumentStatus.underReview:
+        return 'Under Review';
+      case CpDocumentStatus.missing:
+        return 'Action Required';
+      case CpDocumentStatus.expired:
+        return 'Expired';
+    }
+  }
+}
+
+class CpDocumentModel {
+  final String id;
+  final CpDocumentType type;
+  final String title;
+  final String documentNumber;
+  final String? fileUrl;
+  final String? fileName;
+  final String? fileSize;
+  final DateTime? uploadedAt;
+  final DateTime? expiresAt;
+  final CpDocumentStatus status;
+  final bool isMandatory;
+  final String? remarks;
+
+  CpDocumentModel({
+    required this.id,
+    required this.type,
+    required this.title,
+    required this.documentNumber,
+    this.fileUrl,
+    this.fileName,
+    this.fileSize,
+    this.uploadedAt,
+    this.expiresAt,
+    this.status = CpDocumentStatus.missing,
+    this.isMandatory = true,
+    this.remarks,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'type': type.name,
+    'title': title,
+    'documentNumber': documentNumber,
+    'fileUrl': fileUrl,
+    'fileName': fileName,
+    'fileSize': fileSize,
+    'uploadedAt': uploadedAt?.toIso8601String(),
+    'expiresAt': expiresAt?.toIso8601String(),
+    'status': status.name,
+    'isMandatory': isMandatory,
+    'remarks': remarks,
+  };
+
+  factory CpDocumentModel.fromJson(Map<String, dynamic> json) => CpDocumentModel(
+    id: json['id']?.toString() ?? '',
+    type: CpDocumentType.values.firstWhere(
+      (e) => e.name == json['type'],
+      orElse: () => CpDocumentType.other,
+    ),
+    title: json['title']?.toString() ?? '',
+    documentNumber: json['documentNumber']?.toString() ?? '',
+    fileUrl: json['fileUrl']?.toString(),
+    fileName: json['fileName']?.toString(),
+    fileSize: json['fileSize']?.toString(),
+    uploadedAt: json['uploadedAt'] != null ? DateTime.tryParse(json['uploadedAt'].toString()) : null,
+    expiresAt: json['expiresAt'] != null ? DateTime.tryParse(json['expiresAt'].toString()) : null,
+    status: CpDocumentStatus.values.firstWhere(
+      (e) => e.name == json['status'],
+      orElse: () => CpDocumentStatus.missing,
+    ),
+    isMandatory: json['isMandatory'] == true,
+    remarks: json['remarks']?.toString(),
+  );
+
+  CpDocumentModel copyWith({
+    String? id,
+    CpDocumentType? type,
+    String? title,
+    String? documentNumber,
+    String? fileUrl,
+    String? fileName,
+    String? fileSize,
+    DateTime? uploadedAt,
+    DateTime? expiresAt,
+    CpDocumentStatus? status,
+    bool? isMandatory,
+    String? remarks,
+  }) {
+    return CpDocumentModel(
+      id: id ?? this.id,
+      type: type ?? this.type,
+      title: title ?? this.title,
+      documentNumber: documentNumber ?? this.documentNumber,
+      fileUrl: fileUrl ?? this.fileUrl,
+      fileName: fileName ?? this.fileName,
+      fileSize: fileSize ?? this.fileSize,
+      uploadedAt: uploadedAt ?? this.uploadedAt,
+      expiresAt: expiresAt ?? this.expiresAt,
+      status: status ?? this.status,
+      isMandatory: isMandatory ?? this.isMandatory,
+      remarks: remarks ?? this.remarks,
+    );
+  }
+}
+
+enum ReceivedInvoiceType {
+  siteVisitPayout,
+  bookingBrokerage,
+  builderTaxInvoice,
+  tdsCertificate16A,
+}
+
+extension ReceivedInvoiceTypeExtension on ReceivedInvoiceType {
+  String get displayName {
+    switch (this) {
+      case ReceivedInvoiceType.siteVisitPayout:
+        return 'Site Visit Payout';
+      case ReceivedInvoiceType.bookingBrokerage:
+        return 'Booking Brokerage';
+      case ReceivedInvoiceType.builderTaxInvoice:
+        return 'Tax Invoice';
+      case ReceivedInvoiceType.tdsCertificate16A:
+        return 'TDS Form 16A';
+    }
+  }
+}
+
+enum ReceivedInvoiceStatus {
+  credited,
+  processing,
+  underReview,
+}
+
+extension ReceivedInvoiceStatusExtension on ReceivedInvoiceStatus {
+  String get displayName {
+    switch (this) {
+      case ReceivedInvoiceStatus.credited:
+        return 'Credited to Bank';
+      case ReceivedInvoiceStatus.processing:
+        return 'In Bank Processing';
+      case ReceivedInvoiceStatus.underReview:
+        return 'Verification Pending';
+    }
+  }
+}
+
+class ReceivedInvoiceModel {
+  final String id;
+  final String voucherNumber;
+  final String invoiceNumber;
+  final String leadId;
+  final String clientName;
+  final String projectId;
+  final String projectName;
+  final String? unitNumber;
+  final ReceivedInvoiceType type;
+  final double grossAmount;
+  final double tdsRate;
+  final double tdsAmount;
+  final double netAmount;
+  final DateTime disbursedDate;
+  final ReceivedInvoiceStatus status;
+  final String bankName;
+  final String bankAccountNumber;
+  final String utrNumber;
+  final String financialYear;
+  final String? notes;
+
+  ReceivedInvoiceModel({
+    required this.id,
+    required this.voucherNumber,
+    required this.invoiceNumber,
+    required this.leadId,
+    required this.clientName,
+    required this.projectId,
+    required this.projectName,
+    this.unitNumber,
+    required this.type,
+    required this.grossAmount,
+    this.tdsRate = 0.05,
+    required this.tdsAmount,
+    required this.netAmount,
+    required this.disbursedDate,
+    this.status = ReceivedInvoiceStatus.credited,
+    required this.bankName,
+    required this.bankAccountNumber,
+    required this.utrNumber,
+    this.financialYear = 'FY 2024-25',
+    this.notes,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'voucherNumber': voucherNumber,
+    'invoiceNumber': invoiceNumber,
+    'leadId': leadId,
+    'clientName': clientName,
+    'projectId': projectId,
+    'projectName': projectName,
+    'unitNumber': unitNumber,
+    'type': type.name,
+    'grossAmount': grossAmount,
+    'tdsRate': tdsRate,
+    'tdsAmount': tdsAmount,
+    'netAmount': netAmount,
+    'disbursedDate': disbursedDate.toIso8601String(),
+    'status': status.name,
+    'bankName': bankName,
+    'bankAccountNumber': bankAccountNumber,
+    'utrNumber': utrNumber,
+    'financialYear': financialYear,
+    'notes': notes,
+  };
+
+  factory ReceivedInvoiceModel.fromJson(Map<String, dynamic> json) => ReceivedInvoiceModel(
+    id: json['id']?.toString() ?? '',
+    voucherNumber: json['voucherNumber']?.toString() ?? '',
+    invoiceNumber: json['invoiceNumber']?.toString() ?? '',
+    leadId: json['leadId']?.toString() ?? '',
+    clientName: json['clientName']?.toString() ?? '',
+    projectId: json['projectId']?.toString() ?? '',
+    projectName: json['projectName']?.toString() ?? '',
+    unitNumber: json['unitNumber']?.toString(),
+    type: ReceivedInvoiceType.values.firstWhere(
+      (e) => e.name == json['type'],
+      orElse: () => ReceivedInvoiceType.siteVisitPayout,
+    ),
+    grossAmount: (json['grossAmount'] as num?)?.toDouble() ?? 0.0,
+    tdsRate: (json['tdsRate'] as num?)?.toDouble() ?? 0.05,
+    tdsAmount: (json['tdsAmount'] as num?)?.toDouble() ?? 0.0,
+    netAmount: (json['netAmount'] as num?)?.toDouble() ?? 0.0,
+    disbursedDate: json['disbursedDate'] != null ? DateTime.tryParse(json['disbursedDate'].toString()) ?? DateTime.now() : DateTime.now(),
+    status: ReceivedInvoiceStatus.values.firstWhere(
+      (e) => e.name == json['status'],
+      orElse: () => ReceivedInvoiceStatus.credited,
+    ),
+    bankName: json['bankName']?.toString() ?? '',
+    bankAccountNumber: json['bankAccountNumber']?.toString() ?? '',
+    utrNumber: json['utrNumber']?.toString() ?? '',
+    financialYear: json['financialYear']?.toString() ?? 'FY 2024-25',
+    notes: json['notes']?.toString(),
+  );
+}
+

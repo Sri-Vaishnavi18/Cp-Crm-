@@ -5,8 +5,8 @@ import '../../shared/widgets/app_widgets.dart';
 import '../dashboard/dashboard_screen.dart';
 import '../leads/leads_screen.dart';
 import '../projects/projects_screen.dart';
-import '../collaterals/collaterals_screen.dart';
 import '../site_visits/site_visits_screen.dart';
+import '../docs/docs_screen.dart';
 import '../commissions/commissions_screen.dart';
 import '../spoc_helpdesk/spoc_screen.dart';
 import '../notifications/notifications_screen.dart';
@@ -75,48 +75,51 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = widget.state.isDarkMode;
+    return ListenableBuilder(
+      listenable: widget.state,
+      builder: (context, _) {
+        final isDark = widget.state.isDarkMode;
 
-    final screens = [
-      DashboardScreen(
-        state: widget.state,
-        onNavigateTab: (idx) => setState(() {
-          _leadInitialFilter = null;
-          _currentIndex = idx;
-        }),
-        onOpenAddLead: _openAddLeadModal,
-        onOpenScheduleVisit: _openScheduleVisitModal,
-        onOpenProfile: _openProfileScreen,
-        onOpenSiteVisits: _openSiteVisitsScreen,
-        onOpenCollaterals: () => setState(() => _currentIndex = 3),
-        onOpenSpocHelpdesk: _openSpocHelpdesk,
-        onOpenNotifications: _openNotifications,
-        onOpenCommissions: () => setState(() => _currentIndex = 4),
-        onOpenLeadsWithFilter: (filter) => setState(() {
-          _leadInitialFilter = filter;
-          _currentIndex = 1;
-        }),
-      ),
-      LeadsScreen(
-        key: ValueKey(_leadInitialFilter ?? 'all_leads'),
-        state: widget.state,
-        initialFilter: _leadInitialFilter,
-        onOpenAddLead: _openAddLeadModal,
-        onBack: () => setState(() => _currentIndex = 0),
-      ),
-      ProjectsScreen(
-        state: widget.state,
-        onBack: () => setState(() => _currentIndex = 0),
-      ),
-      CollateralsScreen(
-        state: widget.state,
-        onBack: () => setState(() => _currentIndex = 0),
-      ),
-      CommissionsScreen(
-        state: widget.state,
-        onBack: () => setState(() => _currentIndex = 0),
-      ),
-    ];
+        final screens = [
+          DashboardScreen(
+            state: widget.state,
+            onNavigateTab: (idx) => setState(() {
+              _leadInitialFilter = null;
+              _currentIndex = idx;
+            }),
+            onOpenAddLead: _openAddLeadModal,
+            onOpenScheduleVisit: _openScheduleVisitModal,
+            onOpenProfile: _openProfileScreen,
+            onOpenSiteVisits: _openSiteVisitsScreen,
+            onOpenSpocHelpdesk: _openSpocHelpdesk,
+            onOpenNotifications: _openNotifications,
+            onOpenCommissions: () => setState(() => _currentIndex = 4),
+            onOpenDocs: () => setState(() => _currentIndex = 3),
+            onOpenLeadsWithFilter: (filter) => setState(() {
+              _leadInitialFilter = filter;
+              _currentIndex = 1;
+            }),
+          ),
+          LeadsScreen(
+            key: ValueKey(_leadInitialFilter ?? 'all_leads'),
+            state: widget.state,
+            initialFilter: _leadInitialFilter,
+            onOpenAddLead: _openAddLeadModal,
+            onBack: () => setState(() => _currentIndex = 0),
+          ),
+          ProjectsScreen(
+            state: widget.state,
+            onBack: () => setState(() => _currentIndex = 0),
+          ),
+          DocsScreen(
+            state: widget.state,
+            onBack: () => setState(() => _currentIndex = 0),
+          ),
+          CommissionsScreen(
+            state: widget.state,
+            onBack: () => setState(() => _currentIndex = 0),
+          ),
+        ];
 
     return Scaffold(
       body: Stack(
@@ -194,7 +197,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                 label: 'Leads',
                 activeIcon: Icons.people_alt_rounded,
                 inactiveIcon: Icons.people_alt_outlined,
-                badgeCount: 5,
+                badgeCount: widget.state.allLeads.isNotEmpty ? widget.state.allLeads.length : null,
                 isDark: isDark,
               ),
               _buildBottomNavItem(
@@ -206,9 +209,10 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
               ),
               _buildBottomNavItem(
                 index: 3,
-                label: 'Collateral',
-                activeIcon: Icons.folder_rounded,
-                inactiveIcon: Icons.folder_outlined,
+                label: 'Docs',
+                activeIcon: Icons.folder_shared_rounded,
+                inactiveIcon: Icons.folder_shared_outlined,
+                badgeCount: widget.state.missingMandatoryDocsCount > 0 ? widget.state.missingMandatoryDocsCount : null,
                 isDark: isDark,
               ),
               _buildBottomNavItem(
@@ -222,6 +226,8 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
           ),
         ),
       ),
+    );
+      },
     );
   }
 

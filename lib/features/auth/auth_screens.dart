@@ -150,8 +150,8 @@ class _LoginScreenState extends State<LoginScreen> {
                           Colors.black.withValues(alpha: 0.70),
                         ]
                       : [
-                          Colors.black.withValues(alpha: 0.15),
-                          Colors.black.withValues(alpha: 0.35),
+                          Colors.white.withValues(alpha: 0.65),
+                          Colors.white.withValues(alpha: 0.85),
                         ],
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,

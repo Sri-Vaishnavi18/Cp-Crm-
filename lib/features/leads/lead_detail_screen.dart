@@ -4,6 +4,7 @@ import '../../core/services/document_picker_service.dart';
 import '../../core/services/url_action_service.dart';
 import '../../core/state/app_state.dart';
 import '../../core/theme/app_theme.dart';
+import '../../shared/widgets/app_widgets.dart';
 
 class LeadDetailScreen extends StatefulWidget {
   final AppState state;
@@ -21,6 +22,20 @@ class LeadDetailScreen extends StatefulWidget {
 
 class _LeadDetailScreenState extends State<LeadDetailScreen> {
   int _selectedTab = 0; // 0: Overview, 1: Site Visits, 2: Payouts & Invoices, 3: Notes & Timeline
+
+  void _openScheduleVisit(LeadModel lead) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => ScheduleVisitModalSheet(
+        state: widget.state,
+        preselectedLeadId: lead.id,
+      ),
+    ).then((_) {
+      if (mounted) setState(() {});
+    });
+  }
 
   LeadModel? _getLead() {
     final list = widget.state.allLeads;
@@ -661,6 +676,8 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
                       const SizedBox(height: 16),
                       _buildStatusAndTemperatureCard(lead, isDark, tempColor),
                       const SizedBox(height: 16),
+                      _buildSiteVisitHistoryCard(lead, isDark),
+                      const SizedBox(height: 16),
                       _buildUpdateStatusCard(lead, isDark),
                     ] else if (_selectedTab == 1) ...[
                       // TAB 2: SITE VISITS & ZERO-OTP PASSES
@@ -805,28 +822,9 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
         ),
       ),
       clipBehavior: Clip.antiAlias,
-      child: Stack(
-        children: [
-          // Left Warm Amber Accent Strip
-          Positioned(
-            left: 0,
-            top: 0,
-            bottom: 0,
-            child: Container(
-              width: 5,
-              decoration: const BoxDecoration(
-                color: Color(0xFFF59E0B),
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(20),
-                  bottomLeft: Radius.circular(20),
-                ),
-              ),
-            ),
-          ),
-
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-            child: Column(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Top Row: Avatar with Star, Name, Temperature Badge, Channel Partner Badge
@@ -986,109 +984,9 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 18),
-
-                // Subtle Divider Line
-                Container(
-                  height: 1,
-                  color: isDark ? const Color(0xFF222F43) : AppColors.lightBorder,
-                ),
-                const SizedBox(height: 18),
-
-                // 5-Stage Pipeline Progress Stepper (Screenshot 1)
-                _buildPipelineStepper(lead, isDark),
               ],
             ),
           ),
-        ],
-      ),
-    );
-  }
-
-  // Pipeline Stepper (5 Steps: Lead Created, Contacted, Site Visit, Negotiation, Booked)
-  Widget _buildPipelineStepper(LeadModel lead, bool isDark) {
-    const steps = [
-      'Lead Created',
-      'Contacted',
-      'Site Visit',
-      'Negotiation',
-      'Booked',
-    ];
-
-    final currentIndex = lead.pipelineStepIndex;
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return Column(
-          children: [
-            // Connector Nodes Row
-            Row(
-              children: List.generate(steps.length * 2 - 1, (index) {
-                if (index.isEven) {
-                  // Node
-                  final stepIndex = index ~/ 2;
-                  final isCompleted = stepIndex <= currentIndex;
-
-                  return Container(
-                    width: 16,
-                    height: 16,
-                    decoration: BoxDecoration(
-                      color: isCompleted
-                          ? const Color(0xFFF59E0B)
-                          : (isDark ? const Color(0xFF131A26) : Colors.white),
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: isCompleted
-                            ? const Color(0xFFF59E0B)
-                            : (isDark ? const Color(0xFF334155) : Colors.grey.shade400),
-                        width: isCompleted ? 2 : 2.5,
-                      ),
-                    ),
-                  );
-                } else {
-                  // Connecting Line
-                  final stepBefore = index ~/ 2;
-                  final isCompleted = stepBefore < currentIndex;
-
-                  return Expanded(
-                    child: Container(
-                      height: 2.5,
-                      color: isCompleted
-                          ? const Color(0xFFF59E0B)
-                          : (isDark ? const Color(0xFF2A374A) : Colors.grey.shade300),
-                    ),
-                  );
-                }
-              }),
-            ),
-            const SizedBox(height: 8),
-
-            // Step Labels Row
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: List.generate(steps.length, (index) {
-                final isCompleted = index <= currentIndex;
-                final isCurrent = index == currentIndex;
-
-                return SizedBox(
-                  width: (constraints.maxWidth - 20) / steps.length,
-                  child: Text(
-                    steps[index],
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: isCurrent ? FontWeight.w800 : (isCompleted ? FontWeight.w700 : FontWeight.w500),
-                      color: isCompleted
-                          ? (isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary)
-                          : (isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted),
-                    ),
-                  ),
-                );
-              }),
-            ),
-          ],
-        );
-      },
     );
   }
 
@@ -1724,8 +1622,17 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
     );
   }
 
-  // 7. SITE VISIT HISTORY CARD (Screenshot 3 - Zero-OTP direct verification)
+  // 7. SITE VISIT HISTORY CARD (Rich Zero-OTP verification & schedule action)
   Widget _buildSiteVisitHistoryCard(LeadModel lead, bool isDark) {
+    final visits = widget.state.siteVisits
+        .where((v) =>
+            v.leadId == lead.id ||
+            v.clientPhone == lead.phone ||
+            (lead.fullName.isNotEmpty && v.clientName.toLowerCase() == lead.fullName.toLowerCase()))
+        .toList();
+    final rawHistory = lead.siteVisitHistory;
+    final totalCount = visits.length + rawHistory.length;
+
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
@@ -1740,36 +1647,120 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Icon(Icons.location_on_outlined, color: Color(0xFF818CF8), size: 20),
-              const SizedBox(width: 8),
-              Text(
-                'Site Visit History',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+              Row(
+                children: [
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF2563EB).withValues(alpha: 0.15),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Center(
+                      child: Icon(Icons.location_on_rounded, color: Color(0xFF2563EB), size: 18),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    'Site Visit History',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                    ),
+                  ),
+                  if (totalCount > 0) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF2563EB).withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        '$totalCount',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF2563EB),
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              InkWell(
+                onTap: () => _openScheduleVisit(lead),
+                borderRadius: BorderRadius.circular(10),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF2563EB),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.add_rounded, color: Colors.white, size: 14),
+                      SizedBox(width: 3),
+                      Text(
+                        'Schedule',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 16),
 
-          if (lead.siteVisitHistory.isEmpty)
+          if (visits.isEmpty && rawHistory.isEmpty)
             Center(
               child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                child: Text(
-                  'No site visit history yet',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
-                  ),
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.event_busy_rounded,
+                      size: 32,
+                      color: isDark ? Colors.grey.shade600 : Colors.grey.shade400,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'No site visits recorded yet for this client',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    OutlinedButton.icon(
+                      onPressed: () => _openScheduleVisit(lead),
+                      icon: const Icon(Icons.add_rounded, size: 16, color: Color(0xFF2563EB)),
+                      label: const Text(
+                        'Schedule First Visit',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF2563EB)),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        side: const BorderSide(color: Color(0xFF2563EB)),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             )
-          else
-            ...lead.siteVisitHistory.map((item) {
+          else ...[
+            ...visits.map((v) => _buildSiteVisitItem(v, isDark)),
+            ...rawHistory.map((item) {
               return Container(
                 margin: const EdgeInsets.only(bottom: 10),
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -1781,17 +1772,212 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
                     width: 1,
                   ),
                 ),
-                child: Text(
-                  item,
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w600,
-                    height: 1.4,
-                    color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
-                  ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.history_rounded, size: 16, color: Color(0xFF818CF8)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        item,
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          height: 1.4,
+                          color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               );
             }),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSiteVisitItem(SiteVisitModel visit, bool isDark) {
+    Color statusColor;
+    Color statusBg;
+    switch (visit.status.toUpperCase()) {
+      case 'COMPLETED':
+        statusColor = const Color(0xFF16A34A);
+        statusBg = const Color(0xFFDCFCE7);
+        break;
+      case 'CHECKED_IN':
+        statusColor = const Color(0xFFD97706);
+        statusBg = const Color(0xFFFEF3C7);
+        break;
+      case 'CANCELLED':
+        statusColor = const Color(0xFFDC2626);
+        statusBg = const Color(0xFFFEE2E2);
+        break;
+      default: // SCHEDULED
+        statusColor = const Color(0xFF2563EB);
+        statusBg = const Color(0xFFDBEAFE);
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF17202F) : const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isDark ? const Color(0xFF28364D) : const Color(0xFFE2E8F0),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Row(
+                  children: [
+                    const Icon(Icons.apartment_rounded, size: 16, color: Color(0xFF2563EB)),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        visit.projectName,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: isDark ? AppColors.darkTextPrimary : const Color(0xFF0F172A),
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: statusBg,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  visit.status.toUpperCase(),
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    color: statusColor,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Icon(Icons.access_time_rounded, size: 13, color: isDark ? AppColors.darkTextMuted : const Color(0xFF64748B)),
+              const SizedBox(width: 5),
+              Text(
+                _formatActivityDate(visit.scheduledAt),
+                style: TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w500,
+                  color: isDark ? AppColors.darkTextSecondary : const Color(0xFF64748B),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  'PASS: ${visit.visitCode}',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    color: isDark ? AppColors.darkTextPrimary : const Color(0xFF334155),
+                  ),
+                ),
+              ),
+              if (visit.accompanying)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE0E7FF),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: const Text(
+                    'With Partner',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF4338CA),
+                    ),
+                  ),
+                ),
+              if (visit.cabRequired)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEF3C7),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: const Text(
+                    '🚖 Cab Requested',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFFB45309),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          if (visit.salesRepName != null && visit.salesRepName!.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              'Attended by: ${visit.salesRepName}',
+              style: TextStyle(
+                fontSize: 11,
+                color: isDark ? AppColors.darkTextMuted : const Color(0xFF64748B),
+              ),
+            ),
+          ],
+          if (visit.feedback != null && visit.feedback!.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF0F172A) : Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: isDark ? Colors.white10 : Colors.black12),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.chat_bubble_outline_rounded, size: 12, color: Color(0xFF3B82F6)),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      visit.feedback!,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontStyle: FontStyle.italic,
+                        color: isDark ? AppColors.darkTextSecondary : const Color(0xFF334155),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );

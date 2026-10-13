@@ -1284,7 +1284,7 @@ class UserProfileModalSheet extends StatelessWidget {
           ElevatedButton(
             onPressed: () async {
               Navigator.of(ctx).pop(); // Close dialog
-              Navigator.of(context).pop(); // Close modal sheet
+              Navigator.of(context).popUntil((route) => route.isFirst); // Close modal and all pushed routes back to root
               await state.logout();
             },
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger),

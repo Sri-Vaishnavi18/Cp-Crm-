@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'core/theme/app_theme.dart';
 import 'core/state/app_state.dart';
 import 'features/auth/auth_screens.dart';
@@ -6,11 +7,17 @@ import 'features/home/main_navigation_shell.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const CpCrmApp());
+  bool initialIsDark = false;
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    initialIsDark = prefs.getBool('is_dark_mode') ?? false;
+  } catch (_) {}
+  runApp(CpCrmApp(initialIsDark: initialIsDark));
 }
 
 class CpCrmApp extends StatefulWidget {
-  const CpCrmApp({super.key});
+  final bool initialIsDark;
+  const CpCrmApp({super.key, this.initialIsDark = false});
 
   @override
   State<CpCrmApp> createState() => _CpCrmAppState();
@@ -23,7 +30,7 @@ class _CpCrmAppState extends State<CpCrmApp> {
   @override
   void initState() {
     super.initState();
-    _state = AppState();
+    _state = AppState(initialIsDark: widget.initialIsDark);
   }
 
   @override
