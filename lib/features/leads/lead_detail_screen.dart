@@ -21,7 +21,6 @@ class LeadDetailScreen extends StatefulWidget {
 }
 
 class _LeadDetailScreenState extends State<LeadDetailScreen> {
-  int _selectedTab = 0; // 0: Overview, 1: Site Visits, 2: Payouts & Invoices, 3: Notes & Timeline
 
   void _openScheduleVisit(LeadModel lead) {
     showModalBottomSheet(
@@ -665,32 +664,22 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
                     _buildActionButtonsGrid(lead, isDark),
                     const SizedBox(height: 16),
 
-                    // 3. ERGONOMIC SEGMENTED TAB BAR
-                    _buildSegmentedTabBar(lead, isDark),
+                    // 3. UNIFIED LEAD DETAILS CONTENT
+                    _buildLeadInformationCard(lead, isDark),
                     const SizedBox(height: 16),
-
-                    // 4. TAB-SPECIFIC CONTENT (Ergonomic thumb-accessible navigation)
-                    if (_selectedTab == 0) ...[
-                      // TAB 1: OVERVIEW & PIPELINE
-                      _buildLeadInformationCard(lead, isDark),
-                      const SizedBox(height: 16),
-                      _buildStatusAndTemperatureCard(lead, isDark, tempColor),
-                      const SizedBox(height: 16),
-                      _buildSiteVisitHistoryCard(lead, isDark),
-                      const SizedBox(height: 16),
-                      _buildUpdateStatusCard(lead, isDark),
-                    ] else if (_selectedTab == 1) ...[
-                      // TAB 2: SITE VISITS & ZERO-OTP PASSES
-                      _buildSiteVisitHistoryCard(lead, isDark),
-                    ] else if (_selectedTab == 2) ...[
-                      // TAB 3: INVOICES & BROKERAGE PAYOUTS
-                      _buildInvoicesAndCommissionsCard(lead, isDark),
-                    ] else ...[
-                      // TAB 4: AUDIT TIMELINE & NOTES
-                      _buildNotesCard(lead, isDark),
-                      const SizedBox(height: 16),
-                      _buildActivityTimelineCard(lead, isDark),
-                    ],
+                    _buildStatusAndTemperatureCard(lead, isDark, tempColor),
+                    const SizedBox(height: 16),
+                    _buildSiteVisitHistoryCard(lead, isDark),
+                    const SizedBox(height: 16),
+                    _buildInvoicesAndCommissionsCard(lead, isDark),
+                    const SizedBox(height: 16),
+                    _buildNotesCard(lead, isDark),
+                    const SizedBox(height: 16),
+                    _buildActivityTimelineCard(lead, isDark),
+                    const SizedBox(height: 16),
+                    _buildUpdateStatusCard(lead, isDark),
+                    const SizedBox(height: 20),
+                    PoweredByBranding(isDark: isDark),
                     const SizedBox(height: 24),
                   ],
                 ),
@@ -698,112 +687,6 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  // Segmented Pill Navigation Bar
-  Widget _buildSegmentedTabBar(LeadModel lead, bool isDark) {
-    final visitCount = widget.state.siteVisits.where((v) => v.leadId == lead.id).length;
-    final invoiceCount = widget.state.getInvoicesForLead(lead.id).length;
-    final timelineCount = lead.notesList.length + lead.activityList.length;
-
-    final tabs = [
-      ('Overview', Icons.badge_outlined, null),
-      ('Site Visits', Icons.confirmation_number_outlined, visitCount > 0 ? '$visitCount' : null),
-      ('Invoices', Icons.receipt_long_rounded, invoiceCount > 0 ? '$invoiceCount' : null),
-      ('Timeline', Icons.history_rounded, timelineCount > 0 ? '$timelineCount' : null),
-    ];
-
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF131A26) : AppColors.lightSurfaceSubtle,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: isDark ? const Color(0xFF222F43) : AppColors.lightBorder,
-        ),
-      ),
-      child: Row(
-        children: List.generate(tabs.length, (idx) {
-          final item = tabs[idx];
-          final isSelected = _selectedTab == idx;
-          return Expanded(
-            child: InkWell(
-              borderRadius: BorderRadius.circular(10),
-              onTap: () => setState(() => _selectedTab = idx),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                curve: Curves.easeInOut,
-                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 2),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? (isDark ? const Color(0xFF1E293B) : Colors.white)
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(10),
-                  boxShadow: isSelected
-                      ? [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.1),
-                            blurRadius: 4,
-                            offset: const Offset(0, 2),
-                          ),
-                        ]
-                      : null,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      item.$2,
-                      size: 13,
-                      color: isSelected
-                          ? (isDark ? AppColors.accentGold : AppColors.primary)
-                          : (isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary),
-                    ),
-                    const SizedBox(width: 4),
-                    Flexible(
-                      child: Text(
-                        item.$1,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                          color: isSelected
-                              ? (isDark ? Colors.white : AppColors.lightTextPrimary)
-                              : (isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary),
-                        ),
-                      ),
-                    ),
-                    if (item.$3 != null) ...[
-                      const SizedBox(width: 4),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                        decoration: BoxDecoration(
-                          color: isSelected
-                              ? (isDark ? AppColors.accentGold : AppColors.primary)
-                              : (isDark ? const Color(0xFF222F43) : Colors.grey.shade300),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          item.$3!,
-                          style: TextStyle(
-                            fontSize: 9,
-                            fontWeight: FontWeight.w900,
-                            color: isSelected
-                                ? (isDark ? Colors.black : Colors.white)
-                                : (isDark ? Colors.white70 : Colors.black87),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-          );
-        }),
       ),
     );
   }

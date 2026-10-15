@@ -371,18 +371,21 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
           // 1. Cover Image with Overlay Badges & Heart Icon
           Stack(
             children: [
-              ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                child: Image.network(
-                  imageUrl,
-                  height: 155,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => Container(
+              GestureDetector(
+                onTap: () => _openProjectDetail(project),
+                child: ClipRRect(
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                  child: Image.network(
+                    imageUrl,
                     height: 155,
-                    color: const Color(0xFF1E293B),
-                    alignment: Alignment.center,
-                    child: const Icon(Icons.apartment_rounded, color: Colors.white54, size: 40),
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => Container(
+                      height: 155,
+                      color: const Color(0xFF1E293B),
+                      alignment: Alignment.center,
+                      child: const Icon(Icons.apartment_rounded, color: Colors.white54, size: 40),
+                    ),
                   ),
                 ),
               ),
@@ -577,20 +580,20 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
                 ),
                 const SizedBox(height: 12),
 
-                // 3. Action Buttons Row: Units, Brochure, Price List, Share
+                // 3. Action Buttons Row: Details (Units & Prices), Brochure, Share
                 Row(
                   children: [
-                    // Units Inventory Button (Green)
+                    // Details Button (Brand Blue) - View Units & Unit Prices
                     Expanded(
                       child: _buildProjectActionButton(
-                        icon: Icons.grid_view_rounded,
-                        iconColor: const Color(0xFF16A34A),
-                        label: 'Units',
+                        icon: Icons.visibility_outlined,
+                        iconColor: const Color(0xFF2563EB),
+                        label: 'Details',
                         onTap: () => _openProjectDetail(project),
                         isDark: isDark,
                       ),
                     ),
-                    const SizedBox(width: 6),
+                    const SizedBox(width: 8),
 
                     // Brochure Button (Purple)
                     Expanded(
@@ -602,25 +605,13 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
                         isDark: isDark,
                       ),
                     ),
-                    const SizedBox(width: 6),
+                    const SizedBox(width: 8),
 
-                    // Price List Button (Orange)
-                    Expanded(
-                      child: _buildProjectActionButton(
-                        icon: Icons.receipt_long_outlined,
-                        iconColor: const Color(0xFFEA580C),
-                        label: 'Price List',
-                        onTap: () => _openProjectDetail(project),
-                        isDark: isDark,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-
-                    // Share Button (Blue)
+                    // Share Button (Green)
                     Expanded(
                       child: _buildProjectActionButton(
                         icon: Icons.share_outlined,
-                        iconColor: const Color(0xFF2563EB),
+                        iconColor: const Color(0xFF16A34A),
                         label: 'Share',
                         onTap: () {
                           UrlActionService.shareContent(

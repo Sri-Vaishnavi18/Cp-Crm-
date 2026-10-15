@@ -666,7 +666,7 @@ class MockDataService {
         stage: LeadStage.siteVisited,
         temperature: LeadTemperature.warm,
         source: 'Walk-in',
-        createdAt: DateTime(now.year, now.month, now.day, 11, 30),
+        createdAt: now.subtract(const Duration(days: 12)),
         activityList: [],
       ),
       LeadModel(
@@ -944,7 +944,7 @@ class MockDataService {
         projectName: 'Prestige Sunshine',
         type: InvoiceType.siteVisit,
         amount: 3000.0,
-        date: now.subtract(const Duration(days: 4)),
+        date: now.subtract(const Duration(days: 15)),
         status: InvoiceStatus.paid,
         bankDetails: bank,
         notes: 'Site visit allowance credited to destination bank.',

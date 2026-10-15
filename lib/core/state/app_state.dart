@@ -1085,6 +1085,22 @@ class AppState extends ChangeNotifier {
     return _siteVisits.where((v) => isDateInActiveRange(v.scheduledAt)).toList();
   }
 
+  List<CommissionInvoiceModel> get dashboardInvoices {
+    if (_dashboardDatePreset == DashboardDatePreset.allTime) return _invoices;
+    return _invoices.where((inv) => isDateInActiveRange(inv.date)).toList();
+  }
+
+  double get dashboardTotalCommissionEarned =>
+      dashboardInvoices.fold(0.0, (sum, inv) => sum + inv.amount);
+
+  int get dashboardInvoicesCount => dashboardInvoices.length;
+
+  double get dashboardPendingCommissionAmount =>
+      dashboardInvoices.where((inv) => inv.status == InvoiceStatus.pending || inv.status == InvoiceStatus.approved).fold(0.0, (sum, inv) => sum + inv.amount);
+
+  double get dashboardPaidCommissionAmount =>
+      dashboardInvoices.where((inv) => inv.status == InvoiceStatus.paid).fold(0.0, (sum, inv) => sum + inv.amount);
+
   // Dynamic Date-Filtered KPI Calculations
   int get totalLeadsCount => dashboardLeads.length;
   int get coldLeadsCount =>

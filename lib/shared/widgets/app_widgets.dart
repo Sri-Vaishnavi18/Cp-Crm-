@@ -5,6 +5,8 @@ import '../../core/models/app_models.dart';
 import '../../core/services/document_picker_service.dart';
 import '../../core/state/app_state.dart';
 import '../../features/commissions/commissions_screen.dart';
+export 'powered_by_branding.dart';
+export 'date_filter_bar.dart';
 
 class AppHeader extends StatelessWidget {
   final String title;
@@ -825,7 +827,6 @@ class UserProfileModalSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = state.isDarkMode;
     final user = state.currentUser;
-    final savedUsers = state.savedUsers;
 
     return Container(
       decoration: BoxDecoration(
@@ -1154,61 +1155,6 @@ class UserProfileModalSheet extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-
-            // Switch User Account Section (if multiple registered)
-            if (savedUsers.length > 1) ...[
-              Text(
-                'Switch Channel Partner Account (${savedUsers.length} on this device)',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
-                ),
-              ),
-              const SizedBox(height: 10),
-              ...savedUsers.where((u) => u.id != user?.id).map((otherUser) {
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  decoration: BoxDecoration(
-                    color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
-                  ),
-                  child: ListTile(
-                    dense: true,
-                    leading: CircleAvatar(
-                      backgroundColor: AppColors.primary.withValues(alpha: 0.2),
-                      child: Text(
-                        otherUser.name.isNotEmpty ? otherUser.name[0] : 'P',
-                        style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary),
-                      ),
-                    ),
-                    title: Text(
-                      '${otherUser.name} (${otherUser.firmName})',
-                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
-                    ),
-                    subtitle: Text(
-                      'RERA: ${otherUser.reraNumber.length > 20 ? "${otherUser.reraNumber.substring(0, 20)}..." : otherUser.reraNumber}',
-                      style: const TextStyle(fontSize: 11),
-                    ),
-                    trailing: const Icon(Icons.swap_horiz, color: AppColors.primary),
-                    onTap: () async {
-                      await state.switchUser(otherUser.id);
-                      if (context.mounted) {
-                        Navigator.of(context).pop();
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            backgroundColor: AppColors.success,
-                            content: Text('Switched to ${otherUser.name} (${otherUser.firmName})'),
-                          ),
-                        );
-                      }
-                    },
-                  ),
-                );
-              }),
-              const SizedBox(height: 16),
-            ],
 
             // Logout Action Button
             ElevatedButton.icon(

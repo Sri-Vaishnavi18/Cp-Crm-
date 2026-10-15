@@ -24,6 +24,14 @@ class MainNavigationShell extends StatefulWidget {
 class _MainNavigationShellState extends State<MainNavigationShell> {
   int _currentIndex = 0;
   String? _leadInitialFilter;
+  int _docsInitialTab = 0;
+
+  void _openInvoices() {
+    setState(() {
+      _docsInitialTab = 1;
+      _currentIndex = 3;
+    });
+  }
 
   void _openAddLeadModal() {
     showModalBottomSheet(
@@ -85,6 +93,9 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
             state: widget.state,
             onNavigateTab: (idx) => setState(() {
               _leadInitialFilter = null;
+              if (idx == 3) {
+                _docsInitialTab = 0;
+              }
               _currentIndex = idx;
             }),
             onOpenAddLead: _openAddLeadModal,
@@ -94,7 +105,11 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
             onOpenSpocHelpdesk: _openSpocHelpdesk,
             onOpenNotifications: _openNotifications,
             onOpenCommissions: () => setState(() => _currentIndex = 4),
-            onOpenDocs: () => setState(() => _currentIndex = 3),
+            onOpenDocs: () => setState(() {
+              _docsInitialTab = 0;
+              _currentIndex = 3;
+            }),
+            onOpenInvoices: _openInvoices,
             onOpenLeadsWithFilter: (filter) => setState(() {
               _leadInitialFilter = filter;
               _currentIndex = 1;
@@ -112,7 +127,9 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
             onBack: () => setState(() => _currentIndex = 0),
           ),
           DocsScreen(
+            key: ValueKey('docs_tab_$_docsInitialTab'),
             state: widget.state,
+            initialTabIndex: _docsInitialTab,
             onBack: () => setState(() => _currentIndex = 0),
           ),
           CommissionsScreen(
@@ -179,48 +196,58 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
             ),
           ],
         ),
-        padding: const EdgeInsets.only(top: 8, bottom: 8),
+        padding: const EdgeInsets.only(top: 8, bottom: 4),
         child: SafeArea(
           top: false,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              _buildBottomNavItem(
-                index: 0,
-                label: 'Dashboard',
-                activeIcon: Icons.home_rounded,
-                inactiveIcon: Icons.grid_view_outlined,
-                isDark: isDark,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _buildBottomNavItem(
+                    index: 0,
+                    label: 'Dashboard',
+                    activeIcon: Icons.home_rounded,
+                    inactiveIcon: Icons.grid_view_outlined,
+                    isDark: isDark,
+                  ),
+                  _buildBottomNavItem(
+                    index: 1,
+                    label: 'Leads',
+                    activeIcon: Icons.people_alt_rounded,
+                    inactiveIcon: Icons.people_alt_outlined,
+                    badgeCount: widget.state.allLeads.isNotEmpty ? widget.state.allLeads.length : null,
+                    isDark: isDark,
+                  ),
+                  _buildBottomNavItem(
+                    index: 2,
+                    label: 'Projects',
+                    activeIcon: Icons.apartment_rounded,
+                    inactiveIcon: Icons.apartment_outlined,
+                    isDark: isDark,
+                  ),
+                  _buildBottomNavItem(
+                    index: 3,
+                    label: 'Docs',
+                    activeIcon: Icons.folder_shared_rounded,
+                    inactiveIcon: Icons.folder_shared_outlined,
+                    badgeCount: widget.state.missingMandatoryDocsCount > 0 ? widget.state.missingMandatoryDocsCount : null,
+                    isDark: isDark,
+                  ),
+                  _buildBottomNavItem(
+                    index: 4,
+                    label: 'Commissions',
+                    activeIcon: Icons.account_balance_wallet_rounded,
+                    inactiveIcon: Icons.account_balance_wallet_outlined,
+                    isDark: isDark,
+                  ),
+                ],
               ),
-              _buildBottomNavItem(
-                index: 1,
-                label: 'Leads',
-                activeIcon: Icons.people_alt_rounded,
-                inactiveIcon: Icons.people_alt_outlined,
-                badgeCount: widget.state.allLeads.isNotEmpty ? widget.state.allLeads.length : null,
+              const SizedBox(height: 2),
+              PoweredByBranding(
                 isDark: isDark,
-              ),
-              _buildBottomNavItem(
-                index: 2,
-                label: 'Projects',
-                activeIcon: Icons.apartment_rounded,
-                inactiveIcon: Icons.apartment_outlined,
-                isDark: isDark,
-              ),
-              _buildBottomNavItem(
-                index: 3,
-                label: 'Docs',
-                activeIcon: Icons.folder_shared_rounded,
-                inactiveIcon: Icons.folder_shared_outlined,
-                badgeCount: widget.state.missingMandatoryDocsCount > 0 ? widget.state.missingMandatoryDocsCount : null,
-                isDark: isDark,
-              ),
-              _buildBottomNavItem(
-                index: 4,
-                label: 'Commissions',
-                activeIcon: Icons.account_balance_wallet_rounded,
-                inactiveIcon: Icons.account_balance_wallet_outlined,
-                isDark: isDark,
+                padding: const EdgeInsets.only(bottom: 2),
               ),
             ],
           ),
@@ -262,7 +289,12 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
     }
 
     return InkWell(
-      onTap: () => setState(() => _currentIndex = index),
+      onTap: () => setState(() {
+        if (index == 3) {
+          _docsInitialTab = 0;
+        }
+        _currentIndex = index;
+      }),
       borderRadius: BorderRadius.circular(12),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),

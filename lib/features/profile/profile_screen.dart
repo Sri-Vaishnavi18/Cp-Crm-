@@ -259,18 +259,6 @@ class ProfileScreen extends StatelessWidget {
                   _buildDivider(isDark),
                   _buildMenuItem(
                     context: context,
-                    icon: Icons.people_outline_rounded,
-                    title: 'My Team',
-                    onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Team management view active.')),
-                      );
-                    },
-                    isDark: isDark,
-                  ),
-                  _buildDivider(isDark),
-                  _buildMenuItem(
-                    context: context,
                     icon: Icons.folder_shared_outlined,
                     title: 'KYC Documents & Invoices',
                     badgeText: '${(state.kycCompletionPercentage * 100).toInt()}% KYC',
@@ -297,30 +285,6 @@ class ProfileScreen extends StatelessWidget {
                     onTap: () {
                       Navigator.of(context).push(
                         MaterialPageRoute(builder: (ctx) => CommissionsScreen(state: state, showBackButton: true)),
-                      );
-                    },
-                    isDark: isDark,
-                  ),
-                  _buildDivider(isDark),
-                  _buildMenuItem(
-                    context: context,
-                    icon: Icons.bar_chart_rounded,
-                    title: 'Performance',
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(builder: (ctx) => CommissionsScreen(state: state)),
-                      );
-                    },
-                    isDark: isDark,
-                  ),
-                  _buildDivider(isDark),
-                  _buildMenuItem(
-                    context: context,
-                    icon: Icons.favorite_border_rounded,
-                    title: 'Targets & Incentives',
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(builder: (ctx) => CommissionsScreen(state: state)),
                       );
                     },
                     isDark: isDark,
@@ -364,6 +328,8 @@ class ProfileScreen extends StatelessWidget {
                 ],
               ),
             ),
+            const SizedBox(height: 20),
+            PoweredByBranding(isDark: isDark),
             const SizedBox(height: 30),
           ],
         ),

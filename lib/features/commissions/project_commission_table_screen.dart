@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../core/models/app_models.dart';
 import '../../core/state/app_state.dart';
 import '../../core/theme/app_theme.dart';
+import '../../shared/widgets/powered_by_branding.dart';
 
 class ProjectCommissionTableScreen extends StatefulWidget {
   final AppState state;
@@ -715,6 +716,9 @@ class _ProjectCommissionTableScreenState extends State<ProjectCommissionTableScr
 
                     // UNDER TABLE: TOTAL & PENDING SUMMARY FOOTER CARD
                     _buildSummaryFooter(totalClaimed, totalReceived, totalPending, isDark),
+                    const SizedBox(height: 16),
+                    PoweredByBranding(isDark: isDark),
+                    const SizedBox(height: 16),
                   ],
                 ),
               ),

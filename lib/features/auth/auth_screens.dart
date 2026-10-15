@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/state/app_state.dart';
+import '../../shared/widgets/powered_by_branding.dart';
 
 class LoginScreen extends StatefulWidget {
   final AppState state;
@@ -508,6 +509,8 @@ class _LoginScreenState extends State<LoginScreen> {
                               ],
                             ),
                           ),
+                          const SizedBox(height: 12),
+                          PoweredByBranding(isDark: isDark),
                         ],
                       ),
                     ),
@@ -809,7 +812,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   child: const Text('Already have an account? Sign In', style: TextStyle(fontWeight: FontWeight.w600)),
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 12),
+              PoweredByBranding(isDark: isDark),
+              const SizedBox(height: 20),
             ],
           ),
         ),

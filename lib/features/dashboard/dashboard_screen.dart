@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/state/app_state.dart';
 import '../commissions/commissions_screen.dart';
+import '../../shared/widgets/date_filter_bar.dart';
 
 class DashboardScreen extends StatelessWidget {
   final AppState state;
@@ -15,6 +16,7 @@ class DashboardScreen extends StatelessWidget {
   final VoidCallback? onOpenNotifications;
   final VoidCallback? onOpenCommissions;
   final VoidCallback? onOpenDocs;
+  final VoidCallback? onOpenInvoices;
   final Function(String filter)? onOpenLeadsWithFilter;
 
   const DashboardScreen({
@@ -30,6 +32,7 @@ class DashboardScreen extends StatelessWidget {
     this.onOpenNotifications,
     this.onOpenCommissions,
     this.onOpenDocs,
+    this.onOpenInvoices,
     this.onOpenLeadsWithFilter,
   });
 
@@ -52,7 +55,14 @@ class DashboardScreen extends StatelessWidget {
             children: [
               // 1. Top Custom App Bar (Briefcase + Vaishu + RERA + SYNCED + moon + bell + V avatar)
               _buildTopBar(context, userName, safeRera, isDark),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
+
+              // Date Filter Bar (Today, Yesterday, 7 Days, 30 Days, Manual Calendar, Reset)
+              DateFilterBar(
+                state: state,
+                padding: EdgeInsets.zero,
+              ),
+              const SizedBox(height: 14),
 
               // 2. Lead Pipeline Analytics (Total Leads, Sitevisited Leads, Booked Leads)
               _buildLeadAnalyticsSection(context, isDark),
@@ -461,10 +471,10 @@ class DashboardScreen extends StatelessWidget {
 
   // 2x2 Commission & Financial Analytics Cards
   Widget _buildCommissionFinancialGrid(BuildContext context, bool isDark) {
-    final earned = AppState.formatCurrency(state.totalCommissionEarned);
-    final received = AppState.formatCurrency(state.paidCommissionAmount);
-    final pending = AppState.formatCurrency(state.pendingCommissionAmount);
-    final totalInvoices = '${state.totalInvoicesCount} Invoices';
+    final earned = AppState.formatCurrency(state.dashboardTotalCommissionEarned);
+    final received = AppState.formatCurrency(state.dashboardPaidCommissionAmount);
+    final pending = AppState.formatCurrency(state.dashboardPendingCommissionAmount);
+    final totalInvoices = '${state.dashboardInvoicesCount} Invoices';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -565,7 +575,7 @@ class DashboardScreen extends StatelessWidget {
                 iconBgColor: const Color(0xFFE0F2FE),
                 isIconCircle: false,
                 subtext: 'KYC & Payout Vouchers',
-                onTap: onOpenDocs ?? () => onNavigateTab(3),
+                onTap: onOpenInvoices ?? onOpenDocs ?? () => onNavigateTab(3),
                 isDark: isDark,
               ),
             ),

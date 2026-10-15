@@ -49,15 +49,6 @@ class _LeadsScreenState extends State<LeadsScreen> {
     super.dispose();
   }
 
-  void _openScheduleVisit(LeadModel lead) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (ctx) => ScheduleVisitModalSheet(state: widget.state, preselectedLeadId: lead.id),
-    );
-  }
-
   void _navigateToDetail(LeadModel lead) {
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -71,6 +62,9 @@ class _LeadsScreenState extends State<LeadsScreen> {
     final query = _searchController.text.trim().toLowerCase();
 
     return all.where((lead) {
+      // Date filter
+      if (!widget.state.isDateInActiveRange(lead.createdAt)) return false;
+
       // Tab filter
       if (_selectedFilter == 'Cold') {
         if (lead.stage != LeadStage.cold) return false;
@@ -106,11 +100,16 @@ class _LeadsScreenState extends State<LeadsScreen> {
         final isDark = widget.state.isDarkMode;
         final leads = _getFilteredLeads();
 
+        // Date-filtered leads for tab counts
+        final dateFilteredLeads = widget.state.allLeads
+            .where((l) => widget.state.isDateInActiveRange(l.createdAt))
+            .toList();
+
         // Tab counts
-        final allCount = widget.state.allLeads.length;
-        final coldCount = widget.state.allLeads.where((l) => l.stage == LeadStage.cold).length;
-        final siteVisitedCount = widget.state.allLeads.where((l) => l.stage == LeadStage.siteVisited).length;
-        final bookedCount = widget.state.allLeads.where((l) => l.stage == LeadStage.booked).length;
+        final allCount = dateFilteredLeads.length;
+        final coldCount = dateFilteredLeads.where((l) => l.stage == LeadStage.cold).length;
+        final siteVisitedCount = dateFilteredLeads.where((l) => l.stage == LeadStage.siteVisited).length;
+        final bookedCount = dateFilteredLeads.where((l) => l.stage == LeadStage.booked).length;
 
         return Scaffold(
       backgroundColor: isDark ? AppColors.darkBg : const Color(0xFFF4F7FB),
@@ -215,6 +214,12 @@ class _LeadsScreenState extends State<LeadsScreen> {
                 ),
               ),
 
+            // Date Filter Bar (Today, Yesterday, 7 Days, 30 Days, Manual Calendar, Reset)
+            DateFilterBar(
+              state: widget.state,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            ),
+
             // 2. Top Filter Tabs: All, Cold, Site Visited, Booked
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
@@ -291,6 +296,24 @@ class _LeadsScreenState extends State<LeadsScreen> {
                               color: isDark ? AppColors.darkTextSecondary : const Color(0xFF64748B),
                             ),
                           ),
+                          if (widget.state.isDateFilterActive || _selectedFilter != 'All' || _searchController.text.isNotEmpty || _projectFilter != 'Project ▾') ...[
+                            const SizedBox(height: 12),
+                            OutlinedButton.icon(
+                              onPressed: () {
+                                widget.state.resetDashboardDateFilter();
+                                _searchController.clear();
+                                setState(() {
+                                  _selectedFilter = 'All';
+                                  _projectFilter = 'Project ▾';
+                                  _budgetFilter = 'Budget ▾';
+                                  _sourceFilter = 'Source ▾';
+                                  _sortFilter = 'Sort ▾';
+                                });
+                              },
+                              icon: const Icon(Icons.restart_alt_rounded, size: 16),
+                              label: const Text('Reset All Filters'),
+                            ),
+                          ],
                         ],
                       ),
                     )
@@ -496,28 +519,6 @@ class _LeadsScreenState extends State<LeadsScreen> {
                     letterSpacing: 0.5,
                   ),
                 ),
-              ),
-              const SizedBox(width: 4),
-
-              // 3-dots Menu
-              PopupMenuButton<String>(
-                padding: EdgeInsets.zero,
-                icon: Icon(
-                  Icons.more_vert_rounded,
-                  size: 18,
-                  color: isDark ? AppColors.darkTextSecondary : const Color(0xFF94A3B8),
-                ),
-                onSelected: (val) {
-                  if (val == 'view') {
-                    _navigateToDetail(lead);
-                  } else if (val == 'schedule') {
-                    _openScheduleVisit(lead);
-                  }
-                },
-                itemBuilder: (ctx) => [
-                  const PopupMenuItem(value: 'view', child: Text('View Details')),
-                  const PopupMenuItem(value: 'schedule', child: Text('Schedule Visit')),
-                ],
               ),
             ],
           ),

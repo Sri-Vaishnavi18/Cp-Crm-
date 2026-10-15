@@ -9,11 +9,13 @@ import '../../core/services/file_download_service.dart';
 class DocsScreen extends StatefulWidget {
   final AppState state;
   final VoidCallback? onBack;
+  final int initialTabIndex;
 
   const DocsScreen({
     super.key,
     required this.state,
     this.onBack,
+    this.initialTabIndex = 0,
   });
 
   @override
@@ -34,10 +36,26 @@ class _DocsScreenState extends State<DocsScreen> with SingleTickerProviderStateM
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    final validIndex = (widget.initialTabIndex >= 0 && widget.initialTabIndex < 2)
+        ? widget.initialTabIndex
+        : 0;
+    _tabController = TabController(length: 2, vsync: this, initialIndex: validIndex);
     _tabController.addListener(() {
       if (mounted) setState(() {});
     });
+  }
+
+  @override
+  void didUpdateWidget(DocsScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialTabIndex != oldWidget.initialTabIndex) {
+      final targetIndex = (widget.initialTabIndex >= 0 && widget.initialTabIndex < 2)
+          ? widget.initialTabIndex
+          : 0;
+      if (_tabController.index != targetIndex) {
+        _tabController.animateTo(targetIndex);
+      }
+    }
   }
 
   @override
@@ -1465,6 +1483,18 @@ class _DocsScreenState extends State<DocsScreen> with SingleTickerProviderStateM
                   const SizedBox(height: 16),
                   Row(
                     children: [
+                      IconButton(
+                        onPressed: () => Navigator.of(modalCtx).maybePop(),
+                        icon: Icon(
+                          Icons.arrow_back_ios_new_rounded,
+                          size: 18,
+                          color: isDark ? AppColors.darkTextPrimary : const Color(0xFF0F172A),
+                        ),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                        tooltip: 'Back',
+                      ),
+                      const SizedBox(width: 4),
                       Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(

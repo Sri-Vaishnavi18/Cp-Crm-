@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/models/app_models.dart';
 import '../../core/state/app_state.dart';
+import '../../shared/widgets/powered_by_branding.dart';
 
 class CollateralsScreen extends StatefulWidget {
   final AppState state;
@@ -218,6 +219,7 @@ class _CollateralsScreenState extends State<CollateralsScreen> {
                       },
                     ),
             ),
+            PoweredByBranding(isDark: isDark, padding: const EdgeInsets.symmetric(vertical: 8)),
           ],
         ),
       ),

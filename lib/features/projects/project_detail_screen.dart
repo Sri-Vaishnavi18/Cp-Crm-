@@ -5,6 +5,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/services/url_action_service.dart';
 import '../../core/services/file_download_service.dart';
 import '../../core/services/document_picker_service.dart';
+import '../../shared/widgets/powered_by_branding.dart';
 
 class ProjectDetailScreen extends StatefulWidget {
   final AppState state;
@@ -132,7 +133,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('Live Unit Inventory Matrix', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      const Text('Unit Inventory & Pricing Matrix', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                       TextButton.icon(
                         icon: const Icon(Icons.calculate, size: 16),
                         label: const Text('Cost Estimator', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
@@ -288,6 +289,8 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
                       );
                     }).toList(),
                   ),
+                  const SizedBox(height: 24),
+                  PoweredByBranding(isDark: isDark),
                 ],
               ),
             ),
