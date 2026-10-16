@@ -1154,7 +1154,10 @@ class UserProfileModalSheet extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
+
+            // Pipeline Data Management (Clean Slate & Demo)
+
 
             // Logout Action Button
             ElevatedButton.icon(

@@ -693,7 +693,21 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
 
   // 1. HERO PROFILE CARD
   Widget _buildHeroCard(LeadModel lead, bool isDark, Color tempColor) {
-    final avatarNumber = '01';
+    final firstLetter = lead.firstName.trim().isNotEmpty ? lead.firstName.trim()[0].toUpperCase() : 'L';
+    final secondLetter = lead.lastName.trim().isNotEmpty && lead.lastName.trim().toLowerCase() != 'client'
+        ? lead.lastName.trim()[0].toUpperCase()
+        : '';
+    final avatarInitials = '$firstLetter$secondLetter'.trim();
+
+    final avatarColors = [
+      const Color(0xFF2563EB), // Blue
+      const Color(0xFF7C3AED), // Purple
+      const Color(0xFF0D9488), // Teal
+      const Color(0xFFEA580C), // Orange
+      const Color(0xFF0284C7), // Sky
+      const Color(0xFF16A34A), // Emerald
+    ];
+    final avatarBgColor = avatarColors[lead.id.hashCode.abs() % avatarColors.length];
 
     return Container(
       decoration: BoxDecoration(
@@ -714,24 +728,25 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Avatar with Star Badge at bottom-right
+                    // Dynamic Initials Avatar with Temperature Badge
                     Stack(
                       clipBehavior: Clip.none,
                       children: [
                         Container(
                           width: 54,
                           height: 54,
-                          decoration: const BoxDecoration(
-                            color: Color(0xFFF59E0B),
+                          decoration: BoxDecoration(
+                            color: avatarBgColor,
                             shape: BoxShape.circle,
                           ),
                           child: Center(
                             child: Text(
-                              avatarNumber,
+                              avatarInitials.isNotEmpty ? avatarInitials : 'L',
                               style: const TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.w900,
                                 color: Colors.white,
+                                letterSpacing: 0.5,
                               ),
                             ),
                           ),
@@ -746,11 +761,15 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
                               color: Colors.white,
                               shape: BoxShape.circle,
                             ),
-                            child: const Center(
+                            child: Center(
                               child: Icon(
-                                Icons.star_rounded,
-                                color: Color(0xFFF59E0B),
-                                size: 14,
+                                lead.stage == LeadStage.booked
+                                    ? Icons.star_rounded
+                                    : (lead.stage == LeadStage.siteVisited
+                                        ? Icons.verified_rounded
+                                        : Icons.person_rounded),
+                                color: avatarBgColor,
+                                size: 13,
                               ),
                             ),
                           ),
@@ -1508,10 +1527,7 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
   // 7. SITE VISIT HISTORY CARD (Rich Zero-OTP verification & schedule action)
   Widget _buildSiteVisitHistoryCard(LeadModel lead, bool isDark) {
     final visits = widget.state.siteVisits
-        .where((v) =>
-            v.leadId == lead.id ||
-            v.clientPhone == lead.phone ||
-            (lead.fullName.isNotEmpty && v.clientName.toLowerCase() == lead.fullName.toLowerCase()))
+        .where((v) => v.leadId == lead.id)
         .toList();
     final rawHistory = lead.siteVisitHistory;
     final totalCount = visits.length + rawHistory.length;

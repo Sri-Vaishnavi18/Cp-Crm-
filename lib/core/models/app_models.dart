@@ -526,6 +526,40 @@ class SiteVisitModel {
     this.salesRepName,
     this.feedback,
   });
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'visitCode': visitCode,
+    'leadId': leadId,
+    'clientName': clientName,
+    'clientPhone': clientPhone,
+    'projectId': projectId,
+    'projectName': projectName,
+    'scheduledAt': scheduledAt.toIso8601String(),
+    'cabRequired': cabRequired,
+    'accompanying': accompanying,
+    'status': status,
+    'salesRepName': salesRepName,
+    'feedback': feedback,
+  };
+
+  factory SiteVisitModel.fromJson(Map<String, dynamic> json) => SiteVisitModel(
+    id: json['id']?.toString() ?? '',
+    visitCode: json['visitCode']?.toString() ?? '',
+    leadId: json['leadId']?.toString() ?? '',
+    clientName: json['clientName']?.toString() ?? '',
+    clientPhone: json['clientPhone']?.toString() ?? '',
+    projectId: json['projectId']?.toString() ?? '',
+    projectName: json['projectName']?.toString() ?? '',
+    scheduledAt: json['scheduledAt'] != null
+        ? DateTime.tryParse(json['scheduledAt']) ?? DateTime.now()
+        : DateTime.now(),
+    cabRequired: json['cabRequired'] as bool? ?? false,
+    accompanying: json['accompanying'] as bool? ?? false,
+    status: json['status']?.toString() ?? 'SCHEDULED',
+    salesRepName: json['salesRepName']?.toString(),
+    feedback: json['feedback']?.toString(),
+  );
 }
 
 class SpocModel {

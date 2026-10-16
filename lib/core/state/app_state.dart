@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/app_models.dart';
@@ -55,16 +56,16 @@ class AppState extends ChangeNotifier {
   List<UserModel> get savedUsers => _savedUsers;
 
   // Active Data Stores
-  List<LeadModel> _leads = [];
-  List<ProjectModel> _projects = [];
-  List<SiteVisitModel> _siteVisits = [];
-  List<SpocModel> _spocs = [];
-  List<CollateralModel> _collaterals = [];
-  List<AppNotificationModel> _notifications = [];
-  List<CommissionInvoiceModel> _invoices = [];
-  BankDetailsModel? _savedBankDetails;
-  List<CpDocumentModel> _cpDocuments = [];
-  List<ReceivedInvoiceModel> _receivedInvoices = [];
+  List<LeadModel> _leads = MockDataService.getInitialLeads();
+  List<ProjectModel> _projects = MockDataService.getProjects();
+  List<SiteVisitModel> _siteVisits = MockDataService.getInitialVisits();
+  List<SpocModel> _spocs = MockDataService.getSpocs();
+  List<CollateralModel> _collaterals = MockDataService.getCollaterals();
+  List<AppNotificationModel> _notifications = MockDataService.getNotifications();
+  List<CommissionInvoiceModel> _invoices = MockDataService.getInitialInvoices();
+  BankDetailsModel? _savedBankDetails = MockDataService.getInitialBankDetails();
+  List<CpDocumentModel> _cpDocuments = MockDataService.getInitialCpDocuments();
+  List<ReceivedInvoiceModel> _receivedInvoices = MockDataService.getInitialReceivedInvoices();
 
   // Date Filter State
   DashboardDatePreset _dashboardDatePreset = DashboardDatePreset.allTime;
@@ -128,36 +129,139 @@ class AppState extends ChangeNotifier {
 
   int get unreadNotificationCount => _notifications.where((n) => !n.isRead).length;
 
+  // User-Scoped Storage Keys
+  String get _currentUserId => _currentUser?.id ?? 'guest';
+  String get _leadsStorageKey => 'persisted_leads_$_currentUserId';
+  String get _invoicesStorageKey => 'persisted_invoices_$_currentUserId';
+  String get _siteVisitsStorageKey => 'persisted_visits_$_currentUserId';
+
   // Constructor
   AppState({bool initialIsDark = false}) {
     _themeMode = initialIsDark ? ThemeMode.dark : ThemeMode.light;
     _initData();
   }
 
-  Future<void> _initData() async {
-    _projects = MockDataService.getProjects();
+  /// Load user-scoped leads, visits, and invoices.
+  /// If the user has no stored data, clean pipeline starts completely from scratch (all 0).
+  /// Only default demo user ('usr_9014') loads initial sample mock leads if uninitialized.
+  Future<void> _loadUserData(String userId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userLeadsKey = 'persisted_leads_$userId';
+      final userVisitsKey = 'persisted_visits_$userId';
+      final userInvoicesKey = 'persisted_invoices_$userId';
+
+      // 1. Leads
+      if (prefs.containsKey(userLeadsKey)) {
+        final raw = prefs.getString(userLeadsKey);
+        if (raw != null && raw.isNotEmpty) {
+          final decoded = jsonDecode(raw) as List<dynamic>;
+          _leads = decoded.map((item) => LeadModel.fromJson(item as Map<String, dynamic>)).toList();
+        } else {
+          _leads = [];
+        }
+      } else {
+        if (userId == 'usr_9014') {
+          _leads = MockDataService.getInitialLeads();
+        } else {
+          _leads = [];
+        }
+      }
+
+      // 2. Site Visits
+      if (prefs.containsKey(userVisitsKey)) {
+        final raw = prefs.getString(userVisitsKey);
+        if (raw != null && raw.isNotEmpty) {
+          final decoded = jsonDecode(raw) as List<dynamic>;
+          _siteVisits = decoded.map((item) => SiteVisitModel.fromJson(item as Map<String, dynamic>)).toList();
+        } else {
+          _siteVisits = [];
+        }
+      } else {
+        if (userId == 'usr_9014') {
+          _siteVisits = MockDataService.getInitialVisits();
+        } else {
+          _siteVisits = [];
+        }
+      }
+
+      // 3. Invoices
+      if (prefs.containsKey(userInvoicesKey)) {
+        final raw = prefs.getString(userInvoicesKey);
+        if (raw != null && raw.isNotEmpty) {
+          final decoded = jsonDecode(raw) as List<dynamic>;
+          _invoices = decoded.map((item) => CommissionInvoiceModel.fromJson(item as Map<String, dynamic>)).toList();
+        } else {
+          _invoices = [];
+        }
+      } else {
+        if (userId == 'usr_9014') {
+          _invoices = MockDataService.getInitialInvoices();
+        } else {
+          _invoices = [];
+        }
+      }
+    } catch (_) {}
+    notifyListeners();
+  }
+
+  /// Reset the currently active user's pipeline to a completely clean slate (all 0s).
+  Future<void> resetToCleanSlate() async {
+    _leads = [];
+    _siteVisits = [];
+    _invoices = [];
+    await _persistLeads();
+    await _persistSiteVisits();
+    await _persistInvoices();
+    notifyListeners();
+  }
+
+  /// Load sample demo leads, site visits, and invoices into the current user's pipeline.
+  Future<void> loadSampleDemoData() async {
     _leads = MockDataService.getInitialLeads();
     _siteVisits = MockDataService.getInitialVisits();
+    _invoices = MockDataService.getInitialInvoices();
+    await _persistLeads();
+    await _persistSiteVisits();
+    await _persistInvoices();
+    notifyListeners();
+  }
+
+  Future<void> _initData() async {
+    _projects = MockDataService.getProjects();
     _spocs = MockDataService.getSpocs();
     _collaterals = MockDataService.getCollaterals();
     _notifications = MockDataService.getNotifications();
-    _invoices = MockDataService.getInitialInvoices();
     _savedBankDetails = MockDataService.getInitialBankDetails();
     _cpDocuments = MockDataService.getInitialCpDocuments();
     _receivedInvoices = MockDataService.getInitialReceivedInvoices();
 
-    // Load persisted leads if available
+    // Check saved session in local device storage first
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final leadsRaw = prefs.getString('persisted_leads');
-      if (leadsRaw != null && leadsRaw.isNotEmpty) {
-        final decoded = jsonDecode(leadsRaw) as List<dynamic>;
-        final stored = decoded.map((item) => LeadModel.fromJson(item as Map<String, dynamic>)).toList();
-        if (stored.isNotEmpty) {
-          _leads = stored;
-        }
+      _savedUsers = await AuthStorageService.getRegisteredUsers();
+      final activeUser = await AuthStorageService.getActiveUser();
+      if (activeUser != null) {
+        _currentUser = activeUser;
+        _isAuthenticated = true;
+      } else {
+        // Fresh start: do not auto-authenticate, prompt Login Screen
+        _currentUser = null;
+        _isAuthenticated = false;
       }
-    } catch (_) {}
+    } catch (_) {
+      _currentUser = null;
+      _isAuthenticated = false;
+    }
+
+    // Load active user's pipeline data (scoped by user ID)
+    if (_currentUser != null) {
+      await _loadUserData(_currentUser!.id);
+    } else {
+      // In unauthenticated context (e.g. unit test runner without login), provide mock data
+      _leads = MockDataService.getInitialLeads();
+      _siteVisits = MockDataService.getInitialVisits();
+      _invoices = MockDataService.getInitialInvoices();
+    }
 
     // Load persisted projects if available
     try {
@@ -176,43 +280,12 @@ class AppState extends ChangeNotifier {
       }
     } catch (_) {}
 
-    // Check saved session in local device storage
-    try {
-      _savedUsers = await AuthStorageService.getRegisteredUsers();
-      final activeUser = await AuthStorageService.getActiveUser();
-      if (activeUser != null) {
-        _currentUser = activeUser;
-        _isAuthenticated = true;
-      } else {
-        // Fresh start: do not auto-authenticate, prompt Login Screen
-        _currentUser = null;
-        _isAuthenticated = false;
-      }
-    } catch (_) {
-      _currentUser = null;
-      _isAuthenticated = false;
-    }
-
-    // Load saved bank details and invoices from persistent storage
+    // Load saved bank details and documents from persistent storage
     try {
       final prefs = await SharedPreferences.getInstance();
       final bankRaw = prefs.getString('saved_bank_details');
       if (bankRaw != null && bankRaw.isNotEmpty) {
         _savedBankDetails = BankDetailsModel.fromJson(jsonDecode(bankRaw));
-      }
-
-      final invRaw = prefs.getString('persisted_invoices');
-      if (invRaw != null && invRaw.isNotEmpty) {
-        final decoded = jsonDecode(invRaw) as List<dynamic>;
-        final stored = decoded.map((item) => CommissionInvoiceModel.fromJson(item as Map<String, dynamic>)).toList();
-        if (stored.isNotEmpty) {
-          // Merge or prioritize stored invoices
-          for (final inv in stored) {
-            if (!_invoices.any((existing) => existing.id == inv.id)) {
-              _invoices.insert(0, inv);
-            }
-          }
-        }
       }
 
       final docsRaw = prefs.getString('persisted_cp_documents');
@@ -279,6 +352,7 @@ class AppState extends ChangeNotifier {
       _currentUser = user;
       _isAuthenticated = true;
       _savedUsers = await AuthStorageService.getRegisteredUsers();
+      await _loadUserData(user.id);
       notifyListeners();
       return AuthResult(success: true, user: user);
     }
@@ -314,6 +388,7 @@ class AppState extends ChangeNotifier {
       await AuthStorageService.setActiveSession(user.id);
       _currentUser = user;
       _isAuthenticated = true;
+      await _loadUserData(user.id);
       notifyListeners();
       return AuthResult(success: true, user: user);
     }
@@ -348,6 +423,14 @@ class AppState extends ChangeNotifier {
     _isAuthenticated = true;
     _savedUsers = await AuthStorageService.getRegisteredUsers();
 
+    // New registered account starts completely clean from scratch
+    _leads = [];
+    _siteVisits = [];
+    _invoices = [];
+    await _persistLeads();
+    await _persistSiteVisits();
+    await _persistInvoices();
+
     // Trigger welcoming notification
     _notifications.insert(
       0,
@@ -370,12 +453,17 @@ class AppState extends ChangeNotifier {
     await AuthStorageService.setActiveSession(target.id);
     _currentUser = target;
     _isAuthenticated = true;
+    await _loadUserData(target.id);
     notifyListeners();
   }
 
   Future<void> logout() async {
     await AuthStorageService.clearActiveSession();
+    _currentUser = null;
     _isAuthenticated = false;
+    _leads = [];
+    _siteVisits = [];
+    _invoices = [];
     notifyListeners();
   }
 
@@ -459,9 +547,11 @@ class AppState extends ChangeNotifier {
   }) {
     final computedTemp = temperature ?? LeadTemperature.cold;
     final now = DateTime.now();
+    final randomSalt = Random().nextInt(999999);
+    final uniqueLeadId = 'lead_${now.microsecondsSinceEpoch}_$randomSalt';
 
     final newLead = LeadModel(
-      id: 'lead_${now.millisecondsSinceEpoch}',
+      id: uniqueLeadId,
       firstName: firstName,
       lastName: lastName,
       phone: phone,
@@ -481,7 +571,7 @@ class AppState extends ChangeNotifier {
       notesList: notes.trim().isNotEmpty
           ? [
               LeadNoteItem(
-                id: 'note_${now.millisecondsSinceEpoch}',
+                id: 'note_${now.microsecondsSinceEpoch}_$randomSalt',
                 text: notes.trim(),
                 author: _currentUser?.name ?? 'You',
                 createdAt: now,
@@ -490,7 +580,7 @@ class AppState extends ChangeNotifier {
           : [],
       activityList: [
         LeadActivityItem(
-          id: 'act_${now.millisecondsSinceEpoch}',
+          id: 'act_${now.microsecondsSinceEpoch}_$randomSalt',
           title: 'Lead registered under ${_currentUser?.firmName ?? "Channel Partner"} (Zero-OTP protection locked)',
           timestamp: now,
         ),
@@ -504,7 +594,7 @@ class AppState extends ChangeNotifier {
     _notifications.insert(
       0,
       AppNotificationModel(
-        id: 'notif_${DateTime.now().millisecondsSinceEpoch}',
+        id: 'notif_${DateTime.now().microsecondsSinceEpoch}',
         title: 'Lead Registered: $firstName $lastName',
         message: 'Zero-OTP protection locked under ${_currentUser?.firmName ?? "your agency"} for 60 days.',
         type: 'lead',
@@ -522,8 +612,18 @@ class AppState extends ChangeNotifier {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(
-        'persisted_leads',
+        _leadsStorageKey,
         jsonEncode(_leads.map((l) => l.toJson()).toList()),
+      );
+    } catch (_) {}
+  }
+
+  Future<void> _persistSiteVisits() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        _siteVisitsStorageKey,
+        jsonEncode(_siteVisits.map((v) => v.toJson()).toList()),
       );
     } catch (_) {}
   }
@@ -678,12 +778,13 @@ class AppState extends ChangeNotifier {
       lead.activityList.insert(
         0,
         LeadActivityItem(
-          id: 'act_${DateTime.now().millisecondsSinceEpoch}',
+          id: 'act_${DateTime.now().microsecondsSinceEpoch}',
           title: 'lead status updated to ${newStage.displayName}',
           timestamp: DateTime.now(),
         ),
       );
 
+      _persistLeads();
       notifyListeners();
     }
   }
@@ -697,12 +798,13 @@ class AppState extends ChangeNotifier {
       lead.activityList.insert(
         0,
         LeadActivityItem(
-          id: 'act_${DateTime.now().millisecondsSinceEpoch}',
+          id: 'act_${DateTime.now().microsecondsSinceEpoch}',
           title: 'lead temperature updated to ${newTemperature.displayName.toUpperCase()}',
           timestamp: DateTime.now(),
         ),
       );
 
+      _persistLeads();
       notifyListeners();
     }
   }
@@ -715,7 +817,7 @@ class AppState extends ChangeNotifier {
       lead.notesList.insert(
         0,
         LeadNoteItem(
-          id: 'note_${now.millisecondsSinceEpoch}',
+          id: 'note_${now.microsecondsSinceEpoch}',
           text: noteText.trim(),
           author: _currentUser?.name ?? 'You',
           createdAt: now,
@@ -725,12 +827,13 @@ class AppState extends ChangeNotifier {
       lead.activityList.insert(
         0,
         LeadActivityItem(
-          id: 'act_${now.millisecondsSinceEpoch}',
+          id: 'act_${now.microsecondsSinceEpoch}',
           title: 'New note added',
           timestamp: now,
         ),
       );
 
+      _persistLeads();
       notifyListeners();
     }
   }
@@ -765,12 +868,13 @@ class AppState extends ChangeNotifier {
       lead.activityList.insert(
         0,
         LeadActivityItem(
-          id: 'act_${DateTime.now().millisecondsSinceEpoch}',
+          id: 'act_${DateTime.now().microsecondsSinceEpoch}',
           title: 'Lead information updated',
           timestamp: DateTime.now(),
         ),
       );
 
+      _persistLeads();
       notifyListeners();
     }
   }
@@ -847,7 +951,7 @@ class AppState extends ChangeNotifier {
     final visitCode = 'VIS-${(1000 + _siteVisits.length + 1)}';
 
     final visit = SiteVisitModel(
-      id: 'vis_${DateTime.now().millisecondsSinceEpoch}',
+      id: 'vis_${DateTime.now().microsecondsSinceEpoch}',
       visitCode: visitCode,
       leadId: leadId,
       clientName: lead.fullName,
@@ -876,7 +980,7 @@ class AppState extends ChangeNotifier {
     lead.activityList.insert(
       0,
       LeadActivityItem(
-        id: 'act_${DateTime.now().millisecondsSinceEpoch}',
+        id: 'act_${DateTime.now().microsecondsSinceEpoch}',
         title: 'site visit status updated to SCHEDULED',
         timestamp: DateTime.now(),
       ),
@@ -885,7 +989,7 @@ class AppState extends ChangeNotifier {
     _notifications.insert(
       0,
       AppNotificationModel(
-        id: 'notif_${DateTime.now().millisecondsSinceEpoch}',
+        id: 'notif_${DateTime.now().microsecondsSinceEpoch}',
         title: 'Visit Scheduled: $visitCode',
         message: 'Digital entry pass generated for ${lead.fullName} at ${project.name}.',
         type: 'visit',
@@ -895,6 +999,8 @@ class AppState extends ChangeNotifier {
       ),
     );
 
+    _persistSiteVisits();
+    _persistLeads();
     notifyListeners();
     return visitCode;
   }
@@ -918,7 +1024,7 @@ class AppState extends ChangeNotifier {
       lead.activityList.insert(
         0,
         LeadActivityItem(
-          id: 'act_${DateTime.now().millisecondsSinceEpoch}',
+          id: 'act_${DateTime.now().microsecondsSinceEpoch}',
           title: 'site visit status updated to COMPLETED',
           timestamp: DateTime.now(),
         ),
@@ -927,7 +1033,7 @@ class AppState extends ChangeNotifier {
       _notifications.insert(
         0,
         AppNotificationModel(
-          id: 'notif_${DateTime.now().millisecondsSinceEpoch}',
+          id: 'notif_${DateTime.now().microsecondsSinceEpoch}',
           title: 'Client Checked-in at Site! 📍',
           message: '${_siteVisits[index].clientName} checked in at ${_siteVisits[index].projectName}. Priority entry pass verified.',
           type: 'visit',
@@ -935,6 +1041,8 @@ class AppState extends ChangeNotifier {
         ),
       );
 
+      _persistSiteVisits();
+      _persistLeads();
       notifyListeners();
     }
   }
@@ -1315,6 +1423,8 @@ class AppState extends ChangeNotifier {
         ),
       );
 
+      _persistInvoices();
+      _persistLeads();
       notifyListeners();
     }
   }
@@ -1338,7 +1448,7 @@ class AppState extends ChangeNotifier {
     try {
       final prefs = await SharedPreferences.getInstance();
       final jsonList = _invoices.map((inv) => inv.toJson()).toList();
-      await prefs.setString('persisted_invoices', jsonEncode(jsonList));
+      await prefs.setString(_invoicesStorageKey, jsonEncode(jsonList));
     } catch (_) {}
   }
 

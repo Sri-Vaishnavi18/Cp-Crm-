@@ -316,6 +316,7 @@ class ProfileScreen extends StatelessWidget {
                     },
                     isDark: isDark,
                   ),
+
                   _buildDivider(isDark),
                   _buildMenuItem(
                     context: context,
@@ -428,6 +429,7 @@ class ProfileScreen extends StatelessWidget {
       indent: 48,
     );
   }
+
 
   void _confirmLogout(BuildContext context) {
     showDialog(

@@ -21,29 +21,32 @@ class PoweredByBranding extends StatelessWidget {
     return Padding(
       padding: padding,
       child: Center(
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Text(
-              'Powered by ',
-              style: TextStyle(
-                fontSize: 10.5,
-                fontWeight: FontWeight.w400,
-                color: prefixColor,
-                letterSpacing: 0.3,
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Text(
+                'Powered by ',
+                style: TextStyle(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w400,
+                  color: prefixColor,
+                  letterSpacing: 0.3,
+                ),
               ),
-            ),
-            Text(
-              'Diradz Solutions',
-              style: TextStyle(
-                fontSize: 10.5,
-                fontWeight: FontWeight.w600,
-                color: brandColor,
-                letterSpacing: 0.35,
+              Text(
+                'Diradz Solutions',
+                style: TextStyle(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w600,
+                  color: brandColor,
+                  letterSpacing: 0.35,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

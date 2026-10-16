@@ -281,7 +281,11 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // 1. Verified Settlement Bank Banner
+                    // 1. Financial Overview Summary Cards
+                    _buildOverallKpiGrid(isDark),
+                    const SizedBox(height: 16),
+
+                    // 2. Verified Settlement Bank Banner
                     _buildBankBanner(isDark),
                     const SizedBox(height: 18),
 
@@ -344,6 +348,108 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
   }
 
 
+
+  // Overall Financial Overview
+  Widget _buildOverallKpiGrid(bool isDark) {
+    final total = widget.state.totalCommissionClaimed;
+    final pending = widget.state.pendingCommissionAmount;
+    final paid = widget.state.paidCommissionAmount;
+    final count = widget.state.allInvoices.length;
+
+    return GridView.count(
+      crossAxisCount: 2,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisSpacing: 10,
+      mainAxisSpacing: 10,
+      childAspectRatio: 1.45,
+      children: [
+        _buildStatCard(
+          title: 'Total Claimed',
+          value: '₹${total.toStringAsFixed(0)}',
+          color: const Color(0xFF6366F1), // Indigo
+          icon: Icons.account_balance_wallet_rounded,
+          isDark: isDark,
+        ),
+        _buildStatCard(
+          title: 'Amount Received',
+          value: '₹${paid.toStringAsFixed(0)}',
+          color: const Color(0xFF10B981), // Emerald
+          icon: Icons.check_circle_rounded,
+          isDark: isDark,
+        ),
+        _buildStatCard(
+          title: 'Pending Clearance',
+          value: '₹${pending.toStringAsFixed(0)}',
+          color: const Color(0xFFF59E0B), // Amber
+          icon: Icons.hourglass_top_rounded,
+          isDark: isDark,
+        ),
+        _buildStatCard(
+          title: 'Total Invoices',
+          value: '$count Invoices',
+          color: const Color(0xFF38BDF8), // Sky Blue
+          icon: Icons.receipt_long_rounded,
+          isDark: isDark,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatCard({
+    required String title,
+    required String value,
+    required Color color,
+    required IconData icon,
+    required bool isDark,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkSurface : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? AppColors.darkBorder : const Color(0xFFE5E9F0),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, size: 14, color: color),
+              ),
+            ],
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w900,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   // Settlement Bank Banner
   Widget _buildBankBanner(bool isDark) {
