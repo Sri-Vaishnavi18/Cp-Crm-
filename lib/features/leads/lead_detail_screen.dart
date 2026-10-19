@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/models/app_models.dart';
 import '../../core/services/document_picker_service.dart';
+import '../../core/services/file_download_service.dart';
 import '../../core/services/url_action_service.dart';
 import '../../core/state/app_state.dart';
 import '../../core/theme/app_theme.dart';
@@ -3094,13 +3095,27 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
                 children: [
                   Expanded(
                     child: OutlinedButton.icon(
-                      onPressed: () {
+                      onPressed: () async {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             backgroundColor: const Color(0xFF4F46E5),
                             content: Text('Downloading digital invoice PDF for ${invoice.invoiceNumber}...'),
                             behavior: SnackBarBehavior.floating,
+                            duration: const Duration(seconds: 1),
                           ),
+                        );
+                        final tds = invoice.amount * 0.05;
+                        final net = invoice.amount - tds;
+                        await FileDownloadService.downloadInvoiceVoucherPdf(
+                          voucherNumber: invoice.invoiceNumber,
+                          clientName: invoice.clientName,
+                          projectName: invoice.projectName,
+                          grossAmount: invoice.amount,
+                          tdsAmount: tds,
+                          netAmount: net,
+                          utrNumber: 'UTR-${invoice.invoiceNumber.replaceAll(RegExp(r'[^0-9]'), '')}',
+                          bankName: invoice.bankDetails.bankName,
+                          dateStr: '${invoice.date.day}/${invoice.date.month}/${invoice.date.year}',
                         );
                       },
                       icon: const Icon(Icons.download_rounded, size: 18),
@@ -3117,12 +3132,17 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
                   Expanded(
                     child: ElevatedButton.icon(
                       onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            backgroundColor: const Color(0xFF10B981),
-                            content: Text('Sharing invoice voucher ${invoice.invoiceNumber} with builder accounts desk...'),
-                            behavior: SnackBarBehavior.floating,
-                          ),
+                        final net = invoice.amount * 0.95;
+                        final shareText = '📄 *INVOICE VOUCHER ${invoice.invoiceNumber}*\n'
+                            'Client: ${invoice.clientName}\n'
+                            'Project: ${invoice.projectName}\n'
+                            'Payout Claim: ₹${net.toStringAsFixed(0)}\n'
+                            'Status: ${invoice.status.displayName}\n'
+                            'Bank: ${invoice.bankDetails.bankName} (A/C: ${invoice.bankDetails.accountNumber})';
+                        UrlActionService.shareContent(
+                          context,
+                          text: shareText,
+                          subject: 'Invoice Voucher ${invoice.invoiceNumber}',
                         );
                       },
                       icon: const Icon(Icons.share_rounded, size: 18),

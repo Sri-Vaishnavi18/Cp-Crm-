@@ -57,11 +57,106 @@ class _LeadsScreenState extends State<LeadsScreen> {
     );
   }
 
+  static double _parseBudgetToRupees(String budget) {
+    final clean = budget.replaceAll('₹', '').replaceAll(',', '').trim().toLowerCase();
+    if (clean.isEmpty) return 0.0;
+
+    // Check if it's a range like "80 lakhs - 1.2 cr" or "50l - 80l" or "1 cr - 1.5 cr"
+    if (clean.contains('-')) {
+      final parts = clean.split('-');
+      if (parts.length == 2) {
+        final low = _parseBudgetToRupees(parts[0]);
+        final high = _parseBudgetToRupees(parts[1]);
+        if (high > 0 && low > 0) return (low + high) / 2;
+        if (high > 0) return high;
+        if (low > 0) return low;
+      }
+    }
+
+    // Check for Cr / Crore
+    if (clean.contains('cr')) {
+      final match = RegExp(r'([\d\.]+)').firstMatch(clean);
+      if (match != null) {
+        final val = double.tryParse(match.group(1)!) ?? 1.0;
+        return val * 10000000;
+      }
+    }
+
+    // Check for L / Lakh
+    if (clean.contains('l')) {
+      final match = RegExp(r'([\d\.]+)').firstMatch(clean);
+      if (match != null) {
+        final val = double.tryParse(match.group(1)!) ?? 50.0;
+        return val * 100000;
+      }
+    }
+
+    final match = RegExp(r'([\d\.]+)').firstMatch(clean);
+    if (match != null) {
+      return double.tryParse(match.group(1)!) ?? 0.0;
+    }
+    return 0.0;
+  }
+
+  bool get _hasActiveFilters =>
+      _selectedFilter != 'All' ||
+      _sortFilter != 'Sort ▾' ||
+      _projectFilter != 'Project ▾' ||
+      _budgetFilter != 'Budget ▾' ||
+      _sourceFilter != 'Source ▾' ||
+      _searchController.text.trim().isNotEmpty ||
+      widget.state.isDateFilterActive;
+
+  void _resetAllFilters() {
+    setState(() {
+      _selectedFilter = 'All';
+      _sortFilter = 'Sort ▾';
+      _projectFilter = 'Project ▾';
+      _budgetFilter = 'Budget ▾';
+      _sourceFilter = 'Source ▾';
+      _searchController.clear();
+      _isSearching = false;
+    });
+    widget.state.resetDashboardDateFilter();
+  }
+
+  static String _formatRelativeTime(DateTime dateTime) {
+    final now = DateTime.now();
+    final difference = now.difference(dateTime);
+
+    if (difference.isNegative || difference.inSeconds < 60) {
+      return 'Just now';
+    } else if (difference.inMinutes < 60) {
+      final mins = difference.inMinutes;
+      return '$mins min${mins > 1 ? "s" : ""} ago';
+    } else if (difference.inHours < 24 && dateTime.day == now.day) {
+      final hours = difference.inHours;
+      return hours == 0 ? 'Just now' : '$hours hr${hours > 1 ? "s" : ""} ago';
+    } else {
+      final yesterday = now.subtract(const Duration(days: 1));
+      if (dateTime.year == yesterday.year &&
+          dateTime.month == yesterday.month &&
+          dateTime.day == yesterday.day) {
+        return 'Yesterday';
+      }
+      final days = difference.inDays;
+      if (days < 7) {
+        return days <= 1 ? '1 day ago' : '$days days ago';
+      } else if (days < 30) {
+        final weeks = (days / 7).floor();
+        return '$weeks week${weeks > 1 ? "s" : ""} ago';
+      } else {
+        final months = (days / 30).floor();
+        return '$months month${months > 1 ? "s" : ""} ago';
+      }
+    }
+  }
+
   List<LeadModel> _getFilteredLeads() {
     final all = widget.state.allLeads;
     final query = _searchController.text.trim().toLowerCase();
 
-    return all.where((lead) {
+    final filtered = all.where((lead) {
       // Date filter
       if (!widget.state.isDateInActiveRange(lead.createdAt)) return false;
 
@@ -75,9 +170,29 @@ class _LeadsScreenState extends State<LeadsScreen> {
       }
 
       // Project filter
-      if (_projectFilter != 'Project ▾') {
-        final cleanProj = _projectFilter.replaceAll(' ▾', '').toLowerCase();
-        if (!lead.projectName.toLowerCase().contains(cleanProj)) return false;
+      if (_projectFilter != 'Project ▾' && _projectFilter != 'All Projects') {
+        final cleanProj = _projectFilter.replaceAll(' ▾', '').trim().toLowerCase();
+        final leadProj = lead.projectName.trim().toLowerCase();
+        final matches = leadProj.contains(cleanProj) || cleanProj.contains(leadProj);
+        if (!matches) return false;
+      }
+
+      // Budget filter
+      if (_budgetFilter != 'Budget ▾' && _budgetFilter != 'All Budgets') {
+        final val = _parseBudgetToRupees(lead.budget);
+        if (_budgetFilter == '< ₹75L') {
+          if (val >= 7500000) return false;
+        } else if (_budgetFilter == '₹75L - ₹1Cr') {
+          if (val < 7500000 || val > 10000000) return false;
+        } else if (_budgetFilter == '> ₹1Cr') {
+          if (val <= 10000000) return false;
+        }
+      }
+
+      // Source filter
+      if (_sourceFilter != 'Source ▾' && _sourceFilter != 'All Sources') {
+        final cleanSource = _sourceFilter.replaceAll(' ▾', '').trim().toLowerCase();
+        if (lead.source.trim().toLowerCase() != cleanSource) return false;
       }
 
       // Search query
@@ -90,6 +205,19 @@ class _LeadsScreenState extends State<LeadsScreen> {
 
       return true;
     }).toList();
+
+    // Sorting
+    if (_sortFilter == 'Budget High-Low') {
+      filtered.sort((a, b) => _parseBudgetToRupees(b.budget).compareTo(_parseBudgetToRupees(a.budget)));
+    } else if (_sortFilter == 'Budget Low-High') {
+      filtered.sort((a, b) => _parseBudgetToRupees(a.budget).compareTo(_parseBudgetToRupees(b.budget)));
+    } else if (_sortFilter == 'Newest First') {
+      filtered.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    } else if (_sortFilter == 'Oldest First') {
+      filtered.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    }
+
+    return filtered;
   }
 
   @override
@@ -245,30 +373,75 @@ class _LeadsScreenState extends State<LeadsScreen> {
                 children: [
                   _buildDropdownChip(
                     label: _sortFilter,
-                    options: ['Sort ▾', 'Newest First', 'Oldest First', 'Budget High-Low'],
+                    options: ['Sort ▾', 'Newest First', 'Oldest First', 'Budget High-Low', 'Budget Low-High'],
                     onSelected: (val) => setState(() => _sortFilter = val),
                     isDark: isDark,
                   ),
                   const SizedBox(width: 8),
                   _buildDropdownChip(
                     label: _projectFilter,
-                    options: ['Project ▾', 'My Home Avatar', 'Prestige Sunshine', 'Rajapushpa', 'Aparna Zenon'],
-                    onSelected: (val) => setState(() => _projectFilter = val),
+                    options: ['All Projects', ...widget.state.projects.map((p) => p.name)],
+                    onSelected: (val) => setState(() => _projectFilter = val == 'All Projects' ? 'Project ▾' : val),
                     isDark: isDark,
                   ),
                   const SizedBox(width: 8),
                   _buildDropdownChip(
                     label: _budgetFilter,
-                    options: ['Budget ▾', '< ₹75L', '₹75L - ₹1Cr', '> ₹1Cr'],
-                    onSelected: (val) => setState(() => _budgetFilter = val),
+                    options: ['All Budgets', '< ₹75L', '₹75L - ₹1Cr', '> ₹1Cr'],
+                    onSelected: (val) => setState(() => _budgetFilter = val == 'All Budgets' ? 'Budget ▾' : val),
                     isDark: isDark,
                   ),
                   const SizedBox(width: 8),
                   _buildDropdownChip(
                     label: _sourceFilter,
-                    options: ['Source ▾', 'Website', 'Meta Ads', 'Referral', 'Walk-in'],
-                    onSelected: (val) => setState(() => _sourceFilter = val),
+                    options: ['All Sources', 'Website', 'Meta Ads', 'Referral', 'Walk-in', 'Digital Ads', 'Channel Partner', 'Cold Calling'],
+                    onSelected: (val) => setState(() => _sourceFilter = val == 'All Sources' ? 'Source ▾' : val),
                     isDark: isDark,
+                  ),
+                  const SizedBox(width: 8),
+                  // Reset Filter Chip
+                  InkWell(
+                    key: const Key('leads_reset_filters_button'),
+                    onTap: _resetAllFilters,
+                    borderRadius: BorderRadius.circular(20),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: _hasActiveFilters
+                            ? const Color(0xFFEF4444).withValues(alpha: 0.1)
+                            : (isDark ? AppColors.darkSurface : Colors.white),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: _hasActiveFilters
+                              ? const Color(0xFFEF4444)
+                              : (isDark ? AppColors.darkBorder : const Color(0xFFE2E8F0)),
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.restart_alt_rounded,
+                            size: 14,
+                            color: _hasActiveFilters
+                                ? const Color(0xFFEF4444)
+                                : (isDark ? AppColors.darkTextSecondary : const Color(0xFF64748B)),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Reset',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: _hasActiveFilters
+                                  ? const Color(0xFFEF4444)
+                                  : (isDark ? AppColors.darkTextSecondary : const Color(0xFF64748B)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -296,20 +469,10 @@ class _LeadsScreenState extends State<LeadsScreen> {
                               color: isDark ? AppColors.darkTextSecondary : const Color(0xFF64748B),
                             ),
                           ),
-                          if (widget.state.isDateFilterActive || _selectedFilter != 'All' || _searchController.text.isNotEmpty || _projectFilter != 'Project ▾') ...[
+                          if (_hasActiveFilters) ...[
                             const SizedBox(height: 12),
                             OutlinedButton.icon(
-                              onPressed: () {
-                                widget.state.resetDashboardDateFilter();
-                                _searchController.clear();
-                                setState(() {
-                                  _selectedFilter = 'All';
-                                  _projectFilter = 'Project ▾';
-                                  _budgetFilter = 'Budget ▾';
-                                  _sourceFilter = 'Source ▾';
-                                  _sortFilter = 'Sort ▾';
-                                });
-                              },
+                              onPressed: _resetAllFilters,
                               icon: const Icon(Icons.restart_alt_rounded, size: 16),
                               label: const Text('Reset All Filters'),
                             ),
@@ -370,6 +533,11 @@ class _LeadsScreenState extends State<LeadsScreen> {
     required Function(String) onSelected,
     required bool isDark,
   }) {
+    final isActive = label != 'Sort ▾' &&
+        label != 'Project ▾' &&
+        label != 'Budget ▾' &&
+        label != 'Source ▾';
+
     return PopupMenuButton<String>(
       onSelected: onSelected,
       itemBuilder: (context) => options.map((opt) {
@@ -381,20 +549,39 @@ class _LeadsScreenState extends State<LeadsScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: isDark ? AppColors.darkSurface : Colors.white,
+          color: isActive
+              ? const Color(0xFF2563EB).withValues(alpha: 0.12)
+              : (isDark ? AppColors.darkSurface : Colors.white),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isDark ? AppColors.darkBorder : const Color(0xFFE2E8F0),
-            width: 1,
+            color: isActive
+                ? const Color(0xFF2563EB)
+                : (isDark ? AppColors.darkBorder : const Color(0xFFE2E8F0)),
+            width: isActive ? 1.5 : 1,
           ),
         ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-            color: isDark ? AppColors.darkTextSecondary : const Color(0xFF475569),
-          ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                color: isActive
+                    ? const Color(0xFF2563EB)
+                    : (isDark ? AppColors.darkTextSecondary : const Color(0xFF475569)),
+              ),
+            ),
+            if (isActive) ...[
+              const SizedBox(width: 4),
+              const Icon(
+                Icons.check,
+                size: 13,
+                color: Color(0xFF2563EB),
+              ),
+            ],
+          ],
         ),
       ),
     );
@@ -435,10 +622,8 @@ class _LeadsScreenState extends State<LeadsScreen> {
       sourceLabel = 'Walk-in';
     }
 
-    // Relative timestamp display
-    final timeDisplay = index == 0
-        ? '2 days ago'
-        : (index == 1 ? '1 day ago' : (index == 2 ? '3 days ago' : 'Today'));
+    // Relative timestamp display dynamically calculated from lead.createdAt
+    final timeDisplay = _formatRelativeTime(lead.createdAt);
 
     final bhk = lead.configurations.isNotEmpty ? lead.configurations.first : '3 BHK';
     final budget = lead.budget.isNotEmpty ? lead.budget : '₹85L';

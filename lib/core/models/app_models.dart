@@ -330,6 +330,52 @@ class LeadModel {
     );
   }
 
+  LeadModel copyWith({
+    String? id,
+    String? firstName,
+    String? lastName,
+    String? phone,
+    String? altPhone,
+    String? email,
+    String? budget,
+    List<String>? configurations,
+    String? projectId,
+    String? projectName,
+    String? timeline,
+    String? notes,
+    LeadStage? stage,
+    LeadTemperature? temperature,
+    String? source,
+    DateTime? createdAt,
+    bool? isQueuedOffline,
+    List<LeadNoteItem>? notesList,
+    List<String>? siteVisitHistory,
+    List<LeadActivityItem>? activityList,
+  }) {
+    return LeadModel(
+      id: id ?? this.id,
+      firstName: firstName ?? this.firstName,
+      lastName: lastName ?? this.lastName,
+      phone: phone ?? this.phone,
+      altPhone: altPhone ?? this.altPhone,
+      email: email ?? this.email,
+      budget: budget ?? this.budget,
+      configurations: configurations ?? this.configurations,
+      projectId: projectId ?? this.projectId,
+      projectName: projectName ?? this.projectName,
+      timeline: timeline ?? this.timeline,
+      notes: notes ?? this.notes,
+      stage: stage ?? this.stage,
+      temperature: temperature ?? this.temperature,
+      source: source ?? this.source,
+      createdAt: createdAt ?? this.createdAt,
+      isQueuedOffline: isQueuedOffline ?? this.isQueuedOffline,
+      notesList: notesList ?? this.notesList,
+      siteVisitHistory: siteVisitHistory ?? this.siteVisitHistory,
+      activityList: activityList ?? this.activityList,
+    );
+  }
+
   static LeadTemperature getTemperatureForStage(LeadStage stage) {
     switch (stage) {
       case LeadStage.cold:
@@ -624,6 +670,30 @@ class AppNotificationModel {
     this.targetRoute,
     this.targetId,
   });
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'title': title,
+    'message': message,
+    'type': type,
+    'timestamp': timestamp.toIso8601String(),
+    'isRead': isRead,
+    'targetRoute': targetRoute,
+    'targetId': targetId,
+  };
+
+  factory AppNotificationModel.fromJson(Map<String, dynamic> json) => AppNotificationModel(
+    id: json['id']?.toString() ?? '',
+    title: json['title']?.toString() ?? '',
+    message: json['message']?.toString() ?? '',
+    type: json['type']?.toString() ?? 'broadcast',
+    timestamp: json['timestamp'] != null
+        ? DateTime.tryParse(json['timestamp'].toString()) ?? DateTime.now()
+        : DateTime.now(),
+    isRead: json['isRead'] == true,
+    targetRoute: json['targetRoute']?.toString(),
+    targetId: json['targetId']?.toString(),
+  );
 }
 
 enum InvoiceType {
@@ -1391,6 +1461,7 @@ class CpDocumentModel {
   final CpDocumentStatus status;
   final bool isMandatory;
   final String? remarks;
+  final List<int>? fileBytes;
 
   CpDocumentModel({
     required this.id,
@@ -1405,6 +1476,7 @@ class CpDocumentModel {
     this.status = CpDocumentStatus.missing,
     this.isMandatory = true,
     this.remarks,
+    this.fileBytes,
   });
 
   Map<String, dynamic> toJson() => {
@@ -1456,6 +1528,7 @@ class CpDocumentModel {
     CpDocumentStatus? status,
     bool? isMandatory,
     String? remarks,
+    List<int>? fileBytes,
   }) {
     return CpDocumentModel(
       id: id ?? this.id,
@@ -1470,6 +1543,7 @@ class CpDocumentModel {
       status: status ?? this.status,
       isMandatory: isMandatory ?? this.isMandatory,
       remarks: remarks ?? this.remarks,
+      fileBytes: fileBytes ?? this.fileBytes,
     );
   }
 }

@@ -1,6 +1,7 @@
 // ignore_for_file: avoid_web_libraries_in_flutter, deprecated_member_use
 import 'dart:html' as html;
 import 'dart:convert';
+import 'dart:typed_data';
 
 Future<void> downloadFileImpl({
   required String fileName,
@@ -9,7 +10,8 @@ Future<void> downloadFileImpl({
   String mimeType = 'application/pdf',
 }) async {
   final fileBytes = bytes ?? (content != null ? utf8.encode(content) : <int>[]);
-  final blob = html.Blob([fileBytes], mimeType);
+  final u8 = Uint8List.fromList(fileBytes);
+  final blob = html.Blob([u8], mimeType);
   final url = html.Url.createObjectUrlFromBlob(blob);
   final anchor = html.AnchorElement(href: url)
     ..setAttribute('download', fileName)
@@ -17,5 +19,11 @@ Future<void> downloadFileImpl({
   html.document.body?.children.add(anchor);
   anchor.click();
   anchor.remove();
-  html.Url.revokeObjectUrl(url);
+
+  // Delay revoking so the browser download engine can stream and write the file
+  Future.delayed(const Duration(seconds: 5), () {
+    try {
+      html.Url.revokeObjectUrl(url);
+    } catch (_) {}
+  });
 }

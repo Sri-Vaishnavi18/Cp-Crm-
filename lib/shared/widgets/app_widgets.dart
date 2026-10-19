@@ -825,14 +825,17 @@ class UserProfileModalSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = state.isDarkMode;
-    final user = state.currentUser;
+    return ListenableBuilder(
+      listenable: state,
+      builder: (context, _) {
+        final isDark = state.isDarkMode;
+        final user = state.currentUser;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.darkBg : Colors.white,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+        return Container(
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.darkBg : Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
       padding: EdgeInsets.fromLTRB(
         20,
         16,
@@ -1001,99 +1004,183 @@ class UserProfileModalSheet extends StatelessWidget {
             const SizedBox(height: 14),
 
             // RERA & KYC Verification Document Scanner Tile
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF161F2E) : AppColors.lightSurfaceSubtle,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: AppColors.primaryTeal.withValues(alpha: 0.3),
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: AppColors.primaryTeal.withValues(alpha: 0.15),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.document_scanner_rounded, color: AppColors.primaryTeal, size: 16),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'RERA & Business KYC Verification',
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w800,
-                          color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Upload or scan state RERA certificate and agency GSTIN to maintain verified partner badge.',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+            Builder(
+              builder: (ctx) {
+                final reraDoc = state.cpDocuments.where((d) => d.type == CpDocumentType.reraCertificate).firstOrNull;
+                final isKycUploaded = reraDoc != null && (reraDoc.status == CpDocumentStatus.verified || reraDoc.status == CpDocumentStatus.underReview);
+                final uploadedFileName = reraDoc?.fileName ?? (reraDoc?.documentNumber.isNotEmpty == true ? 'RERA Doc (${reraDoc!.documentNumber})' : null);
+
+                return Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: isKycUploaded
+                        ? (isDark ? const Color(0xFF064E3B).withValues(alpha: 0.25) : const Color(0xFFECFDF5))
+                        : (isDark ? const Color(0xFF161F2E) : AppColors.lightSurfaceSubtle),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: isKycUploaded
+                          ? const Color(0xFF16A34A).withValues(alpha: 0.5)
+                          : AppColors.primaryTeal.withValues(alpha: 0.3),
+                      width: isKycUploaded ? 1.2 : 1,
                     ),
                   ),
-                  const SizedBox(height: 10),
-                  Row(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () async {
-                            final doc = await DocumentPickerService.pickDocumentFromCamera();
-                            if (doc != null && context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  backgroundColor: AppColors.success,
-                                  content: Text('Scanned "${doc.fileName}" (${(doc.sizeBytes / 1024).toStringAsFixed(1)} KB) successfully!'),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: isKycUploaded
+                                      ? const Color(0xFF16A34A).withValues(alpha: 0.15)
+                                      : AppColors.primaryTeal.withValues(alpha: 0.15),
+                                  shape: BoxShape.circle,
                                 ),
-                              );
-                            }
-                          },
-                          icon: const Icon(Icons.camera_alt_outlined, size: 14),
-                          label: const Text('Scan Certificate', style: TextStyle(fontSize: 11)),
-                          style: OutlinedButton.styleFrom(
-                            visualDensity: VisualDensity.compact,
-                            foregroundColor: AppColors.primaryTeal,
-                            side: BorderSide(color: AppColors.primaryTeal.withValues(alpha: 0.5)),
+                                child: Icon(
+                                  isKycUploaded ? Icons.check_circle_rounded : Icons.document_scanner_rounded,
+                                  color: isKycUploaded ? const Color(0xFF16A34A) : AppColors.primaryTeal,
+                                  size: 16,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                isKycUploaded ? 'RERA & Business KYC Uploaded' : 'RERA & Business KYC Verification',
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w800,
+                                  color: isKycUploaded
+                                      ? const Color(0xFF16A34A)
+                                      : (isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary),
+                                ),
+                              ),
+                            ],
                           ),
+                          if (isKycUploaded)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF16A34A).withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: const Color(0xFF16A34A).withValues(alpha: 0.35)),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.check_circle_rounded, size: 11, color: Color(0xFF16A34A)),
+                                  SizedBox(width: 3),
+                                  Text(
+                                    'In Review',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xFF16A34A),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        isKycUploaded
+                            ? 'Attached: ${uploadedFileName ?? "RERA License"} • Under compliance verification check.'
+                            : 'Upload or scan state RERA certificate and agency GSTIN to maintain verified partner badge.',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: isKycUploaded
+                              ? (isDark ? const Color(0xFF6EE7B7) : const Color(0xFF065F46))
+                              : (isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary),
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () async {
-                            final doc = await DocumentPickerService.pickDocumentFromGallery();
-                            if (doc != null && context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  backgroundColor: AppColors.success,
-                                  content: Text('Uploaded "${doc.fileName}" (${(doc.sizeBytes / 1024).toStringAsFixed(1)} KB) successfully!'),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () async {
+                                final doc = await DocumentPickerService.pickDocumentFromCamera();
+                                if (doc != null && context.mounted) {
+                                  await state.uploadOrUpdateDocument(
+                                    documentId: reraDoc?.id ?? 'doc_rera',
+                                    documentNumber: user?.reraNumber.isNotEmpty == true ? user!.reraNumber : 'RERA-VERIFIED',
+                                    fileName: doc.fileName,
+                                    fileSize: doc.formattedSize,
+                                    documentType: CpDocumentType.reraCertificate,
+                                    title: 'RERA Registration Certificate',
+                                    remarks: 'Scanned via Profile KYC verification camera scanner',
+                                  );
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        backgroundColor: const Color(0xFF16A34A),
+                                        content: Text('Scanned "${doc.fileName}" (${(doc.sizeBytes / 1024).toStringAsFixed(1)} KB) and uploaded to KYC!'),
+                                      ),
+                                    );
+                                  }
+                                }
+                              },
+                              icon: const Icon(Icons.camera_alt_outlined, size: 14),
+                              label: Text(isKycUploaded ? 'Re-scan' : 'Scan Certificate', style: const TextStyle(fontSize: 11)),
+                              style: OutlinedButton.styleFrom(
+                                visualDensity: VisualDensity.compact,
+                                foregroundColor: isKycUploaded ? const Color(0xFF16A34A) : AppColors.primaryTeal,
+                                side: BorderSide(
+                                  color: isKycUploaded
+                                      ? const Color(0xFF16A34A).withValues(alpha: 0.6)
+                                      : AppColors.primaryTeal.withValues(alpha: 0.5),
                                 ),
-                              );
-                            }
-                          },
-                          icon: const Icon(Icons.photo_library_outlined, size: 14),
-                          label: const Text('Upload Photo', style: TextStyle(fontSize: 11)),
-                          style: OutlinedButton.styleFrom(
-                            visualDensity: VisualDensity.compact,
-                            foregroundColor: AppColors.accentGold,
-                            side: BorderSide(color: AppColors.accentGold.withValues(alpha: 0.5)),
+                              ),
+                            ),
                           ),
-                        ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () async {
+                                final doc = await DocumentPickerService.pickDocumentFromGallery();
+                                if (doc != null && context.mounted) {
+                                  await state.uploadOrUpdateDocument(
+                                    documentId: reraDoc?.id ?? 'doc_rera',
+                                    documentNumber: user?.reraNumber.isNotEmpty == true ? user!.reraNumber : 'RERA-VERIFIED',
+                                    fileName: doc.fileName,
+                                    fileSize: doc.formattedSize,
+                                    documentType: CpDocumentType.reraCertificate,
+                                    title: 'RERA Registration Certificate',
+                                    remarks: 'Uploaded photo via Profile KYC verification gallery',
+                                  );
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        backgroundColor: const Color(0xFF16A34A),
+                                        content: Text('Uploaded "${doc.fileName}" (${(doc.sizeBytes / 1024).toStringAsFixed(1)} KB) to KYC successfully!'),
+                                      ),
+                                    );
+                                  }
+                                }
+                              },
+                              icon: const Icon(Icons.photo_library_outlined, size: 14),
+                              label: Text(isKycUploaded ? 'Re-upload' : 'Upload Photo', style: const TextStyle(fontSize: 11)),
+                              style: OutlinedButton.styleFrom(
+                                visualDensity: VisualDensity.compact,
+                                foregroundColor: isKycUploaded ? const Color(0xFF16A34A) : AppColors.accentGold,
+                                side: BorderSide(
+                                  color: isKycUploaded
+                                      ? const Color(0xFF16A34A).withValues(alpha: 0.6)
+                                      : AppColors.accentGold.withValues(alpha: 0.5),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                ],
-              ),
+                );
+              },
             ),
             const SizedBox(height: 14),
 
@@ -1177,7 +1264,9 @@ class UserProfileModalSheet extends StatelessWidget {
         ),
       ),
     );
-  }
+  },
+);
+}
 
   Widget _buildDetailRow(IconData icon, String label, String value, bool isDark, {Color? valueColor}) {
     return Row(

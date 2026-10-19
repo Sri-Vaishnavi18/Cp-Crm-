@@ -80,6 +80,11 @@ class AppState extends ChangeNotifier {
   bool get isOffline => _isOffline;
   int get offlineQueueCount => _leads.where((l) => l.isQueuedOffline).length;
 
+  DateTime _lastSyncedAt = DateTime.now();
+  DateTime get lastSyncedAt => _lastSyncedAt;
+  bool _isSyncing = false;
+  bool get isSyncing => _isSyncing;
+
   // Search & Filter State
   String _leadSearchQuery = '';
   String? _leadStageFilter;
@@ -114,8 +119,9 @@ class AppState extends ChangeNotifier {
   double get kycCompletionPercentage {
     final mandatory = _cpDocuments.where((d) => d.isMandatory).toList();
     if (mandatory.isEmpty) return 1.0;
-    final verified = mandatory.where((d) => d.status == CpDocumentStatus.verified).length;
-    return verified / mandatory.length;
+    final submitted = mandatory.where((d) =>
+        d.status == CpDocumentStatus.verified || d.status == CpDocumentStatus.underReview).length;
+    return submitted / mandatory.length;
   }
 
   double get totalReceivedDisbursedAmount =>
@@ -157,6 +163,15 @@ class AppState extends ChangeNotifier {
         if (raw != null && raw.isNotEmpty) {
           final decoded = jsonDecode(raw) as List<dynamic>;
           _leads = decoded.map((item) => LeadModel.fromJson(item as Map<String, dynamic>)).toList();
+          // Sanitize legacy mock lead_4 if stored with today's date from prior run
+          final l4Idx = _leads.indexWhere((l) => l.id == 'lead_4');
+          if (l4Idx != -1) {
+            final l4 = _leads[l4Idx];
+            final now = DateTime.now();
+            if (l4.createdAt.year == now.year && l4.createdAt.month == now.month && l4.createdAt.day == now.day) {
+              _leads[l4Idx] = l4.copyWith(createdAt: now.subtract(const Duration(days: 5, hours: 2)));
+            }
+          }
         } else {
           _leads = [];
         }
@@ -201,6 +216,35 @@ class AppState extends ChangeNotifier {
           _invoices = [];
         }
       }
+
+      // 4. Notifications
+      final userNotifsKey = 'persisted_notifications_$userId';
+      if (prefs.containsKey(userNotifsKey)) {
+        final raw = prefs.getString(userNotifsKey);
+        if (raw != null && raw.isNotEmpty) {
+          final decoded = jsonDecode(raw) as List<dynamic>;
+          _notifications = decoded
+              .map((item) => AppNotificationModel.fromJson(item as Map<String, dynamic>))
+              .toList();
+        } else {
+          _notifications = [];
+        }
+      } else {
+        if (userId == 'usr_9014') {
+          _notifications = MockDataService.getNotifications();
+        } else {
+          _notifications = [];
+        }
+      }
+
+      // 5. Last Synced Time
+      final syncKey = 'last_synced_$userId';
+      if (prefs.containsKey(syncKey)) {
+        final syncRaw = prefs.getString(syncKey);
+        if (syncRaw != null && syncRaw.isNotEmpty) {
+          _lastSyncedAt = DateTime.tryParse(syncRaw) ?? DateTime.now();
+        }
+      }
     } catch (_) {}
     notifyListeners();
   }
@@ -210,9 +254,11 @@ class AppState extends ChangeNotifier {
     _leads = [];
     _siteVisits = [];
     _invoices = [];
+    _notifications = [];
     await _persistLeads();
     await _persistSiteVisits();
     await _persistInvoices();
+    await _persistNotifications();
     notifyListeners();
   }
 
@@ -221,9 +267,11 @@ class AppState extends ChangeNotifier {
     _leads = MockDataService.getInitialLeads();
     _siteVisits = MockDataService.getInitialVisits();
     _invoices = MockDataService.getInitialInvoices();
+    _notifications = MockDataService.getNotifications();
     await _persistLeads();
     await _persistSiteVisits();
     await _persistInvoices();
+    await _persistNotifications();
     notifyListeners();
   }
 
@@ -293,7 +341,33 @@ class AppState extends ChangeNotifier {
         final decoded = jsonDecode(docsRaw) as List<dynamic>;
         final stored = decoded.map((item) => CpDocumentModel.fromJson(item as Map<String, dynamic>)).toList();
         if (stored.isNotEmpty) {
-          _cpDocuments = stored;
+          const legacyMockFiles = {
+            'rera_agent_cert_2024.pdf',
+            'cp_pan_card.jpg',
+            'gstin_certificate_reg06.pdf',
+            'authorized_id_proof.jpg',
+            'signed_developer_mou_2024.pdf',
+            'cancelled_cheque_hdfc.jpg',
+            'Attach document (PDF, PNG, JPG)',
+          };
+          _cpDocuments = stored.map((doc) {
+            if (doc.fileName != null && legacyMockFiles.contains(doc.fileName)) {
+              return CpDocumentModel(
+                id: doc.id,
+                type: doc.type,
+                title: doc.title,
+                documentNumber: '',
+                fileName: null,
+                fileSize: null,
+                uploadedAt: null,
+                expiresAt: null,
+                status: CpDocumentStatus.missing,
+                isMandatory: doc.isMandatory,
+                remarks: 'Pending document upload and verification.',
+              );
+            }
+            return doc;
+          }).toList();
         }
       }
 
@@ -442,6 +516,7 @@ class AppState extends ChangeNotifier {
         timestamp: DateTime.now(),
       ),
     );
+    await _persistNotifications();
 
     notifyListeners();
     return AuthResult(success: true, user: saved);
@@ -464,6 +539,7 @@ class AppState extends ChangeNotifier {
     _leads = [];
     _siteVisits = [];
     _invoices = [];
+    _notifications = [];
     notifyListeners();
   }
 
@@ -477,7 +553,10 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  void syncOfflineQueue() {
+  int syncOfflineQueue() {
+    int syncedCount = 0;
+    final now = DateTime.now();
+
     for (int i = 0; i < _leads.length; i++) {
       if (_leads[i].isQueuedOffline) {
         _leads[i] = LeadModel(
@@ -498,10 +577,60 @@ class AppState extends ChangeNotifier {
           source: _leads[i].source,
           createdAt: _leads[i].createdAt,
           isQueuedOffline: false,
+          notesList: _leads[i].notesList,
+          activityList: [
+            LeadActivityItem(
+              id: 'act_${now.microsecondsSinceEpoch}_$i',
+              title: 'Offline lead synced to central cloud server',
+              timestamp: now,
+            ),
+            ..._leads[i].activityList,
+          ],
         );
+        syncedCount++;
       }
     }
+
+    if (syncedCount > 0) {
+      _notifications.insert(
+        0,
+        AppNotificationModel(
+          id: 'notif_${now.microsecondsSinceEpoch}',
+          title: 'Cloud Sync Complete! ☁️',
+          message: '$syncedCount offline lead(s) successfully synchronized with the central cloud database.',
+          type: 'lead',
+          timestamp: now,
+        ),
+      );
+      _persistLeads();
+      _persistNotifications();
+    }
+
     notifyListeners();
+    return syncedCount;
+  }
+
+  Future<int> triggerCloudSync() async {
+    _isSyncing = true;
+    notifyListeners();
+
+    // Realistic brief sync delay for tactile UI feedback
+    await Future.delayed(const Duration(milliseconds: 600));
+
+    final count = syncOfflineQueue();
+    _lastSyncedAt = DateTime.now();
+    _isSyncing = false;
+
+    final uid = _currentUser?.id;
+    if (uid != null) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('last_synced_$uid', _lastSyncedAt.toIso8601String());
+      } catch (_) {}
+    }
+
+    notifyListeners();
+    return count;
   }
 
   // Algorithmic Duplicate Check (Zero-OTP)
@@ -604,6 +733,7 @@ class AppState extends ChangeNotifier {
       ),
     );
 
+    _persistNotifications();
     notifyListeners();
     return true;
   }
@@ -688,6 +818,7 @@ class AppState extends ChangeNotifier {
           targetRoute: '/leads',
         ),
       );
+      _persistNotifications();
       notifyListeners();
     }
 
@@ -711,6 +842,7 @@ class AppState extends ChangeNotifier {
       ),
     );
 
+    _persistNotifications();
     notifyListeners();
     _persistProjects();
   }
@@ -760,6 +892,7 @@ class AppState extends ChangeNotifier {
           targetId: project.id,
         ),
       );
+      _persistNotifications();
       notifyListeners();
       _persistProjects();
     }
@@ -775,16 +908,53 @@ class AppState extends ChangeNotifier {
       // Automatically cascade lead temperature based on stage
       lead.temperature = LeadModel.getTemperatureForStage(newStage);
 
+      final now = DateTime.now();
       lead.activityList.insert(
         0,
         LeadActivityItem(
-          id: 'act_${DateTime.now().microsecondsSinceEpoch}',
+          id: 'act_${now.microsecondsSinceEpoch}',
           title: 'lead status updated to ${newStage.displayName}',
-          timestamp: DateTime.now(),
+          timestamp: now,
+        ),
+      );
+
+      String notifTitle;
+      String notifMessage;
+      String notifType = 'lead';
+
+      switch (newStage) {
+        case LeadStage.siteVisited:
+          notifTitle = 'Site Visit Completed: ${lead.fullName}';
+          notifMessage = '${lead.fullName} completed site visit for ${lead.projectName}. Follow up to close booking token!';
+          notifType = 'visit';
+          break;
+        case LeadStage.booked:
+          notifTitle = '🎉 Booking Confirmed: ${lead.fullName}!';
+          notifMessage = 'Booking locked for ${lead.projectName}! Payout claim is now unlocked.';
+          notifType = 'lead';
+          break;
+        case LeadStage.cold:
+          notifTitle = 'Lead Stage Updated: ${lead.fullName}';
+          notifMessage = 'Status updated to ${newStage.displayName} on ${lead.projectName}.';
+          notifType = 'lead';
+          break;
+      }
+
+      _notifications.insert(
+        0,
+        AppNotificationModel(
+          id: 'notif_${now.microsecondsSinceEpoch}',
+          title: notifTitle,
+          message: notifMessage,
+          type: notifType,
+          timestamp: now,
+          targetRoute: '/leads',
+          targetId: lead.id,
         ),
       );
 
       _persistLeads();
+      _persistNotifications();
       notifyListeners();
     }
   }
@@ -1001,6 +1171,7 @@ class AppState extends ChangeNotifier {
 
     _persistSiteVisits();
     _persistLeads();
+    _persistNotifications();
     notifyListeners();
     return visitCode;
   }
@@ -1043,6 +1214,7 @@ class AppState extends ChangeNotifier {
 
       _persistSiteVisits();
       _persistLeads();
+      _persistNotifications();
       notifyListeners();
     }
   }
@@ -1076,6 +1248,7 @@ class AppState extends ChangeNotifier {
         ),
       );
 
+      _persistNotifications();
       notifyListeners();
       return true;
     }
@@ -1088,6 +1261,7 @@ class AppState extends ChangeNotifier {
     if (index != -1) {
       _notifications[index].isRead = true;
       notifyListeners();
+      _persistNotifications();
     }
   }
 
@@ -1096,6 +1270,7 @@ class AppState extends ChangeNotifier {
       n.isRead = true;
     }
     notifyListeners();
+    _persistNotifications();
   }
 
   // Date Filter Actions
@@ -1130,14 +1305,17 @@ class AppState extends ChangeNotifier {
       case DashboardDatePreset.today:
         return !date.isBefore(todayStart) && !date.isAfter(todayEnd);
       case DashboardDatePreset.yesterday:
-        final yesterdayStart = DateTime(now.year, now.month, now.day - 1);
-        final yesterdayEnd = DateTime(now.year, now.month, now.day - 1, 23, 59, 59, 999);
+        final yDate = now.subtract(const Duration(days: 1));
+        final yesterdayStart = DateTime(yDate.year, yDate.month, yDate.day);
+        final yesterdayEnd = DateTime(yDate.year, yDate.month, yDate.day, 23, 59, 59, 999);
         return !date.isBefore(yesterdayStart) && !date.isAfter(yesterdayEnd);
       case DashboardDatePreset.last7Days:
-        final start7Days = DateTime(now.year, now.month, now.day - 6);
+        final d7 = now.subtract(const Duration(days: 6));
+        final start7Days = DateTime(d7.year, d7.month, d7.day);
         return !date.isBefore(start7Days) && !date.isAfter(todayEnd);
       case DashboardDatePreset.last30Days:
-        final start30Days = DateTime(now.year, now.month, now.day - 29);
+        final d30 = now.subtract(const Duration(days: 29));
+        final start30Days = DateTime(d30.year, d30.month, d30.day);
         return !date.isBefore(start30Days) && !date.isAfter(todayEnd);
       case DashboardDatePreset.custom:
         if (_customDateRange == null) return true;
@@ -1351,6 +1529,7 @@ class AppState extends ChangeNotifier {
     notifyListeners();
     _persistInvoices();
     _persistBankDetails();
+    _persistNotifications();
     return invoice;
   }
 
@@ -1425,6 +1604,7 @@ class AppState extends ChangeNotifier {
 
       _persistInvoices();
       _persistLeads();
+      _persistNotifications();
       notifyListeners();
     }
   }
@@ -1432,9 +1612,47 @@ class AppState extends ChangeNotifier {
   void updateInvoiceStatus(String invoiceId, InvoiceStatus newStatus) {
     final idx = _invoices.indexWhere((inv) => inv.id == invoiceId);
     if (idx != -1) {
-      _invoices[idx].status = newStatus;
+      final inv = _invoices[idx];
+      inv.status = newStatus;
+
+      final now = DateTime.now();
+      final formattedAmt = inv.amount >= 100000
+          ? '₹${(inv.amount / 100000).toStringAsFixed(2)} Lakhs'
+          : '₹${inv.amount.toStringAsFixed(0)}';
+
+      String notifTitle;
+      String notifMsg;
+
+      if (newStatus == InvoiceStatus.paid) {
+        notifTitle = '💰 Commission Payout Received: $formattedAmt';
+        notifMsg = 'Payout for invoice ${inv.invoiceNumber} (${inv.clientName}) has been credited! Check your settlement account.';
+      } else if (newStatus == InvoiceStatus.approved) {
+        notifTitle = 'Invoice Approved! 📑: ${inv.invoiceNumber}';
+        notifMsg = 'Invoice for $formattedAmt (${inv.clientName} - ${inv.projectName}) approved by builder finance. Payout scheduled.';
+      } else if (newStatus == InvoiceStatus.rejected) {
+        notifTitle = 'Invoice Action Needed: ${inv.invoiceNumber}';
+        notifMsg = 'Invoice for $formattedAmt (${inv.projectName}) was queried. Please verify documentation.';
+      } else {
+        notifTitle = 'Invoice Status: ${inv.invoiceNumber}';
+        notifMsg = 'Status updated to ${newStatus.displayName} for $formattedAmt.';
+      }
+
+      _notifications.insert(
+        0,
+        AppNotificationModel(
+          id: 'notif_${now.microsecondsSinceEpoch}',
+          title: notifTitle,
+          message: notifMsg,
+          type: 'broadcast',
+          timestamp: now,
+          targetRoute: '/commissions',
+          targetId: inv.id,
+        ),
+      );
+
       notifyListeners();
       _persistInvoices();
+      _persistNotifications();
     }
   }
 
@@ -1496,6 +1714,7 @@ class AppState extends ChangeNotifier {
     String? remarks,
     CpDocumentType? documentType,
     String? title,
+    List<int>? fileBytes,
   }) async {
     final idx = _cpDocuments.indexWhere((d) => d.id == documentId);
     final now = DateTime.now();
@@ -1509,6 +1728,7 @@ class AppState extends ChangeNotifier {
         expiresAt: expiresAt,
         status: CpDocumentStatus.underReview,
         remarks: remarks ?? 'Uploaded on ${now.day}/${now.month}/${now.year} - verification in review',
+        fileBytes: fileBytes,
       );
     } else {
       _cpDocuments.add(
@@ -1524,6 +1744,7 @@ class AppState extends ChangeNotifier {
           status: CpDocumentStatus.underReview,
           isMandatory: false,
           remarks: remarks ?? 'Uploaded on ${now.day}/${now.month}/${now.year}',
+          fileBytes: fileBytes,
         ),
       );
     }
@@ -1541,6 +1762,7 @@ class AppState extends ChangeNotifier {
 
     notifyListeners();
     _persistCpDocuments();
+    _persistNotifications();
   }
 
   Future<void> deleteDocument(String documentId) async {
@@ -1548,12 +1770,18 @@ class AppState extends ChangeNotifier {
     if (idx != -1) {
       final doc = _cpDocuments[idx];
       if (doc.isMandatory) {
-        _cpDocuments[idx] = doc.copyWith(
+        _cpDocuments[idx] = CpDocumentModel(
+          id: doc.id,
+          type: doc.type,
+          title: doc.title,
           documentNumber: '',
           fileName: null,
           fileSize: null,
           uploadedAt: null,
+          expiresAt: null,
           status: CpDocumentStatus.missing,
+          isMandatory: true,
+          remarks: 'Pending document upload and verification.',
         );
       } else {
         _cpDocuments.removeAt(idx);
@@ -1565,8 +1793,27 @@ class AppState extends ChangeNotifier {
 
   void addReceivedInvoice(ReceivedInvoiceModel invoice) {
     _receivedInvoices.insert(0, invoice);
+
+    final now = DateTime.now();
+    final formattedAmt = invoice.netAmount >= 100000
+        ? '₹${(invoice.netAmount / 100000).toStringAsFixed(2)} Lakhs'
+        : '₹${invoice.netAmount.toStringAsFixed(0)}';
+
+    _notifications.insert(
+      0,
+      AppNotificationModel(
+        id: 'notif_${now.microsecondsSinceEpoch}',
+        title: 'Payment Credit Advice Received 💵',
+        message: '$formattedAmt received for ${invoice.projectName} (Ref: ${invoice.voucherNumber}).',
+        type: 'broadcast',
+        timestamp: now,
+        targetRoute: '/docs',
+      ),
+    );
+
     notifyListeners();
     _persistReceivedInvoices();
+    _persistNotifications();
   }
 
   Future<void> _persistCpDocuments() async {
@@ -1582,6 +1829,16 @@ class AppState extends ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       final jsonList = _receivedInvoices.map((inv) => inv.toJson()).toList();
       await prefs.setString('persisted_received_invoices', jsonEncode(jsonList));
+    } catch (_) {}
+  }
+
+  Future<void> _persistNotifications() async {
+    final uid = _currentUser?.id;
+    if (uid == null) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final jsonList = _notifications.map((n) => n.toJson()).toList();
+      await prefs.setString('persisted_notifications_$uid', jsonEncode(jsonList));
     } catch (_) {}
   }
 }

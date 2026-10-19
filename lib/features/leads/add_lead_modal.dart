@@ -25,7 +25,7 @@ class _AddLeadModalSheetState extends State<AddLeadModalSheet> {
   // Part 2: Project & Lead Details
   late String _selectedProjectId;
   String _selectedSource = 'Digital Ads';
-  LeadTemperature _selectedTemperature = LeadTemperature.cold;
+  final LeadTemperature _selectedTemperature = LeadTemperature.cold;
   String _selectedBudget = '₹80 Lakhs - ₹1.2 Cr';
   String _selectedTimeline = 'Immediate (<15 days)';
   final List<String> _selectedConfigs = ['2 BHK', '3 BHK'];
@@ -210,28 +210,31 @@ class _AddLeadModalSheetState extends State<AddLeadModalSheet> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Lead Creation',
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w800,
-                          color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
-                          letterSpacing: -0.5,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Lead Creation',
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w800,
+                            color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                            letterSpacing: -0.5,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'Register prospect with algorithmic exclusivity protection',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                        const SizedBox(height: 2),
+                        Text(
+                          'Register prospect with algorithmic exclusivity protection',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
+                  const SizedBox(width: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
@@ -420,7 +423,7 @@ class _AddLeadModalSheetState extends State<AddLeadModalSheet> {
                     const SizedBox(height: 16),
 
                     Text(
-                      'Temperature of the Lead *',
+                      'Temperature of the Lead',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
@@ -428,35 +431,81 @@ class _AddLeadModalSheetState extends State<AddLeadModalSheet> {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        _buildTemperatureOption(
-                          temperature: LeadTemperature.hot,
-                          label: 'Hot Lead',
-                          iconEmoji: '🔥',
-                          color: const Color(0xFFEF4444),
-                          subtext: 'High Intent / Ready',
-                          isDark: isDark,
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF0C243B) : const Color(0xFFF0F9FF),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: const Color(0xFF0EA5E9).withValues(alpha: 0.4),
+                          width: 1.2,
                         ),
-                        const SizedBox(width: 8),
-                        _buildTemperatureOption(
-                          temperature: LeadTemperature.warm,
-                          label: 'Warm Lead',
-                          iconEmoji: '☀️',
-                          color: const Color(0xFFF59E0B),
-                          subtext: 'Site Visit Ready',
-                          isDark: isDark,
-                        ),
-                        const SizedBox(width: 8),
-                        _buildTemperatureOption(
-                          temperature: LeadTemperature.cold,
-                          label: 'Cold Lead',
-                          iconEmoji: '❄️',
-                          color: const Color(0xFF0EA5E9),
-                          subtext: 'Early Exploration',
-                          isDark: isDark,
-                        ),
-                      ],
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF0EA5E9).withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            alignment: Alignment.center,
+                            child: const Text('❄️', style: TextStyle(fontSize: 18)),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Text(
+                                      'Cold Lead',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w700,
+                                        color: isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF0EA5E9).withValues(alpha: 0.15),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: const Text(
+                                        'DEFAULT',
+                                        style: TextStyle(
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.w800,
+                                          color: Color(0xFF0284C7),
+                                          letterSpacing: 0.5,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'All new leads start as Cold. Upgraded to Warm/Hot upon site visit & qualification.',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: isDark ? AppColors.darkTextSecondary : const Color(0xFF64748B),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Icon(
+                            Icons.check_circle_rounded,
+                            color: Color(0xFF0EA5E9),
+                            size: 20,
+                          ),
+                        ],
+                      ),
                     ),
                     const SizedBox(height: 16),
 
@@ -616,62 +665,6 @@ class _AddLeadModalSheetState extends State<AddLeadModalSheet> {
           ],
         ),
       ],
-    );
-  }
-
-  Widget _buildTemperatureOption({
-    required LeadTemperature temperature,
-    required String label,
-    required String iconEmoji,
-    required Color color,
-    required String subtext,
-    required bool isDark,
-  }) {
-    final isSelected = _selectedTemperature == temperature;
-    return Expanded(
-      child: InkWell(
-        onTap: () => setState(() => _selectedTemperature = temperature),
-        borderRadius: BorderRadius.circular(10),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
-          decoration: BoxDecoration(
-            color: isSelected
-                ? color.withValues(alpha: 0.16)
-                : (isDark ? const Color(0xFF131A26) : Colors.white),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: isSelected ? color : (isDark ? const Color(0xFF2C394C) : AppColors.lightBorder),
-              width: isSelected ? 2 : 1,
-            ),
-          ),
-          child: Column(
-            children: [
-              Text(iconEmoji, style: const TextStyle(fontSize: 18)),
-              const SizedBox(height: 4),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                  color: isSelected ? color : (isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary),
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 2),
-              Text(
-                subtext,
-                style: TextStyle(
-                  fontSize: 8,
-                  color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }
