@@ -1,11 +1,11 @@
 {
-    "name": "cp_crm",
-    "short_name": "cp_crm",
+    "name": "CP CRM",
+    "short_name": "CP CRM",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#FFFFFF",
+    "theme_color": "#010E3D",
+    "description": "CP CRM - Channel Partner Mobile CRM",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

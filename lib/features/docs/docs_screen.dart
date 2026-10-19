@@ -1,19 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/models/app_models.dart';
 import '../../core/state/app_state.dart';
 import '../../core/services/document_picker_service.dart';
 import '../../core/services/file_download_service.dart';
+import '../../core/services/url_action_service.dart';
 
 class DocsScreen extends StatefulWidget {
   final AppState state;
   final VoidCallback? onBack;
+  final int initialTabIndex;
 
   const DocsScreen({
     super.key,
     required this.state,
     this.onBack,
+    this.initialTabIndex = 0,
   });
 
   @override
@@ -34,10 +38,26 @@ class _DocsScreenState extends State<DocsScreen> with SingleTickerProviderStateM
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    final validIndex = (widget.initialTabIndex >= 0 && widget.initialTabIndex < 2)
+        ? widget.initialTabIndex
+        : 0;
+    _tabController = TabController(length: 2, vsync: this, initialIndex: validIndex);
     _tabController.addListener(() {
       if (mounted) setState(() {});
     });
+  }
+
+  @override
+  void didUpdateWidget(DocsScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialTabIndex != oldWidget.initialTabIndex) {
+      final targetIndex = (widget.initialTabIndex >= 0 && widget.initialTabIndex < 2)
+          ? widget.initialTabIndex
+          : 0;
+      if (_tabController.index != targetIndex) {
+        _tabController.animateTo(targetIndex);
+      }
+    }
   }
 
   @override
@@ -101,7 +121,6 @@ class _DocsScreenState extends State<DocsScreen> with SingleTickerProviderStateM
       builder: (context, _) {
         final isDark = widget.state.isDarkMode;
         final missingCount = widget.state.missingMandatoryDocsCount;
-        final kycPercent = (widget.state.kycCompletionPercentage * 100).toInt();
 
         return Scaffold(
           backgroundColor: isDark ? AppColors.darkBg : const Color(0xFFF4F7FB),
@@ -115,7 +134,7 @@ class _DocsScreenState extends State<DocsScreen> with SingleTickerProviderStateM
                   child: TabBarView(
                     controller: _tabController,
                     children: [
-                      _buildCpDocsView(isDark, kycPercent),
+                      _buildCpDocsView(isDark),
                       _buildReceivedInvoicesView(isDark),
                     ],
                   ),
@@ -189,42 +208,6 @@ class _DocsScreenState extends State<DocsScreen> with SingleTickerProviderStateM
                   ),
                 ),
               ],
-            ),
-          ),
-          Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: () => _openUploadDocModal(context, null),
-              borderRadius: BorderRadius.circular(12),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF2563EB),
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF2563EB).withValues(alpha: 0.3),
-                      blurRadius: 8,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.add_rounded, size: 18, color: Colors.white),
-                    SizedBox(width: 4),
-                    Text(
-                      'Upload',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
             ),
           ),
         ],
@@ -334,17 +317,17 @@ class _DocsScreenState extends State<DocsScreen> with SingleTickerProviderStateM
   // TAB 1: CP REQUIRED DOCS VIEW
   // ==========================================
 
-  Widget _buildCpDocsView(bool isDark, int kycPercent) {
+  Widget _buildCpDocsView(bool isDark) {
     final docs = _getFilteredDocuments();
 
     return RefreshIndicator(
       onRefresh: () async => setState(() {}),
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 10, 16, 80),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 80),
         children: [
-          // KYC Health Progress Card
-          _buildKycHealthCard(isDark, kycPercent),
-          const SizedBox(height: 14),
+          // Upload Document Button (Upside Search Bar)
+          _buildUploadDocumentButton(isDark),
+          const SizedBox(height: 12),
 
           // Search Field
           _buildSearchField(isDark, hint: 'Search RERA, PAN, GST, MOU...'),
@@ -367,13 +350,20 @@ class _DocsScreenState extends State<DocsScreen> with SingleTickerProviderStateM
                   letterSpacing: 0.6,
                 ),
               ),
-              Text(
-                '${widget.state.cpDocuments.where((d) => d.status == CpDocumentStatus.verified).length} of ${widget.state.cpDocuments.length} Verified',
-                style: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF16A34A),
-                ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.check_circle_rounded, size: 13, color: Color(0xFF16A34A)),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${widget.state.cpDocuments.where((d) => d.status == CpDocumentStatus.verified || d.status == CpDocumentStatus.underReview).length} of ${widget.state.cpDocuments.length} Uploaded',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF16A34A),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -394,150 +384,47 @@ class _DocsScreenState extends State<DocsScreen> with SingleTickerProviderStateM
     );
   }
 
-  Widget _buildKycHealthCard(bool isDark, int kycPercent) {
-    final verifiedCount = widget.state.cpDocuments.where((d) => d.status == CpDocumentStatus.verified).length;
-    final totalMandatory = widget.state.cpDocuments.where((d) => d.isMandatory).length;
-    final isComplete = kycPercent >= 100;
-
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: isDark
-              ? [const Color(0xFF1E293B), const Color(0xFF0F172A)]
-              : [const Color(0xFF1E40AF), const Color(0xFF2563EB)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF2563EB).withValues(alpha: 0.25),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.16),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  isComplete ? Icons.verified_user_rounded : Icons.shield_outlined,
-                  color: isComplete ? const Color(0xFF4ADE80) : Colors.white,
-                  size: 24,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'KYC Compliance Health',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white.withValues(alpha: 0.95),
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      isComplete
-                          ? '100% Verified • Ready for Automatic Instant Payouts'
-                          : '$verifiedCount of $totalMandatory Mandatory Documents Verified',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.white.withValues(alpha: 0.8),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: isComplete ? const Color(0xFF16A34A) : Colors.white.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  '$kycPercent%',
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: LinearProgressIndicator(
-              value: kycPercent / 100.0,
-              minHeight: 8,
-              backgroundColor: Colors.white.withValues(alpha: 0.2),
-              valueColor: AlwaysStoppedAnimation<Color>(
-                isComplete ? const Color(0xFF4ADE80) : const Color(0xFFFBBF24),
-              ),
+  Widget _buildUploadDocumentButton(bool isDark) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _openUploadDocModal(context, null),
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)],
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
             ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                isComplete
-                    ? 'All regulatory requirements satisfied'
-                    : 'Upload remaining documents to clear payout holds',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: Colors.white.withValues(alpha: 0.75),
-                ),
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF2563EB).withValues(alpha: 0.28),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
               ),
-              if (!isComplete)
-                InkWell(
-                  onTap: () {
-                    final missing = widget.state.cpDocuments.firstWhere(
-                      (d) => d.status != CpDocumentStatus.verified,
-                      orElse: () => widget.state.cpDocuments.first,
-                    );
-                    _openUploadDocModal(context, missing);
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'Upload Now',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF2563EB),
-                          ),
-                        ),
-                        SizedBox(width: 4),
-                        Icon(Icons.arrow_forward_rounded, size: 12, color: Color(0xFF2563EB)),
-                      ],
-                    ),
-                  ),
-                ),
             ],
           ),
-        ],
+          child: const Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.cloud_upload_rounded, color: Colors.white, size: 20),
+              SizedBox(width: 8),
+              Text(
+                'Upload Document',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                  letterSpacing: 0.2,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -584,6 +471,7 @@ class _DocsScreenState extends State<DocsScreen> with SingleTickerProviderStateM
   }
 
   Widget _buildDocCard(CpDocumentModel doc, bool isDark) {
+    final isUploaded = doc.status == CpDocumentStatus.underReview || (doc.fileName != null && doc.fileName!.isNotEmpty);
     final statusColor = _getStatusColor(doc.status);
     final iconData = _getDocIcon(doc.type);
 
@@ -593,11 +481,16 @@ class _DocsScreenState extends State<DocsScreen> with SingleTickerProviderStateM
         color: isDark ? AppColors.darkSurface : Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isDark ? AppColors.darkBorder : const Color(0xFFE5E9F0),
+          color: isUploaded
+              ? const Color(0xFF16A34A).withValues(alpha: 0.35)
+              : (isDark ? AppColors.darkBorder : const Color(0xFFE5E9F0)),
+          width: isUploaded ? 1.2 : 1.0,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
+            color: isUploaded
+                ? const Color(0xFF16A34A).withValues(alpha: 0.04)
+                : Colors.black.withValues(alpha: 0.03),
             blurRadius: 10,
             offset: const Offset(0, 3),
           ),
@@ -611,6 +504,7 @@ class _DocsScreenState extends State<DocsScreen> with SingleTickerProviderStateM
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Top Section: Icon, Title & Status Pill
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -629,6 +523,7 @@ class _DocsScreenState extends State<DocsScreen> with SingleTickerProviderStateM
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Expanded(
                               child: Text(
@@ -637,16 +532,39 @@ class _DocsScreenState extends State<DocsScreen> with SingleTickerProviderStateM
                                   fontSize: 14,
                                   fontWeight: FontWeight.w700,
                                   color: isDark ? AppColors.darkTextPrimary : const Color(0xFF0F172A),
+                                  height: 1.25,
                                 ),
                               ),
                             ),
-                            if (doc.isMandatory)
+                            const SizedBox(width: 8),
+                            _buildStatusPill(doc.status, statusColor),
+                          ],
+                        ),
+                        const SizedBox(height: 5),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                doc.documentNumber.isNotEmpty
+                                    ? 'Doc No: ${doc.documentNumber}'
+                                    : 'No document number provided',
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: isDark ? AppColors.darkTextSecondary : const Color(0xFF475569),
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (doc.isMandatory) ...[
+                              const SizedBox(width: 6),
                               Container(
-                                margin: const EdgeInsets.only(left: 6),
                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
                                   color: const Color(0xFFEF4444).withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.2)),
                                 ),
                                 child: const Text(
                                   'Mandatory',
@@ -654,24 +572,15 @@ class _DocsScreenState extends State<DocsScreen> with SingleTickerProviderStateM
                                     fontSize: 9,
                                     fontWeight: FontWeight.w700,
                                     color: Color(0xFFEF4444),
+                                    letterSpacing: 0.2,
                                   ),
                                 ),
                               ),
+                            ],
                           ],
                         ),
-                        const SizedBox(height: 3),
-                        Text(
-                          doc.documentNumber.isNotEmpty
-                              ? 'Doc No: ${doc.documentNumber}'
-                              : 'No document number provided',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: isDark ? AppColors.darkTextSecondary : const Color(0xFF475569),
-                          ),
-                        ),
                         if (doc.expiresAt != null) ...[
-                          const SizedBox(height: 2),
+                          const SizedBox(height: 3),
                           Text(
                             'Valid till: ${doc.expiresAt!.day} ${_getMonthName(doc.expiresAt!.month)} ${doc.expiresAt!.year}',
                             style: TextStyle(
@@ -683,7 +592,6 @@ class _DocsScreenState extends State<DocsScreen> with SingleTickerProviderStateM
                       ],
                     ),
                   ),
-                  _buildStatusPill(doc.status, statusColor),
                 ],
               ),
               const SizedBox(height: 12),
@@ -692,84 +600,130 @@ class _DocsScreenState extends State<DocsScreen> with SingleTickerProviderStateM
                 color: isDark ? AppColors.darkBorder : const Color(0xFFF1F5F9),
               ),
               const SizedBox(height: 10),
+
+              // Bottom Section: Attachment info (clipped) & Action buttons (always visible)
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.attachment_rounded,
-                        size: 14,
-                        color: isDark ? AppColors.darkTextSecondary : const Color(0xFF94A3B8),
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        doc.fileName ?? 'No file attached',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: isDark ? AppColors.darkTextSecondary : const Color(0xFF64748B),
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Icon(
+                          isUploaded ? Icons.check_circle_rounded : Icons.attachment_rounded,
+                          size: 14,
+                          color: isUploaded ? const Color(0xFF16A34A) : (isDark ? AppColors.darkTextSecondary : const Color(0xFF94A3B8)),
                         ),
-                      ),
-                      if (doc.fileSize != null) ...[
-                        const SizedBox(width: 6),
-                        Text(
-                          '(${doc.fileSize})',
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: isDark ? AppColors.darkTextSecondary : const Color(0xFF94A3B8),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                  Row(
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.file_download_outlined, size: 18),
-                        color: const Color(0xFF2563EB),
-                        tooltip: 'Download',
-                        constraints: const BoxConstraints(),
-                        padding: const EdgeInsets.all(6),
-                        onPressed: () async {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Downloading ${doc.fileName ?? doc.title}...'),
-                              duration: const Duration(seconds: 1),
-                              backgroundColor: const Color(0xFF2563EB),
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: Text(
+                            doc.fileName != null && doc.fileName!.isNotEmpty
+                                ? 'File attached • ${doc.fileName!}'
+                                : 'No file attached',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: isUploaded ? FontWeight.w700 : FontWeight.w500,
+                              color: isUploaded ? const Color(0xFF16A34A) : (isDark ? AppColors.darkTextSecondary : const Color(0xFF64748B)),
                             ),
-                          );
-                          await FileDownloadService.downloadDocumentPdf(
-                            documentTitle: doc.title,
-                            documentNumber: doc.documentNumber,
-                            fileName: doc.fileName ?? '${doc.type.name}.pdf',
-                            status: doc.status.displayName,
-                            validTill: doc.expiresAt != null
-                                ? '${doc.expiresAt!.day}/${doc.expiresAt!.month}/${doc.expiresAt!.year}'
-                                : null,
-                            partnerName: widget.state.currentUser?.name,
-                            remarks: doc.remarks,
-                          );
-                        },
-                      ),
-                      const SizedBox(width: 4),
-                      TextButton.icon(
-                        style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          backgroundColor: const Color(0xFF2563EB).withValues(alpha: 0.1),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          minimumSize: Size.zero,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
-                        icon: const Icon(Icons.cloud_upload_outlined, size: 14, color: Color(0xFF2563EB)),
-                        label: Text(
-                          doc.status == CpDocumentStatus.missing ? 'Upload' : 'Replace',
-                          style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF2563EB),
                           ),
                         ),
-                        onPressed: () => _openUploadDocModal(context, doc),
+                        if (doc.fileName != null && doc.fileName!.isNotEmpty && doc.fileSize != null) ...[
+                          const SizedBox(width: 4),
+                          Text(
+                            '(${doc.fileSize})',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: isUploaded ? const Color(0xFF16A34A).withValues(alpha: 0.8) : (isDark ? AppColors.darkTextSecondary : const Color(0xFF94A3B8)),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (doc.fileName != null && doc.fileName!.isNotEmpty) ...[
+                        IconButton(
+                          icon: const Icon(Icons.file_download_outlined, size: 18),
+                          color: const Color(0xFF2563EB),
+                          tooltip: 'Download PDF',
+                          constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                          padding: const EdgeInsets.all(5),
+                          onPressed: () async {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Downloading ${doc.fileName ?? doc.title}...'),
+                                duration: const Duration(seconds: 1),
+                                backgroundColor: const Color(0xFF2563EB),
+                              ),
+                            );
+                            await FileDownloadService.downloadDocumentPdf(
+                              documentTitle: doc.title,
+                              documentNumber: doc.documentNumber,
+                              fileName: doc.fileName ?? '${doc.type.name}.pdf',
+                              status: doc.status.displayName,
+                              validTill: doc.expiresAt != null
+                                  ? '${doc.expiresAt!.day}/${doc.expiresAt!.month}/${doc.expiresAt!.year}'
+                                  : null,
+                              partnerName: widget.state.currentUser?.name,
+                              remarks: doc.remarks,
+                              documentType: doc.type,
+                              customBytes: doc.fileBytes,
+                            );
+                          },
+                        ),
+                        const SizedBox(width: 4),
+                      ],
+                      Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: () => _openUploadDocModal(context, doc),
+                          borderRadius: BorderRadius.circular(8),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: isUploaded
+                                  ? const Color(0xFF16A34A).withValues(alpha: 0.12)
+                                  : const Color(0xFF2563EB).withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: isUploaded
+                                    ? const Color(0xFF16A34A).withValues(alpha: 0.35)
+                                    : const Color(0xFF2563EB).withValues(alpha: 0.25),
+                                width: 0.8,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  isUploaded
+                                      ? Icons.check_circle_rounded
+                                      : (doc.status == CpDocumentStatus.missing
+                                          ? Icons.add_rounded
+                                          : Icons.cloud_upload_outlined),
+                                  size: 14,
+                                  color: isUploaded ? const Color(0xFF16A34A) : const Color(0xFF2563EB),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  isUploaded
+                                      ? 'Uploaded (Replace)'
+                                      : (doc.status == CpDocumentStatus.missing ? 'Upload' : 'Replace'),
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: isUploaded ? const Color(0xFF16A34A) : const Color(0xFF2563EB),
+                                    letterSpacing: 0.2,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -1344,17 +1298,7 @@ class _DocsScreenState extends State<DocsScreen> with SingleTickerProviderStateM
                         tooltip: 'Share Receipt',
                         constraints: const BoxConstraints(),
                         padding: const EdgeInsets.all(6),
-                        onPressed: () {
-                          Clipboard.setData(ClipboardData(
-                            text: 'Receipt #${inv.voucherNumber}: Disbursed ₹${inv.netAmount.toStringAsFixed(0)} for ${inv.projectName} (UTR: ${inv.utrNumber})',
-                          ));
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Voucher details copied to clipboard for sharing!'),
-                              duration: Duration(seconds: 2),
-                            ),
-                          );
-                        },
+                        onPressed: () => _openShareInvoiceModal(context, inv),
                       ),
                       const SizedBox(width: 4),
                       IconButton(
@@ -1417,18 +1361,19 @@ class _DocsScreenState extends State<DocsScreen> with SingleTickerProviderStateM
 
   // ==========================================
   // MODALS & SHEETS
-  // ==========================================
-
-  // 1. Upload / Update Document Modal
+  // ========================================  // 1. Upload / Update Document Modal
   void _openUploadDocModal(BuildContext context, CpDocumentModel? existingDoc) {
     final isDark = widget.state.isDarkMode;
     final docNumCtrl = TextEditingController(text: existingDoc?.documentNumber ?? '');
     final remarksCtrl = TextEditingController(text: existingDoc?.remarks ?? '');
     CpDocumentType selectedType = existingDoc?.type ?? CpDocumentType.reraCertificate;
-    String selectedFileName = existingDoc?.fileName ?? 'Attach document (PDF, PNG, JPG)';
-    String selectedFileSize = existingDoc?.fileSize ?? '1.5 MB';
-    bool hasUserPickedFile = existingDoc?.fileName != null;
+    String? selectedFileName = existingDoc?.fileName;
+    String? selectedFileSize = existingDoc?.fileSize;
+    List<int>? selectedFileBytes = existingDoc?.fileBytes;
+    bool hasUserPickedFile = existingDoc?.fileName != null && existingDoc!.fileName!.isNotEmpty;
     DateTime? selectedExpiry = existingDoc?.expiresAt;
+    String? docNumError;
+    String? fileAttachmentError;
 
     showModalBottomSheet(
       context: context,
@@ -1436,6 +1381,8 @@ class _DocsScreenState extends State<DocsScreen> with SingleTickerProviderStateM
       backgroundColor: Colors.transparent,
       builder: (ctx) => StatefulBuilder(
         builder: (modalCtx, setModalState) {
+          final isIdOptional = selectedType == CpDocumentType.cancelledCheque || selectedType == CpDocumentType.other;
+
           return Container(
             padding: EdgeInsets.only(
               top: 20,
@@ -1465,6 +1412,18 @@ class _DocsScreenState extends State<DocsScreen> with SingleTickerProviderStateM
                   const SizedBox(height: 16),
                   Row(
                     children: [
+                      IconButton(
+                        onPressed: () => Navigator.of(modalCtx).maybePop(),
+                        icon: Icon(
+                          Icons.arrow_back_ios_new_rounded,
+                          size: 18,
+                          color: isDark ? AppColors.darkTextPrimary : const Color(0xFF0F172A),
+                        ),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                        tooltip: 'Back',
+                      ),
+                      const SizedBox(width: 4),
                       Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
@@ -1532,7 +1491,12 @@ class _DocsScreenState extends State<DocsScreen> with SingleTickerProviderStateM
                             return DropdownMenuItem(value: t, child: Text(t.displayName));
                           }).toList(),
                           onChanged: (val) {
-                            if (val != null) setModalState(() => selectedType = val);
+                            if (val != null) {
+                              setModalState(() {
+                                selectedType = val;
+                                docNumError = null;
+                              });
+                            }
                           },
                         ),
                       ),
@@ -1542,7 +1506,9 @@ class _DocsScreenState extends State<DocsScreen> with SingleTickerProviderStateM
 
                   // Document Identifier / Number Input
                   Text(
-                    'Document Number / Reference ID *',
+                    isIdOptional
+                        ? 'Document Number / Reference ID (Optional)'
+                        : 'Document Number / Reference ID *',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
@@ -1552,17 +1518,26 @@ class _DocsScreenState extends State<DocsScreen> with SingleTickerProviderStateM
                   const SizedBox(height: 6),
                   TextField(
                     controller: docNumCtrl,
+                    onChanged: (val) {
+                      if (docNumError != null) {
+                        setModalState(() => docNumError = null);
+                      }
+                    },
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                       color: isDark ? AppColors.darkTextPrimary : const Color(0xFF0F172A),
                     ),
                     decoration: InputDecoration(
-                      hintText: 'e.g. A51800034921 / ABCDE1234F',
+                      hintText: selectedType == CpDocumentType.cancelledCheque
+                          ? 'e.g. Bank Account / Cheque Ref (Optional)'
+                          : 'e.g. A51800034921 / ABCDE1234F',
                       hintStyle: TextStyle(
                         fontSize: 13,
                         color: isDark ? AppColors.darkTextSecondary : const Color(0xFF94A3B8),
                       ),
+                      errorText: docNumError,
+                      errorStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
                       filled: true,
                       fillColor: isDark ? AppColors.darkBg : const Color(0xFFF8FAFC),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -1572,11 +1547,18 @@ class _DocsScreenState extends State<DocsScreen> with SingleTickerProviderStateM
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: isDark ? AppColors.darkBorder : const Color(0xFFCBD5E1)),
+                        borderSide: BorderSide(
+                          color: docNumError != null
+                              ? const Color(0xFFEF4444)
+                              : (isDark ? AppColors.darkBorder : const Color(0xFFCBD5E1)),
+                        ),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: Color(0xFF2563EB), width: 1.5),
+                        borderSide: BorderSide(
+                          color: docNumError != null ? const Color(0xFFEF4444) : const Color(0xFF2563EB),
+                          width: 1.5,
+                        ),
                       ),
                     ),
                   ),
@@ -1602,7 +1584,9 @@ class _DocsScreenState extends State<DocsScreen> with SingleTickerProviderStateM
                               setModalState(() {
                                 selectedFileName = picked.fileName;
                                 selectedFileSize = picked.formattedSize;
+                                selectedFileBytes = picked.bytes;
                                 hasUserPickedFile = true;
+                                fileAttachmentError = null;
                               });
                             }
                           },
@@ -1615,15 +1599,23 @@ class _DocsScreenState extends State<DocsScreen> with SingleTickerProviderStateM
                               border: Border.all(
                                 color: hasUserPickedFile
                                     ? const Color(0xFF16A34A)
-                                    : const Color(0xFF2563EB).withValues(alpha: 0.4),
-                                width: hasUserPickedFile ? 1.5 : 1,
+                                    : (fileAttachmentError != null
+                                        ? const Color(0xFFEF4444)
+                                        : const Color(0xFF2563EB).withValues(alpha: 0.4)),
+                                width: (hasUserPickedFile || fileAttachmentError != null) ? 1.5 : 1,
                               ),
                             ),
                             child: Row(
                               children: [
                                 Icon(
-                                  selectedFileName.endsWith('.pdf') ? Icons.picture_as_pdf_rounded : Icons.image_rounded,
-                                  color: hasUserPickedFile ? const Color(0xFF16A34A) : const Color(0xFF2563EB),
+                                  (selectedFileName != null && selectedFileName!.toLowerCase().endsWith('.pdf'))
+                                      ? Icons.picture_as_pdf_rounded
+                                      : Icons.image_rounded,
+                                  color: hasUserPickedFile
+                                      ? const Color(0xFF16A34A)
+                                      : (fileAttachmentError != null
+                                          ? const Color(0xFFEF4444)
+                                          : const Color(0xFF2563EB)),
                                   size: 20,
                                 ),
                                 const SizedBox(width: 8),
@@ -1632,18 +1624,22 @@ class _DocsScreenState extends State<DocsScreen> with SingleTickerProviderStateM
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        selectedFileName,
+                                        selectedFileName != null && selectedFileName!.isNotEmpty
+                                            ? selectedFileName!
+                                            : 'Attach document (PDF, PNG, JPG)',
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                         style: TextStyle(
                                           fontSize: 12,
                                           fontWeight: FontWeight.w700,
-                                          color: isDark ? AppColors.darkTextPrimary : const Color(0xFF1E293B),
+                                          color: selectedFileName != null && selectedFileName!.isNotEmpty
+                                              ? (isDark ? AppColors.darkTextPrimary : const Color(0xFF1E293B))
+                                              : (isDark ? AppColors.darkTextSecondary : const Color(0xFF64748B)),
                                         ),
                                       ),
                                       Text(
                                         hasUserPickedFile
-                                            ? 'File attached • $selectedFileSize'
+                                            ? 'File attached • ${selectedFileSize ?? ''}'
                                             : 'Tap to browse files on your device',
                                         style: TextStyle(
                                           fontSize: 10,
@@ -1677,13 +1673,30 @@ class _DocsScreenState extends State<DocsScreen> with SingleTickerProviderStateM
                             setModalState(() {
                               selectedFileName = picked.fileName;
                               selectedFileSize = picked.formattedSize;
+                              selectedFileBytes = picked.bytes;
                               hasUserPickedFile = true;
+                              fileAttachmentError = null;
                             });
                           }
                         },
                       ),
                     ],
                   ),
+                  if (fileAttachmentError != null) ...[
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        const Icon(Icons.error_outline_rounded, size: 14, color: Color(0xFFEF4444)),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            fileAttachmentError!,
+                            style: const TextStyle(fontSize: 11, color: Color(0xFFEF4444), fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                   const SizedBox(height: 14),
 
                   // Optional Expiry Date
@@ -1781,31 +1794,58 @@ class _DocsScreenState extends State<DocsScreen> with SingleTickerProviderStateM
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                       ),
                       onPressed: () {
-                        final numText = docNumCtrl.text.trim();
+                        String numText = docNumCtrl.text.trim();
+
                         if (numText.isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Please enter the document number / ID')),
-                          );
+                          if (isIdOptional) {
+                            final prefix = selectedType == CpDocumentType.cancelledCheque ? 'CHQ' : 'DOC';
+                            numText = '$prefix-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
+                            docNumCtrl.text = numText;
+                          } else {
+                            setModalState(() {
+                              docNumError = 'Please enter document number / reference ID';
+                            });
+                            return;
+                          }
+                        }
+
+                        if (!hasUserPickedFile && (existingDoc?.fileName == null || existingDoc!.fileName!.isEmpty)) {
+                          setModalState(() {
+                            fileAttachmentError = 'Please attach a document file (PDF, PNG, JPG) before submitting.';
+                          });
                           return;
                         }
 
                         final targetId = existingDoc?.id ?? 'doc_${DateTime.now().millisecondsSinceEpoch}';
+                        final docTitle = existingDoc?.title ?? selectedType.displayName;
+
                         widget.state.uploadOrUpdateDocument(
                           documentId: targetId,
                           documentNumber: numText,
-                          fileName: selectedFileName,
-                          fileSize: selectedFileSize,
+                          fileName: selectedFileName ?? 'document_${selectedType.name}.pdf',
+                          fileSize: selectedFileSize ?? '1.2 MB',
                           expiresAt: selectedExpiry,
                           documentType: selectedType,
-                          title: existingDoc?.title ?? selectedType.displayName,
+                          title: docTitle,
                           remarks: remarksCtrl.text.trim().isNotEmpty ? remarksCtrl.text.trim() : null,
+                          fileBytes: selectedFileBytes,
                         );
 
-                        Navigator.of(ctx).pop();
+                        Navigator.of(modalCtx).pop();
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text('${existingDoc?.title ?? selectedType.displayName} uploaded successfully for verification!'),
+                            content: Row(
+                              children: [
+                                const Icon(Icons.check_circle_rounded, color: Colors.white, size: 18),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text('$docTitle uploaded successfully for verification!'),
+                                ),
+                              ],
+                            ),
                             backgroundColor: const Color(0xFF16A34A),
+                            behavior: SnackBarBehavior.floating,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                           ),
                         );
                       },
@@ -2007,6 +2047,8 @@ class _DocsScreenState extends State<DocsScreen> with SingleTickerProviderStateM
                               : null,
                           partnerName: widget.state.currentUser?.name,
                           remarks: doc.remarks,
+                          documentType: doc.type,
+                          customBytes: doc.fileBytes,
                         );
                       },
                     ),
@@ -2431,12 +2473,8 @@ class _DocsScreenState extends State<DocsScreen> with SingleTickerProviderStateM
                               style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF2563EB)),
                             ),
                             onPressed: () {
-                              Clipboard.setData(ClipboardData(
-                                text: 'Official Payment Voucher ${inv.voucherNumber} for ₹${inv.netAmount.toStringAsFixed(0)} (UTR: ${inv.utrNumber})',
-                              ));
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Voucher details copied to clipboard!')),
-                              );
+                              Navigator.of(ctx).pop();
+                              _openShareInvoiceModal(context, inv);
                             },
                           ),
                         ),
@@ -2485,6 +2523,254 @@ class _DocsScreenState extends State<DocsScreen> with SingleTickerProviderStateM
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  // 3. Share Invoice Voucher Modal
+  void _openShareInvoiceModal(BuildContext context, ReceivedInvoiceModel inv) {
+    final isDark = widget.state.isDarkMode;
+    final dateStr = '${inv.disbursedDate.day} ${_getMonthName(inv.disbursedDate.month)} ${inv.disbursedDate.year}';
+    final formattedAmount = '₹${NumberFormat('#,##,###').format(inv.netAmount)}';
+    final shareSummary = '📄 *COMMISSION DISBURSAL RECEIPT*\n'
+        '• *Voucher No:* ${inv.voucherNumber}\n'
+        '• *Project:* ${inv.projectName} (${inv.unitNumber})\n'
+        '• *Client:* ${inv.clientName}\n'
+        '• *Net Payout Credited:* $formattedAmount\n'
+        '• *TDS Deducted (5%):* ₹${NumberFormat('#,##,###').format(inv.tdsAmount)}\n'
+        '• *Bank & UTR:* ${inv.bankName} • ${inv.utrNumber}\n'
+        '• *Disbursed Date:* $dateStr\n'
+        '• *Status:* Verified & Credited\n\n'
+        'Verified by Developer Finance Desk via CP CRM.';
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) {
+        return Container(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.darkSurface : Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: isDark ? AppColors.darkBorder : const Color(0xFFCBD5E1),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF16A34A).withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.share_rounded, color: Color(0xFF16A34A), size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Share Payment Voucher',
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w800,
+                            color: isDark ? AppColors.darkTextPrimary : const Color(0xFF0F172A),
+                          ),
+                        ),
+                        Text(
+                          '${inv.voucherNumber} • $formattedAmount',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: isDark ? AppColors.darkTextSecondary : const Color(0xFF64748B),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(
+                      Icons.close_rounded,
+                      color: isDark ? AppColors.darkTextSecondary : const Color(0xFF94A3B8),
+                    ),
+                    onPressed: () => Navigator.of(ctx).pop(),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+
+              // Option 1: WhatsApp Share
+              _buildShareOptionTile(
+                icon: Icons.chat_bubble_rounded,
+                iconColor: const Color(0xFF16A34A),
+                bgColor: const Color(0xFF16A34A).withValues(alpha: 0.1),
+                title: 'Share via WhatsApp',
+                subtitle: 'Send formatted receipt directly to client or partner',
+                isDark: isDark,
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  UrlActionService.openWhatsApp(context, message: shareSummary);
+                },
+              ),
+              const SizedBox(height: 10),
+
+              // Option 2: Share PDF File
+              _buildShareOptionTile(
+                icon: Icons.picture_as_pdf_rounded,
+                iconColor: const Color(0xFF2563EB),
+                bgColor: const Color(0xFF2563EB).withValues(alpha: 0.1),
+                title: 'Share PDF Voucher File',
+                subtitle: 'Send authentic PDF voucher via native share sheet',
+                isDark: isDark,
+                onTap: () async {
+                  Navigator.of(ctx).pop();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Preparing PDF voucher for ${inv.voucherNumber}...'),
+                      duration: const Duration(seconds: 1),
+                      backgroundColor: const Color(0xFF2563EB),
+                    ),
+                  );
+                  await FileDownloadService.downloadInvoiceVoucherPdf(
+                    voucherNumber: inv.voucherNumber,
+                    clientName: inv.clientName,
+                    projectName: inv.projectName,
+                    grossAmount: inv.grossAmount,
+                    tdsAmount: inv.tdsAmount,
+                    netAmount: inv.netAmount,
+                    utrNumber: inv.utrNumber,
+                    bankName: inv.bankName,
+                    dateStr: dateStr,
+                  );
+                },
+              ),
+              const SizedBox(height: 10),
+
+              // Option 3: System Share (All Apps)
+              _buildShareOptionTile(
+                icon: Icons.share_outlined,
+                iconColor: const Color(0xFF7C3AED),
+                bgColor: const Color(0xFF7C3AED).withValues(alpha: 0.1),
+                title: 'Share via Other Apps',
+                subtitle: 'Open native device share menu (Email, Messages, etc.)',
+                isDark: isDark,
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  UrlActionService.shareContent(
+                    context,
+                    text: shareSummary,
+                    subject: 'Commission Disbursal Voucher ${inv.voucherNumber}',
+                  );
+                },
+              ),
+              const SizedBox(height: 10),
+
+              // Option 4: Copy to Clipboard
+              _buildShareOptionTile(
+                icon: Icons.copy_rounded,
+                iconColor: const Color(0xFF64748B),
+                bgColor: const Color(0xFF64748B).withValues(alpha: 0.1),
+                title: 'Copy Voucher Summary',
+                subtitle: 'Copy structured text breakdown to clipboard',
+                isDark: isDark,
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  Clipboard.setData(ClipboardData(text: shareSummary));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Voucher breakdown copied to clipboard!'),
+                      backgroundColor: Color(0xFF16A34A),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildShareOptionTile({
+    required IconData icon,
+    required Color iconColor,
+    required Color bgColor,
+    required String title,
+    required String subtitle,
+    required bool isDark,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.darkBg : const Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isDark ? AppColors.darkBorder : const Color(0xFFE2E8F0),
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(9),
+                decoration: BoxDecoration(
+                  color: bgColor,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, color: iconColor, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: isDark ? AppColors.darkTextPrimary : const Color(0xFF0F172A),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: isDark ? AppColors.darkTextSecondary : const Color(0xFF64748B),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.arrow_forward_ios_rounded,
+                size: 14,
+                color: isDark ? AppColors.darkTextSecondary : const Color(0xFF94A3B8),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -2578,20 +2864,50 @@ class _DocsScreenState extends State<DocsScreen> with SingleTickerProviderStateM
   }
 
   Widget _buildStatusPill(CpDocumentStatus status, Color color) {
+    IconData icon;
+    String displayLabel = status.displayName;
+    Color pillColor = color;
+
+    switch (status) {
+      case CpDocumentStatus.verified:
+        icon = Icons.check_circle_rounded;
+        pillColor = const Color(0xFF16A34A);
+        break;
+      case CpDocumentStatus.underReview:
+        icon = Icons.check_circle_rounded;
+        displayLabel = 'Uploaded • In Review';
+        pillColor = const Color(0xFF16A34A);
+        break;
+      case CpDocumentStatus.missing:
+        icon = Icons.error_outline_rounded;
+        break;
+      case CpDocumentStatus.expired:
+        icon = Icons.warning_amber_rounded;
+        break;
+    }
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
+        color: pillColor.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: pillColor.withValues(alpha: 0.35), width: 1),
       ),
-      child: Text(
-        status.displayName,
-        style: TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.w700,
-          color: color,
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: pillColor),
+          const SizedBox(width: 4),
+          Text(
+            displayLabel,
+            style: TextStyle(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w700,
+              color: pillColor,
+              letterSpacing: 0.2,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -2679,7 +2995,7 @@ class _DocsScreenState extends State<DocsScreen> with SingleTickerProviderStateM
       case CpDocumentStatus.verified:
         return const Color(0xFF16A34A);
       case CpDocumentStatus.underReview:
-        return const Color(0xFFD97706);
+        return const Color(0xFF16A34A);
       case CpDocumentStatus.missing:
         return const Color(0xFFEF4444);
       case CpDocumentStatus.expired:

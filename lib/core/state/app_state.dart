@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/app_models.dart';
@@ -61,16 +62,16 @@ class AppState extends ChangeNotifier {
   bool get isSubscriptionActive => _licenseService.isAllowed;
 
   // Active Data Stores
-  List<LeadModel> _leads = [];
-  List<ProjectModel> _projects = [];
-  List<SiteVisitModel> _siteVisits = [];
-  List<SpocModel> _spocs = [];
-  List<CollateralModel> _collaterals = [];
-  List<AppNotificationModel> _notifications = [];
-  List<CommissionInvoiceModel> _invoices = [];
-  BankDetailsModel? _savedBankDetails;
-  List<CpDocumentModel> _cpDocuments = [];
-  List<ReceivedInvoiceModel> _receivedInvoices = [];
+  List<LeadModel> _leads = MockDataService.getInitialLeads();
+  List<ProjectModel> _projects = MockDataService.getProjects();
+  List<SiteVisitModel> _siteVisits = MockDataService.getInitialVisits();
+  List<SpocModel> _spocs = MockDataService.getSpocs();
+  List<CollateralModel> _collaterals = MockDataService.getCollaterals();
+  List<AppNotificationModel> _notifications = MockDataService.getNotifications();
+  List<CommissionInvoiceModel> _invoices = MockDataService.getInitialInvoices();
+  BankDetailsModel? _savedBankDetails = MockDataService.getInitialBankDetails();
+  List<CpDocumentModel> _cpDocuments = MockDataService.getInitialCpDocuments();
+  List<ReceivedInvoiceModel> _receivedInvoices = MockDataService.getInitialReceivedInvoices();
 
   // Date Filter State
   DashboardDatePreset _dashboardDatePreset = DashboardDatePreset.allTime;
@@ -84,6 +85,11 @@ class AppState extends ChangeNotifier {
   bool _isOffline = false;
   bool get isOffline => _isOffline;
   int get offlineQueueCount => _leads.where((l) => l.isQueuedOffline).length;
+
+  DateTime _lastSyncedAt = DateTime.now();
+  DateTime get lastSyncedAt => _lastSyncedAt;
+  bool _isSyncing = false;
+  bool get isSyncing => _isSyncing;
 
   // Search & Filter State
   String _leadSearchQuery = '';
@@ -119,8 +125,9 @@ class AppState extends ChangeNotifier {
   double get kycCompletionPercentage {
     final mandatory = _cpDocuments.where((d) => d.isMandatory).toList();
     if (mandatory.isEmpty) return 1.0;
-    final verified = mandatory.where((d) => d.status == CpDocumentStatus.verified).length;
-    return verified / mandatory.length;
+    final submitted = mandatory.where((d) =>
+        d.status == CpDocumentStatus.verified || d.status == CpDocumentStatus.underReview).length;
+    return submitted / mandatory.length;
   }
 
   double get totalReceivedDisbursedAmount =>
@@ -134,36 +141,181 @@ class AppState extends ChangeNotifier {
 
   int get unreadNotificationCount => _notifications.where((n) => !n.isRead).length;
 
+  // User-Scoped Storage Keys
+  String get _currentUserId => _currentUser?.id ?? 'guest';
+  String get _leadsStorageKey => 'persisted_leads_$_currentUserId';
+  String get _invoicesStorageKey => 'persisted_invoices_$_currentUserId';
+  String get _siteVisitsStorageKey => 'persisted_visits_$_currentUserId';
+
   // Constructor
   AppState({bool initialIsDark = false}) {
     _themeMode = initialIsDark ? ThemeMode.dark : ThemeMode.light;
     _initData();
   }
 
-  Future<void> _initData() async {
-    _projects = MockDataService.getProjects();
+  /// Load user-scoped leads, visits, and invoices.
+  /// If the user has no stored data, clean pipeline starts completely from scratch (all 0).
+  /// Only default demo user ('usr_9014') loads initial sample mock leads if uninitialized.
+  Future<void> _loadUserData(String userId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userLeadsKey = 'persisted_leads_$userId';
+      final userVisitsKey = 'persisted_visits_$userId';
+      final userInvoicesKey = 'persisted_invoices_$userId';
+
+      // 1. Leads
+      if (prefs.containsKey(userLeadsKey)) {
+        final raw = prefs.getString(userLeadsKey);
+        if (raw != null && raw.isNotEmpty) {
+          final decoded = jsonDecode(raw) as List<dynamic>;
+          _leads = decoded.map((item) => LeadModel.fromJson(item as Map<String, dynamic>)).toList();
+          // Sanitize legacy mock lead_4 if stored with today's date from prior run
+          final l4Idx = _leads.indexWhere((l) => l.id == 'lead_4');
+          if (l4Idx != -1) {
+            final l4 = _leads[l4Idx];
+            final now = DateTime.now();
+            if (l4.createdAt.year == now.year && l4.createdAt.month == now.month && l4.createdAt.day == now.day) {
+              _leads[l4Idx] = l4.copyWith(createdAt: now.subtract(const Duration(days: 5, hours: 2)));
+            }
+          }
+        } else {
+          _leads = [];
+        }
+      } else {
+        if (userId == 'usr_9014') {
+          _leads = MockDataService.getInitialLeads();
+        } else {
+          _leads = [];
+        }
+      }
+
+      // 2. Site Visits
+      if (prefs.containsKey(userVisitsKey)) {
+        final raw = prefs.getString(userVisitsKey);
+        if (raw != null && raw.isNotEmpty) {
+          final decoded = jsonDecode(raw) as List<dynamic>;
+          _siteVisits = decoded.map((item) => SiteVisitModel.fromJson(item as Map<String, dynamic>)).toList();
+        } else {
+          _siteVisits = [];
+        }
+      } else {
+        if (userId == 'usr_9014') {
+          _siteVisits = MockDataService.getInitialVisits();
+        } else {
+          _siteVisits = [];
+        }
+      }
+
+      // 3. Invoices
+      if (prefs.containsKey(userInvoicesKey)) {
+        final raw = prefs.getString(userInvoicesKey);
+        if (raw != null && raw.isNotEmpty) {
+          final decoded = jsonDecode(raw) as List<dynamic>;
+          _invoices = decoded.map((item) => CommissionInvoiceModel.fromJson(item as Map<String, dynamic>)).toList();
+        } else {
+          _invoices = [];
+        }
+      } else {
+        if (userId == 'usr_9014') {
+          _invoices = MockDataService.getInitialInvoices();
+        } else {
+          _invoices = [];
+        }
+      }
+
+      // 4. Notifications
+      final userNotifsKey = 'persisted_notifications_$userId';
+      if (prefs.containsKey(userNotifsKey)) {
+        final raw = prefs.getString(userNotifsKey);
+        if (raw != null && raw.isNotEmpty) {
+          final decoded = jsonDecode(raw) as List<dynamic>;
+          _notifications = decoded
+              .map((item) => AppNotificationModel.fromJson(item as Map<String, dynamic>))
+              .toList();
+        } else {
+          _notifications = [];
+        }
+      } else {
+        if (userId == 'usr_9014') {
+          _notifications = MockDataService.getNotifications();
+        } else {
+          _notifications = [];
+        }
+      }
+
+      // 5. Last Synced Time
+      final syncKey = 'last_synced_$userId';
+      if (prefs.containsKey(syncKey)) {
+        final syncRaw = prefs.getString(syncKey);
+        if (syncRaw != null && syncRaw.isNotEmpty) {
+          _lastSyncedAt = DateTime.tryParse(syncRaw) ?? DateTime.now();
+        }
+      }
+    } catch (_) {}
+    notifyListeners();
+  }
+
+  /// Reset the currently active user's pipeline to a completely clean slate (all 0s).
+  Future<void> resetToCleanSlate() async {
+    _leads = [];
+    _siteVisits = [];
+    _invoices = [];
+    _notifications = [];
+    await _persistLeads();
+    await _persistSiteVisits();
+    await _persistInvoices();
+    await _persistNotifications();
+    notifyListeners();
+  }
+
+  /// Load sample demo leads, site visits, and invoices into the current user's pipeline.
+  Future<void> loadSampleDemoData() async {
     _leads = MockDataService.getInitialLeads();
     _siteVisits = MockDataService.getInitialVisits();
+    _invoices = MockDataService.getInitialInvoices();
+    _notifications = MockDataService.getNotifications();
+    await _persistLeads();
+    await _persistSiteVisits();
+    await _persistInvoices();
+    await _persistNotifications();
+    notifyListeners();
+  }
+
+  Future<void> _initData() async {
+    _projects = MockDataService.getProjects();
     _spocs = MockDataService.getSpocs();
     _collaterals = MockDataService.getCollaterals();
     _notifications = MockDataService.getNotifications();
-    _invoices = MockDataService.getInitialInvoices();
     _savedBankDetails = MockDataService.getInitialBankDetails();
     _cpDocuments = MockDataService.getInitialCpDocuments();
     _receivedInvoices = MockDataService.getInitialReceivedInvoices();
 
-    // Load persisted leads if available
+    // Check saved session in local device storage first
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final leadsRaw = prefs.getString('persisted_leads');
-      if (leadsRaw != null && leadsRaw.isNotEmpty) {
-        final decoded = jsonDecode(leadsRaw) as List<dynamic>;
-        final stored = decoded.map((item) => LeadModel.fromJson(item as Map<String, dynamic>)).toList();
-        if (stored.isNotEmpty) {
-          _leads = stored;
-        }
+      _savedUsers = await AuthStorageService.getRegisteredUsers();
+      final activeUser = await AuthStorageService.getActiveUser();
+      if (activeUser != null) {
+        _currentUser = activeUser;
+        _isAuthenticated = true;
+      } else {
+        // Fresh start: do not auto-authenticate, prompt Login Screen
+        _currentUser = null;
+        _isAuthenticated = false;
       }
-    } catch (_) {}
+    } catch (_) {
+      _currentUser = null;
+      _isAuthenticated = false;
+    }
+
+    // Load active user's pipeline data (scoped by user ID)
+    if (_currentUser != null) {
+      await _loadUserData(_currentUser!.id);
+    } else {
+      // In unauthenticated context (e.g. unit test runner without login), provide mock data
+      _leads = MockDataService.getInitialLeads();
+      _siteVisits = MockDataService.getInitialVisits();
+      _invoices = MockDataService.getInitialInvoices();
+    }
 
     // Load persisted projects if available
     try {
@@ -182,24 +334,7 @@ class AppState extends ChangeNotifier {
       }
     } catch (_) {}
 
-    // Check saved session in local device storage
-    try {
-      _savedUsers = await AuthStorageService.getRegisteredUsers();
-      final activeUser = await AuthStorageService.getActiveUser();
-      if (activeUser != null) {
-        _currentUser = activeUser;
-        _isAuthenticated = true;
-      } else {
-        // Fresh start: do not auto-authenticate, prompt Login Screen
-        _currentUser = null;
-        _isAuthenticated = false;
-      }
-    } catch (_) {
-      _currentUser = null;
-      _isAuthenticated = false;
-    }
-
-    // Load saved bank details and invoices from persistent storage
+    // Load saved bank details and documents from persistent storage
     try {
       final prefs = await SharedPreferences.getInstance();
       final bankRaw = prefs.getString('saved_bank_details');
@@ -207,26 +342,38 @@ class AppState extends ChangeNotifier {
         _savedBankDetails = BankDetailsModel.fromJson(jsonDecode(bankRaw));
       }
 
-      final invRaw = prefs.getString('persisted_invoices');
-      if (invRaw != null && invRaw.isNotEmpty) {
-        final decoded = jsonDecode(invRaw) as List<dynamic>;
-        final stored = decoded.map((item) => CommissionInvoiceModel.fromJson(item as Map<String, dynamic>)).toList();
-        if (stored.isNotEmpty) {
-          // Merge or prioritize stored invoices
-          for (final inv in stored) {
-            if (!_invoices.any((existing) => existing.id == inv.id)) {
-              _invoices.insert(0, inv);
-            }
-          }
-        }
-      }
-
       final docsRaw = prefs.getString('persisted_cp_documents');
       if (docsRaw != null && docsRaw.isNotEmpty) {
         final decoded = jsonDecode(docsRaw) as List<dynamic>;
         final stored = decoded.map((item) => CpDocumentModel.fromJson(item as Map<String, dynamic>)).toList();
         if (stored.isNotEmpty) {
-          _cpDocuments = stored;
+          const legacyMockFiles = {
+            'rera_agent_cert_2024.pdf',
+            'cp_pan_card.jpg',
+            'gstin_certificate_reg06.pdf',
+            'authorized_id_proof.jpg',
+            'signed_developer_mou_2024.pdf',
+            'cancelled_cheque_hdfc.jpg',
+            'Attach document (PDF, PNG, JPG)',
+          };
+          _cpDocuments = stored.map((doc) {
+            if (doc.fileName != null && legacyMockFiles.contains(doc.fileName)) {
+              return CpDocumentModel(
+                id: doc.id,
+                type: doc.type,
+                title: doc.title,
+                documentNumber: '',
+                fileName: null,
+                fileSize: null,
+                uploadedAt: null,
+                expiresAt: null,
+                status: CpDocumentStatus.missing,
+                isMandatory: doc.isMandatory,
+                remarks: 'Pending document upload and verification.',
+              );
+            }
+            return doc;
+          }).toList();
         }
       }
 
@@ -302,6 +449,7 @@ class AppState extends ChangeNotifier {
       _isAuthenticated = true;
       _savedUsers = await AuthStorageService.getRegisteredUsers();
       await _licenseService.verifyLicense(phone: user.phone);
+      await _loadUserData(user.id);
       notifyListeners();
       return AuthResult(success: true, user: user);
     }
@@ -338,6 +486,7 @@ class AppState extends ChangeNotifier {
       _currentUser = user;
       _isAuthenticated = true;
       await _licenseService.verifyLicense(phone: user.phone);
+      await _loadUserData(user.id);
       notifyListeners();
       return AuthResult(success: true, user: user);
     }
@@ -373,6 +522,14 @@ class AppState extends ChangeNotifier {
     _savedUsers = await AuthStorageService.getRegisteredUsers();
     await _licenseService.verifyLicense(phone: saved.phone);
 
+    // New registered account starts completely clean from scratch
+    _leads = [];
+    _siteVisits = [];
+    _invoices = [];
+    await _persistLeads();
+    await _persistSiteVisits();
+    await _persistInvoices();
+
     // Trigger welcoming notification
     _notifications.insert(
       0,
@@ -384,6 +541,7 @@ class AppState extends ChangeNotifier {
         timestamp: DateTime.now(),
       ),
     );
+    await _persistNotifications();
 
     notifyListeners();
     return AuthResult(success: true, user: saved);
@@ -396,12 +554,18 @@ class AppState extends ChangeNotifier {
     _currentUser = target;
     _isAuthenticated = true;
     await _licenseService.verifyLicense(phone: target.phone);
+    await _loadUserData(target.id);
     notifyListeners();
   }
 
   Future<void> logout() async {
     await AuthStorageService.clearActiveSession();
+    _currentUser = null;
     _isAuthenticated = false;
+    _leads = [];
+    _siteVisits = [];
+    _invoices = [];
+    _notifications = [];
     notifyListeners();
   }
 
@@ -449,7 +613,10 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  void syncOfflineQueue() {
+  int syncOfflineQueue() {
+    int syncedCount = 0;
+    final now = DateTime.now();
+
     for (int i = 0; i < _leads.length; i++) {
       if (_leads[i].isQueuedOffline) {
         _leads[i] = LeadModel(
@@ -470,10 +637,60 @@ class AppState extends ChangeNotifier {
           source: _leads[i].source,
           createdAt: _leads[i].createdAt,
           isQueuedOffline: false,
+          notesList: _leads[i].notesList,
+          activityList: [
+            LeadActivityItem(
+              id: 'act_${now.microsecondsSinceEpoch}_$i',
+              title: 'Offline lead synced to central cloud server',
+              timestamp: now,
+            ),
+            ..._leads[i].activityList,
+          ],
         );
+        syncedCount++;
       }
     }
+
+    if (syncedCount > 0) {
+      _notifications.insert(
+        0,
+        AppNotificationModel(
+          id: 'notif_${now.microsecondsSinceEpoch}',
+          title: 'Cloud Sync Complete! ☁️',
+          message: '$syncedCount offline lead(s) successfully synchronized with the central cloud database.',
+          type: 'lead',
+          timestamp: now,
+        ),
+      );
+      _persistLeads();
+      _persistNotifications();
+    }
+
     notifyListeners();
+    return syncedCount;
+  }
+
+  Future<int> triggerCloudSync() async {
+    _isSyncing = true;
+    notifyListeners();
+
+    // Realistic brief sync delay for tactile UI feedback
+    await Future.delayed(const Duration(milliseconds: 600));
+
+    final count = syncOfflineQueue();
+    _lastSyncedAt = DateTime.now();
+    _isSyncing = false;
+
+    final uid = _currentUser?.id;
+    if (uid != null) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('last_synced_$uid', _lastSyncedAt.toIso8601String());
+      } catch (_) {}
+    }
+
+    notifyListeners();
+    return count;
   }
 
   // Algorithmic Duplicate Check (Zero-OTP)
@@ -519,9 +736,11 @@ class AppState extends ChangeNotifier {
   }) {
     final computedTemp = temperature ?? LeadTemperature.cold;
     final now = DateTime.now();
+    final randomSalt = Random().nextInt(999999);
+    final uniqueLeadId = 'lead_${now.microsecondsSinceEpoch}_$randomSalt';
 
     final newLead = LeadModel(
-      id: 'lead_${now.millisecondsSinceEpoch}',
+      id: uniqueLeadId,
       firstName: firstName,
       lastName: lastName,
       phone: phone,
@@ -541,7 +760,7 @@ class AppState extends ChangeNotifier {
       notesList: notes.trim().isNotEmpty
           ? [
               LeadNoteItem(
-                id: 'note_${now.millisecondsSinceEpoch}',
+                id: 'note_${now.microsecondsSinceEpoch}_$randomSalt',
                 text: notes.trim(),
                 author: _currentUser?.name ?? 'You',
                 createdAt: now,
@@ -550,7 +769,7 @@ class AppState extends ChangeNotifier {
           : [],
       activityList: [
         LeadActivityItem(
-          id: 'act_${now.millisecondsSinceEpoch}',
+          id: 'act_${now.microsecondsSinceEpoch}_$randomSalt',
           title: 'Lead registered under ${_currentUser?.firmName ?? "Channel Partner"} (Zero-OTP protection locked)',
           timestamp: now,
         ),
@@ -564,7 +783,7 @@ class AppState extends ChangeNotifier {
     _notifications.insert(
       0,
       AppNotificationModel(
-        id: 'notif_${DateTime.now().millisecondsSinceEpoch}',
+        id: 'notif_${DateTime.now().microsecondsSinceEpoch}',
         title: 'Lead Registered: $firstName $lastName',
         message: 'Zero-OTP protection locked under ${_currentUser?.firmName ?? "your agency"} for 60 days.',
         type: 'lead',
@@ -574,6 +793,7 @@ class AppState extends ChangeNotifier {
       ),
     );
 
+    _persistNotifications();
     notifyListeners();
     return true;
   }
@@ -582,8 +802,18 @@ class AppState extends ChangeNotifier {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(
-        'persisted_leads',
+        _leadsStorageKey,
         jsonEncode(_leads.map((l) => l.toJson()).toList()),
+      );
+    } catch (_) {}
+  }
+
+  Future<void> _persistSiteVisits() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        _siteVisitsStorageKey,
+        jsonEncode(_siteVisits.map((v) => v.toJson()).toList()),
       );
     } catch (_) {}
   }
@@ -648,6 +878,7 @@ class AppState extends ChangeNotifier {
           targetRoute: '/leads',
         ),
       );
+      _persistNotifications();
       notifyListeners();
     }
 
@@ -671,6 +902,7 @@ class AppState extends ChangeNotifier {
       ),
     );
 
+    _persistNotifications();
     notifyListeners();
     _persistProjects();
   }
@@ -720,6 +952,7 @@ class AppState extends ChangeNotifier {
           targetId: project.id,
         ),
       );
+      _persistNotifications();
       notifyListeners();
       _persistProjects();
     }
@@ -735,15 +968,53 @@ class AppState extends ChangeNotifier {
       // Automatically cascade lead temperature based on stage
       lead.temperature = LeadModel.getTemperatureForStage(newStage);
 
+      final now = DateTime.now();
       lead.activityList.insert(
         0,
         LeadActivityItem(
-          id: 'act_${DateTime.now().millisecondsSinceEpoch}',
+          id: 'act_${now.microsecondsSinceEpoch}',
           title: 'lead status updated to ${newStage.displayName}',
-          timestamp: DateTime.now(),
+          timestamp: now,
         ),
       );
 
+      String notifTitle;
+      String notifMessage;
+      String notifType = 'lead';
+
+      switch (newStage) {
+        case LeadStage.siteVisited:
+          notifTitle = 'Site Visit Completed: ${lead.fullName}';
+          notifMessage = '${lead.fullName} completed site visit for ${lead.projectName}. Follow up to close booking token!';
+          notifType = 'visit';
+          break;
+        case LeadStage.booked:
+          notifTitle = '🎉 Booking Confirmed: ${lead.fullName}!';
+          notifMessage = 'Booking locked for ${lead.projectName}! Payout claim is now unlocked.';
+          notifType = 'lead';
+          break;
+        case LeadStage.cold:
+          notifTitle = 'Lead Stage Updated: ${lead.fullName}';
+          notifMessage = 'Status updated to ${newStage.displayName} on ${lead.projectName}.';
+          notifType = 'lead';
+          break;
+      }
+
+      _notifications.insert(
+        0,
+        AppNotificationModel(
+          id: 'notif_${now.microsecondsSinceEpoch}',
+          title: notifTitle,
+          message: notifMessage,
+          type: notifType,
+          timestamp: now,
+          targetRoute: '/leads',
+          targetId: lead.id,
+        ),
+      );
+
+      _persistLeads();
+      _persistNotifications();
       notifyListeners();
     }
   }
@@ -757,12 +1028,13 @@ class AppState extends ChangeNotifier {
       lead.activityList.insert(
         0,
         LeadActivityItem(
-          id: 'act_${DateTime.now().millisecondsSinceEpoch}',
+          id: 'act_${DateTime.now().microsecondsSinceEpoch}',
           title: 'lead temperature updated to ${newTemperature.displayName.toUpperCase()}',
           timestamp: DateTime.now(),
         ),
       );
 
+      _persistLeads();
       notifyListeners();
     }
   }
@@ -775,7 +1047,7 @@ class AppState extends ChangeNotifier {
       lead.notesList.insert(
         0,
         LeadNoteItem(
-          id: 'note_${now.millisecondsSinceEpoch}',
+          id: 'note_${now.microsecondsSinceEpoch}',
           text: noteText.trim(),
           author: _currentUser?.name ?? 'You',
           createdAt: now,
@@ -785,12 +1057,13 @@ class AppState extends ChangeNotifier {
       lead.activityList.insert(
         0,
         LeadActivityItem(
-          id: 'act_${now.millisecondsSinceEpoch}',
+          id: 'act_${now.microsecondsSinceEpoch}',
           title: 'New note added',
           timestamp: now,
         ),
       );
 
+      _persistLeads();
       notifyListeners();
     }
   }
@@ -825,12 +1098,13 @@ class AppState extends ChangeNotifier {
       lead.activityList.insert(
         0,
         LeadActivityItem(
-          id: 'act_${DateTime.now().millisecondsSinceEpoch}',
+          id: 'act_${DateTime.now().microsecondsSinceEpoch}',
           title: 'Lead information updated',
           timestamp: DateTime.now(),
         ),
       );
 
+      _persistLeads();
       notifyListeners();
     }
   }
@@ -907,7 +1181,7 @@ class AppState extends ChangeNotifier {
     final visitCode = 'VIS-${(1000 + _siteVisits.length + 1)}';
 
     final visit = SiteVisitModel(
-      id: 'vis_${DateTime.now().millisecondsSinceEpoch}',
+      id: 'vis_${DateTime.now().microsecondsSinceEpoch}',
       visitCode: visitCode,
       leadId: leadId,
       clientName: lead.fullName,
@@ -936,7 +1210,7 @@ class AppState extends ChangeNotifier {
     lead.activityList.insert(
       0,
       LeadActivityItem(
-        id: 'act_${DateTime.now().millisecondsSinceEpoch}',
+        id: 'act_${DateTime.now().microsecondsSinceEpoch}',
         title: 'site visit status updated to SCHEDULED',
         timestamp: DateTime.now(),
       ),
@@ -945,7 +1219,7 @@ class AppState extends ChangeNotifier {
     _notifications.insert(
       0,
       AppNotificationModel(
-        id: 'notif_${DateTime.now().millisecondsSinceEpoch}',
+        id: 'notif_${DateTime.now().microsecondsSinceEpoch}',
         title: 'Visit Scheduled: $visitCode',
         message: 'Digital entry pass generated for ${lead.fullName} at ${project.name}.',
         type: 'visit',
@@ -955,6 +1229,9 @@ class AppState extends ChangeNotifier {
       ),
     );
 
+    _persistSiteVisits();
+    _persistLeads();
+    _persistNotifications();
     notifyListeners();
     return visitCode;
   }
@@ -978,7 +1255,7 @@ class AppState extends ChangeNotifier {
       lead.activityList.insert(
         0,
         LeadActivityItem(
-          id: 'act_${DateTime.now().millisecondsSinceEpoch}',
+          id: 'act_${DateTime.now().microsecondsSinceEpoch}',
           title: 'site visit status updated to COMPLETED',
           timestamp: DateTime.now(),
         ),
@@ -987,7 +1264,7 @@ class AppState extends ChangeNotifier {
       _notifications.insert(
         0,
         AppNotificationModel(
-          id: 'notif_${DateTime.now().millisecondsSinceEpoch}',
+          id: 'notif_${DateTime.now().microsecondsSinceEpoch}',
           title: 'Client Checked-in at Site! 📍',
           message: '${_siteVisits[index].clientName} checked in at ${_siteVisits[index].projectName}. Priority entry pass verified.',
           type: 'visit',
@@ -995,6 +1272,9 @@ class AppState extends ChangeNotifier {
         ),
       );
 
+      _persistSiteVisits();
+      _persistLeads();
+      _persistNotifications();
       notifyListeners();
     }
   }
@@ -1028,6 +1308,7 @@ class AppState extends ChangeNotifier {
         ),
       );
 
+      _persistNotifications();
       notifyListeners();
       return true;
     }
@@ -1040,6 +1321,7 @@ class AppState extends ChangeNotifier {
     if (index != -1) {
       _notifications[index].isRead = true;
       notifyListeners();
+      _persistNotifications();
     }
   }
 
@@ -1048,6 +1330,7 @@ class AppState extends ChangeNotifier {
       n.isRead = true;
     }
     notifyListeners();
+    _persistNotifications();
   }
 
   // Date Filter Actions
@@ -1082,14 +1365,17 @@ class AppState extends ChangeNotifier {
       case DashboardDatePreset.today:
         return !date.isBefore(todayStart) && !date.isAfter(todayEnd);
       case DashboardDatePreset.yesterday:
-        final yesterdayStart = DateTime(now.year, now.month, now.day - 1);
-        final yesterdayEnd = DateTime(now.year, now.month, now.day - 1, 23, 59, 59, 999);
+        final yDate = now.subtract(const Duration(days: 1));
+        final yesterdayStart = DateTime(yDate.year, yDate.month, yDate.day);
+        final yesterdayEnd = DateTime(yDate.year, yDate.month, yDate.day, 23, 59, 59, 999);
         return !date.isBefore(yesterdayStart) && !date.isAfter(yesterdayEnd);
       case DashboardDatePreset.last7Days:
-        final start7Days = DateTime(now.year, now.month, now.day - 6);
+        final d7 = now.subtract(const Duration(days: 6));
+        final start7Days = DateTime(d7.year, d7.month, d7.day);
         return !date.isBefore(start7Days) && !date.isAfter(todayEnd);
       case DashboardDatePreset.last30Days:
-        final start30Days = DateTime(now.year, now.month, now.day - 29);
+        final d30 = now.subtract(const Duration(days: 29));
+        final start30Days = DateTime(d30.year, d30.month, d30.day);
         return !date.isBefore(start30Days) && !date.isAfter(todayEnd);
       case DashboardDatePreset.custom:
         if (_customDateRange == null) return true;
@@ -1144,6 +1430,22 @@ class AppState extends ChangeNotifier {
     if (_dashboardDatePreset == DashboardDatePreset.allTime) return _siteVisits;
     return _siteVisits.where((v) => isDateInActiveRange(v.scheduledAt)).toList();
   }
+
+  List<CommissionInvoiceModel> get dashboardInvoices {
+    if (_dashboardDatePreset == DashboardDatePreset.allTime) return _invoices;
+    return _invoices.where((inv) => isDateInActiveRange(inv.date)).toList();
+  }
+
+  double get dashboardTotalCommissionEarned =>
+      dashboardInvoices.fold(0.0, (sum, inv) => sum + inv.amount);
+
+  int get dashboardInvoicesCount => dashboardInvoices.length;
+
+  double get dashboardPendingCommissionAmount =>
+      dashboardInvoices.where((inv) => inv.status == InvoiceStatus.pending || inv.status == InvoiceStatus.approved).fold(0.0, (sum, inv) => sum + inv.amount);
+
+  double get dashboardPaidCommissionAmount =>
+      dashboardInvoices.where((inv) => inv.status == InvoiceStatus.paid).fold(0.0, (sum, inv) => sum + inv.amount);
 
   // Dynamic Date-Filtered KPI Calculations
   int get totalLeadsCount => dashboardLeads.length;
@@ -1287,6 +1589,7 @@ class AppState extends ChangeNotifier {
     notifyListeners();
     _persistInvoices();
     _persistBankDetails();
+    _persistNotifications();
     return invoice;
   }
 
@@ -1359,6 +1662,9 @@ class AppState extends ChangeNotifier {
         ),
       );
 
+      _persistInvoices();
+      _persistLeads();
+      _persistNotifications();
       notifyListeners();
     }
   }
@@ -1366,9 +1672,47 @@ class AppState extends ChangeNotifier {
   void updateInvoiceStatus(String invoiceId, InvoiceStatus newStatus) {
     final idx = _invoices.indexWhere((inv) => inv.id == invoiceId);
     if (idx != -1) {
-      _invoices[idx].status = newStatus;
+      final inv = _invoices[idx];
+      inv.status = newStatus;
+
+      final now = DateTime.now();
+      final formattedAmt = inv.amount >= 100000
+          ? '₹${(inv.amount / 100000).toStringAsFixed(2)} Lakhs'
+          : '₹${inv.amount.toStringAsFixed(0)}';
+
+      String notifTitle;
+      String notifMsg;
+
+      if (newStatus == InvoiceStatus.paid) {
+        notifTitle = '💰 Commission Payout Received: $formattedAmt';
+        notifMsg = 'Payout for invoice ${inv.invoiceNumber} (${inv.clientName}) has been credited! Check your settlement account.';
+      } else if (newStatus == InvoiceStatus.approved) {
+        notifTitle = 'Invoice Approved! 📑: ${inv.invoiceNumber}';
+        notifMsg = 'Invoice for $formattedAmt (${inv.clientName} - ${inv.projectName}) approved by builder finance. Payout scheduled.';
+      } else if (newStatus == InvoiceStatus.rejected) {
+        notifTitle = 'Invoice Action Needed: ${inv.invoiceNumber}';
+        notifMsg = 'Invoice for $formattedAmt (${inv.projectName}) was queried. Please verify documentation.';
+      } else {
+        notifTitle = 'Invoice Status: ${inv.invoiceNumber}';
+        notifMsg = 'Status updated to ${newStatus.displayName} for $formattedAmt.';
+      }
+
+      _notifications.insert(
+        0,
+        AppNotificationModel(
+          id: 'notif_${now.microsecondsSinceEpoch}',
+          title: notifTitle,
+          message: notifMsg,
+          type: 'broadcast',
+          timestamp: now,
+          targetRoute: '/commissions',
+          targetId: inv.id,
+        ),
+      );
+
       notifyListeners();
       _persistInvoices();
+      _persistNotifications();
     }
   }
 
@@ -1382,7 +1726,7 @@ class AppState extends ChangeNotifier {
     try {
       final prefs = await SharedPreferences.getInstance();
       final jsonList = _invoices.map((inv) => inv.toJson()).toList();
-      await prefs.setString('persisted_invoices', jsonEncode(jsonList));
+      await prefs.setString(_invoicesStorageKey, jsonEncode(jsonList));
     } catch (_) {}
   }
 
@@ -1430,6 +1774,7 @@ class AppState extends ChangeNotifier {
     String? remarks,
     CpDocumentType? documentType,
     String? title,
+    List<int>? fileBytes,
   }) async {
     final idx = _cpDocuments.indexWhere((d) => d.id == documentId);
     final now = DateTime.now();
@@ -1443,6 +1788,7 @@ class AppState extends ChangeNotifier {
         expiresAt: expiresAt,
         status: CpDocumentStatus.underReview,
         remarks: remarks ?? 'Uploaded on ${now.day}/${now.month}/${now.year} - verification in review',
+        fileBytes: fileBytes,
       );
     } else {
       _cpDocuments.add(
@@ -1458,6 +1804,7 @@ class AppState extends ChangeNotifier {
           status: CpDocumentStatus.underReview,
           isMandatory: false,
           remarks: remarks ?? 'Uploaded on ${now.day}/${now.month}/${now.year}',
+          fileBytes: fileBytes,
         ),
       );
     }
@@ -1475,6 +1822,7 @@ class AppState extends ChangeNotifier {
 
     notifyListeners();
     _persistCpDocuments();
+    _persistNotifications();
   }
 
   Future<void> deleteDocument(String documentId) async {
@@ -1482,12 +1830,18 @@ class AppState extends ChangeNotifier {
     if (idx != -1) {
       final doc = _cpDocuments[idx];
       if (doc.isMandatory) {
-        _cpDocuments[idx] = doc.copyWith(
+        _cpDocuments[idx] = CpDocumentModel(
+          id: doc.id,
+          type: doc.type,
+          title: doc.title,
           documentNumber: '',
           fileName: null,
           fileSize: null,
           uploadedAt: null,
+          expiresAt: null,
           status: CpDocumentStatus.missing,
+          isMandatory: true,
+          remarks: 'Pending document upload and verification.',
         );
       } else {
         _cpDocuments.removeAt(idx);
@@ -1499,8 +1853,27 @@ class AppState extends ChangeNotifier {
 
   void addReceivedInvoice(ReceivedInvoiceModel invoice) {
     _receivedInvoices.insert(0, invoice);
+
+    final now = DateTime.now();
+    final formattedAmt = invoice.netAmount >= 100000
+        ? '₹${(invoice.netAmount / 100000).toStringAsFixed(2)} Lakhs'
+        : '₹${invoice.netAmount.toStringAsFixed(0)}';
+
+    _notifications.insert(
+      0,
+      AppNotificationModel(
+        id: 'notif_${now.microsecondsSinceEpoch}',
+        title: 'Payment Credit Advice Received 💵',
+        message: '$formattedAmt received for ${invoice.projectName} (Ref: ${invoice.voucherNumber}).',
+        type: 'broadcast',
+        timestamp: now,
+        targetRoute: '/docs',
+      ),
+    );
+
     notifyListeners();
     _persistReceivedInvoices();
+    _persistNotifications();
   }
 
   Future<void> _persistCpDocuments() async {
@@ -1516,6 +1889,16 @@ class AppState extends ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       final jsonList = _receivedInvoices.map((inv) => inv.toJson()).toList();
       await prefs.setString('persisted_received_invoices', jsonEncode(jsonList));
+    } catch (_) {}
+  }
+
+  Future<void> _persistNotifications() async {
+    final uid = _currentUser?.id;
+    if (uid == null) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final jsonList = _notifications.map((n) => n.toJson()).toList();
+      await prefs.setString('persisted_notifications_$uid', jsonEncode(jsonList));
     } catch (_) {}
   }
 }

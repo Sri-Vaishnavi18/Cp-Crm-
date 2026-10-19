@@ -23,7 +23,7 @@ class ProjectsScreen extends StatefulWidget {
 }
 
 class _ProjectsScreenState extends State<ProjectsScreen> {
-  String _selectedBrand = 'All'; // All, My Home, Prestige, Rajapushpa, Aparna
+  String _selectedProject = 'All';
   final Set<String> _favoriteIds = {};
   bool _isSearching = false;
   final _searchController = TextEditingController();
@@ -39,8 +39,9 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
     final query = _searchController.text.trim().toLowerCase();
 
     return all.where((proj) {
-      if (_selectedBrand != 'All') {
-        if (!proj.name.toLowerCase().contains(_selectedBrand.toLowerCase())) {
+      if (_selectedProject != 'All') {
+        if (proj.name.toLowerCase() != _selectedProject.toLowerCase() &&
+            !proj.name.toLowerCase().contains(_selectedProject.toLowerCase())) {
           return false;
         }
       }
@@ -55,7 +56,7 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
     }).toList();
   }
 
-  void _openProjectDetail(ProjectModel project) {
+  void _openProjectDetail(ProjectModel project, {String initialSection = 'details'}) {
     if (widget.onSelectProject != null) {
       widget.onSelectProject!(project);
     } else {
@@ -64,6 +65,7 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
           builder: (ctx) => ProjectDetailScreen(
             project: project,
             state: widget.state,
+            initialSection: initialSection,
           ),
         ),
       );
@@ -180,21 +182,6 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                       ),
-                      const SizedBox(width: 4),
-                      IconButton(
-                        icon: Icon(
-                          Icons.tune_rounded,
-                          size: 22,
-                          color: isDark ? AppColors.darkTextPrimary : const Color(0xFF475569),
-                        ),
-                        onPressed: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Filter options active')),
-                          );
-                        },
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                      ),
                     ],
                   ),
                 ),
@@ -226,21 +213,19 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
                     ),
                   ),
 
-                // 2. Horizontal Filter Chips (All, My Home, Prestige, Rajapushpa, Aparna)
+                // 2. Dynamic Horizontal Project Filter Chips (All 7 projects)
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   child: Row(
                     children: [
-                      _buildBrandChip('All', isDark),
-                      const SizedBox(width: 8),
-                      _buildBrandChip('My Home', isDark),
-                      const SizedBox(width: 8),
-                      _buildBrandChip('Prestige', isDark),
-                      const SizedBox(width: 8),
-                      _buildBrandChip('Rajapushpa', isDark),
-                      const SizedBox(width: 8),
-                      _buildBrandChip('Aparna', isDark),
+                      _buildProjectFilterChip('All', 'All', isDark),
+                      ...widget.state.projects.map((proj) {
+                        return Padding(
+                          padding: const EdgeInsets.only(left: 8),
+                          child: _buildProjectFilterChip(proj.name, proj.name, isDark),
+                        );
+                      }),
                     ],
                   ),
                 ),
@@ -275,11 +260,11 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
     );
   }
 
-  Widget _buildBrandChip(String brand, bool isDark) {
-    final isSelected = _selectedBrand == brand;
+  Widget _buildProjectFilterChip(String label, String value, bool isDark) {
+    final isSelected = _selectedProject == value;
 
     return InkWell(
-      onTap: () => setState(() => _selectedBrand = brand),
+      onTap: () => setState(() => _selectedProject = value),
       borderRadius: BorderRadius.circular(20),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
@@ -290,7 +275,7 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
           borderRadius: BorderRadius.circular(20),
         ),
         child: Text(
-          brand,
+          label,
           style: TextStyle(
             fontSize: 12,
             fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
@@ -371,18 +356,21 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
           // 1. Cover Image with Overlay Badges & Heart Icon
           Stack(
             children: [
-              ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                child: Image.network(
-                  imageUrl,
-                  height: 155,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => Container(
+              GestureDetector(
+                onTap: () => _openProjectDetail(project),
+                child: ClipRRect(
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                  child: Image.network(
+                    imageUrl,
                     height: 155,
-                    color: const Color(0xFF1E293B),
-                    alignment: Alignment.center,
-                    child: const Icon(Icons.apartment_rounded, color: Colors.white54, size: 40),
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => Container(
+                      height: 155,
+                      color: const Color(0xFF1E293B),
+                      alignment: Alignment.center,
+                      child: const Icon(Icons.apartment_rounded, color: Colors.white54, size: 40),
+                    ),
                   ),
                 ),
               ),
@@ -577,50 +565,38 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
                 ),
                 const SizedBox(height: 12),
 
-                // 3. Action Buttons Row: Units, Brochure, Price List, Share
+                // 3. Action Buttons Row: Details (Units & Prices), Brochure, Share
                 Row(
                   children: [
-                    // Units Inventory Button (Green)
+                    // Details Button (Brand Blue) - View Units & Unit Prices
                     Expanded(
                       child: _buildProjectActionButton(
-                        icon: Icons.grid_view_rounded,
-                        iconColor: const Color(0xFF16A34A),
-                        label: 'Units',
-                        onTap: () => _openProjectDetail(project),
+                        icon: Icons.visibility_outlined,
+                        iconColor: const Color(0xFF2563EB),
+                        label: 'Details',
+                        onTap: () => _openProjectDetail(project, initialSection: 'details'),
                         isDark: isDark,
                       ),
                     ),
-                    const SizedBox(width: 6),
+                    const SizedBox(width: 8),
 
-                    // Brochure Button (Purple)
+                    // Brochure Button (Purple) - Dedicated Brochure Column on Same Page
                     Expanded(
                       child: _buildProjectActionButton(
                         icon: Icons.article_outlined,
                         iconColor: const Color(0xFF7C3AED),
                         label: 'Brochure',
-                        onTap: () => _openProjectDetail(project),
+                        onTap: () => _openProjectDetail(project, initialSection: 'brochure'),
                         isDark: isDark,
                       ),
                     ),
-                    const SizedBox(width: 6),
+                    const SizedBox(width: 8),
 
-                    // Price List Button (Orange)
-                    Expanded(
-                      child: _buildProjectActionButton(
-                        icon: Icons.receipt_long_outlined,
-                        iconColor: const Color(0xFFEA580C),
-                        label: 'Price List',
-                        onTap: () => _openProjectDetail(project),
-                        isDark: isDark,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-
-                    // Share Button (Blue)
+                    // Share Button (Green)
                     Expanded(
                       child: _buildProjectActionButton(
                         icon: Icons.share_outlined,
-                        iconColor: const Color(0xFF2563EB),
+                        iconColor: const Color(0xFF16A34A),
                         label: 'Share',
                         onTap: () {
                           UrlActionService.shareContent(

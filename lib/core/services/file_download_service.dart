@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'file_download_service_stub.dart'
     if (dart.library.html) 'file_download_service_web.dart';
 
+import '../models/app_models.dart';
+
 class FileDownloadService {
   /// Triggers a real file download in the browser (or native share on mobile)
   static Future<void> downloadFile({
@@ -28,8 +30,23 @@ class FileDownloadService {
     String? validTill,
     String? partnerName,
     String? remarks,
+    CpDocumentType? documentType,
+    List<int>? customBytes,
   }) async {
-    final pdfBytes = generateCertificatePdf(
+    final cleanFileName = fileName.endsWith('.pdf') ? fileName : '$fileName.pdf';
+
+    // If actual uploaded file bytes exist, download the real uploaded document
+    if (customBytes != null && customBytes.isNotEmpty) {
+      await downloadFile(
+        fileName: cleanFileName,
+        bytes: customBytes,
+        mimeType: 'application/pdf',
+      );
+      return;
+    }
+
+    final pdfBytes = generateDocumentTypePdf(
+      type: documentType,
       title: documentTitle,
       documentNumber: documentNumber,
       status: status ?? 'VERIFIED',
@@ -38,7 +55,6 @@ class FileDownloadService {
       remarks: remarks ?? 'Official real estate regulatory compliance document.',
     );
 
-    final cleanFileName = fileName.endsWith('.pdf') ? fileName : '$fileName.pdf';
     await downloadFile(
       fileName: cleanFileName,
       bytes: pdfBytes,
@@ -102,6 +118,427 @@ class FileDownloadService {
   // PURE DART VALID PDF GENERATORS
   // ==========================================
 
+  /// Routes to the specialized generator based on document type
+  static List<int> generateDocumentTypePdf({
+    CpDocumentType? type,
+    required String title,
+    required String documentNumber,
+    required String status,
+    String? validTill,
+    required String partnerName,
+    required String remarks,
+  }) {
+    switch (type) {
+      case CpDocumentType.reraCertificate:
+        return generateReraCertificatePdf(
+          documentNumber: documentNumber,
+          partnerName: partnerName,
+          status: status,
+          validTill: validTill,
+          remarks: remarks,
+        );
+      case CpDocumentType.panCard:
+        return generatePanCardPdf(
+          documentNumber: documentNumber,
+          partnerName: partnerName,
+          status: status,
+          remarks: remarks,
+        );
+      case CpDocumentType.gstCertificate:
+        return generateGstCertificatePdf(
+          documentNumber: documentNumber,
+          partnerName: partnerName,
+          status: status,
+          validTill: validTill,
+          remarks: remarks,
+        );
+      case CpDocumentType.aadhaarCard:
+        return generateAadhaarPdf(
+          documentNumber: documentNumber,
+          partnerName: partnerName,
+          status: status,
+          remarks: remarks,
+        );
+      case CpDocumentType.cpAgreement:
+        return generateCpAgreementPdf(
+          documentNumber: documentNumber,
+          partnerName: partnerName,
+          status: status,
+          validTill: validTill,
+          remarks: remarks,
+        );
+      case CpDocumentType.cancelledCheque:
+        return generateBankMandatePdf(
+          documentNumber: documentNumber,
+          partnerName: partnerName,
+          status: status,
+          remarks: remarks,
+        );
+      case CpDocumentType.other:
+      case null:
+        return generateCertificatePdf(
+          title: title,
+          documentNumber: documentNumber,
+          status: status,
+          validTill: validTill,
+          partnerName: partnerName,
+          remarks: remarks,
+        );
+    }
+  }
+
+  /// 1. RERA Registration Certificate PDF
+  static List<int> generateReraCertificatePdf({
+    required String documentNumber,
+    required String partnerName,
+    required String status,
+    String? validTill,
+    required String remarks,
+  }) {
+    final streamContent = StringBuffer();
+    // Header banner
+    streamContent.writeln('0.06 0.28 0.62 rg 40 735 532 30 re f');
+    streamContent.writeln('0.85 0.88 0.92 RG 1 w 40 60 532 705 re S');
+
+    streamContent.writeln('BT');
+    streamContent.writeln('/F1 14 Tf');
+    streamContent.writeln('1 1 1 rg');
+    streamContent.writeln('50 745 Td');
+    streamContent.writeln('(REAL ESTATE REGULATORY AUTHORITY - RERA) Tj');
+
+    streamContent.writeln('0 0 0 rg');
+    streamContent.writeln('/F1 13 Tf');
+    streamContent.writeln('0 -35 Td');
+    streamContent.writeln('(FORM B: CERTIFICATE OF REGISTRATION OF REAL ESTATE AGENT) Tj');
+
+    streamContent.writeln('/F1 10 Tf');
+    streamContent.writeln('0 -18 Td');
+    streamContent.writeln('([Issued under Section 9 of Real Estate Regulation and Development Act, 2016]) Tj');
+
+    streamContent.writeln('0.15 0.20 0.35 rg');
+    streamContent.writeln('/F1 11 Tf');
+    streamContent.writeln('0 -35 Td');
+    final regNo = documentNumber.isNotEmpty ? documentNumber : 'RERA-AG-HYD-2024-8841';
+    streamContent.writeln('(RERA Registration Number: ${_escapePdf(regNo)}) Tj');
+
+    streamContent.writeln('0 -22 Td');
+    streamContent.writeln('(Agent / Entity Name: ${_escapePdf(partnerName)}) Tj');
+
+    streamContent.writeln('0 -22 Td');
+    streamContent.writeln('(Compliance Status: ${_escapePdf(status)}) Tj');
+
+    final validity = (validTill != null && validTill.isNotEmpty) ? validTill : '31/12/2027';
+    streamContent.writeln('0 -22 Td');
+    streamContent.writeln('(License Validity Period: Through ${_escapePdf(validity)}) Tj');
+
+    streamContent.writeln('0 -22 Td');
+    streamContent.writeln('(Authorized Area of Operation: Residential and Commercial Real Estate) Tj');
+
+    streamContent.writeln('0 -28 Td');
+    streamContent.writeln('(${_escapePdf(remarks)}) Tj');
+
+    streamContent.writeln('/F1 9 Tf');
+    streamContent.writeln('0.3 0.3 0.3 rg');
+    streamContent.writeln('0 -45 Td');
+    streamContent.writeln('(Conditions of Registration: Agent must quote this RERA registration number) Tj');
+    streamContent.writeln('0 -14 Td');
+    streamContent.writeln('(on all official communications, collateral distributions, and property bookings.) Tj');
+
+    streamContent.writeln('/F1 10 Tf');
+    streamContent.writeln('0.06 0.28 0.62 rg');
+    streamContent.writeln('0 -40 Td');
+    streamContent.writeln('([SEAL] Digitally Verified by State Real Estate Regulatory Authority) Tj');
+    streamContent.writeln('ET');
+
+    return _buildPdf14Document(streamContent.toString());
+  }
+
+  /// 2. PAN Card Verification PDF
+  static List<int> generatePanCardPdf({
+    required String documentNumber,
+    required String partnerName,
+    required String status,
+    required String remarks,
+  }) {
+    final streamContent = StringBuffer();
+    // Card header
+    streamContent.writeln('0.10 0.35 0.55 rg 40 735 532 30 re f');
+    streamContent.writeln('0.85 0.88 0.92 RG 1 w 40 80 532 685 re S');
+
+    streamContent.writeln('BT');
+    streamContent.writeln('/F1 13 Tf');
+    streamContent.writeln('1 1 1 rg');
+    streamContent.writeln('50 745 Td');
+    streamContent.writeln('(INCOME TAX DEPARTMENT - GOVERNMENT OF INDIA) Tj');
+
+    streamContent.writeln('0 0 0 rg');
+    streamContent.writeln('/F1 15 Tf');
+    streamContent.writeln('0 -40 Td');
+    streamContent.writeln('(PERMANENT ACCOUNT NUMBER CARD) Tj');
+
+    streamContent.writeln('0.15 0.20 0.35 rg');
+    streamContent.writeln('/F1 14 Tf');
+    streamContent.writeln('0 -35 Td');
+    final pan = documentNumber.isNotEmpty ? documentNumber.toUpperCase() : 'ABCDE1234F';
+    streamContent.writeln('(PAN NUMBER: ${_escapePdf(pan)}) Tj');
+
+    streamContent.writeln('/F1 11 Tf');
+    streamContent.writeln('0 -25 Td');
+    streamContent.writeln('(Taxpayer / Firm Name: ${_escapePdf(partnerName)}) Tj');
+
+    streamContent.writeln('0 -22 Td');
+    streamContent.writeln('(Verification Status: ${_escapePdf(status)}) Tj');
+
+    streamContent.writeln('0 -22 Td');
+    streamContent.writeln('(Tax Withholding Category: Section 194H Brokerage Deductions at 5%) Tj');
+
+    streamContent.writeln('0 -25 Td');
+    streamContent.writeln('(${_escapePdf(remarks)}) Tj');
+
+    streamContent.writeln('/F1 9 Tf');
+    streamContent.writeln('0.3 0.3 0.3 rg');
+    streamContent.writeln('0 -45 Td');
+    streamContent.writeln('(Security Feature: Encrypted Electronic Verification with CBDT NSDL Registry) Tj');
+
+    streamContent.writeln('/F1 10 Tf');
+    streamContent.writeln('0.10 0.35 0.55 rg');
+    streamContent.writeln('0 -35 Td');
+    streamContent.writeln('([VERIFIED] Income Tax Department Electronic Records Database) Tj');
+    streamContent.writeln('ET');
+
+    return _buildPdf14Document(streamContent.toString());
+  }
+
+  /// 3. GST Registration Certificate PDF
+  static List<int> generateGstCertificatePdf({
+    required String documentNumber,
+    required String partnerName,
+    required String status,
+    String? validTill,
+    required String remarks,
+  }) {
+    final streamContent = StringBuffer();
+    // Blue header
+    streamContent.writeln('0.08 0.40 0.30 rg 40 735 532 30 re f');
+    streamContent.writeln('0.85 0.88 0.92 RG 1 w 40 70 532 695 re S');
+
+    streamContent.writeln('BT');
+    streamContent.writeln('/F1 13 Tf');
+    streamContent.writeln('1 1 1 rg');
+    streamContent.writeln('50 745 Td');
+    streamContent.writeln('(GOVERNMENT OF INDIA - CENTRAL GOODS AND SERVICES TAX) Tj');
+
+    streamContent.writeln('0 0 0 rg');
+    streamContent.writeln('/F1 14 Tf');
+    streamContent.writeln('0 -40 Td');
+    streamContent.writeln('(FORM GST REG-06: REGISTRATION CERTIFICATE) Tj');
+
+    streamContent.writeln('/F1 10 Tf');
+    streamContent.writeln('0 -18 Td');
+    streamContent.writeln('([Issued under Section 25(3) of the CGST Act, 2017]) Tj');
+
+    streamContent.writeln('0.15 0.20 0.35 rg');
+    streamContent.writeln('/F1 13 Tf');
+    streamContent.writeln('0 -35 Td');
+    final gstin = documentNumber.isNotEmpty ? documentNumber.toUpperCase() : '36AAAAA0000A1Z5';
+    streamContent.writeln('(Registration Number - GSTIN: ${_escapePdf(gstin)}) Tj');
+
+    streamContent.writeln('/F1 11 Tf');
+    streamContent.writeln('0 -25 Td');
+    streamContent.writeln('(Legal Name of Business: ${_escapePdf(partnerName)}) Tj');
+
+    streamContent.writeln('0 -22 Td');
+    streamContent.writeln('(Trade Classification: Real Estate Intermediation & Brokerage Services) Tj');
+
+    streamContent.writeln('0 -22 Td');
+    streamContent.writeln('(Compliance Status: ${_escapePdf(status)}) Tj');
+
+    final validity = (validTill != null && validTill.isNotEmpty) ? validTill : 'From 01/04/2023 - Regular';
+    streamContent.writeln('0 -22 Td');
+    streamContent.writeln('(Validity Period: ${_escapePdf(validity)}) Tj');
+
+    streamContent.writeln('0 -25 Td');
+    streamContent.writeln('(${_escapePdf(remarks)}) Tj');
+
+    streamContent.writeln('/F1 10 Tf');
+    streamContent.writeln('0.08 0.40 0.30 rg');
+    streamContent.writeln('0 -50 Td');
+    streamContent.writeln('([SEAL] Goods and Services Tax Network - Authorized Digital Signature) Tj');
+    streamContent.writeln('ET');
+
+    return _buildPdf14Document(streamContent.toString());
+  }
+
+  /// 4. Aadhaar / Government ID Proof PDF
+  static List<int> generateAadhaarPdf({
+    required String documentNumber,
+    required String partnerName,
+    required String status,
+    required String remarks,
+  }) {
+    final streamContent = StringBuffer();
+    // Aadhaar Red-orange header
+    streamContent.writeln('0.75 0.25 0.10 rg 40 735 532 30 re f');
+    streamContent.writeln('0.85 0.88 0.92 RG 1 w 40 80 532 685 re S');
+
+    streamContent.writeln('BT');
+    streamContent.writeln('/F1 13 Tf');
+    streamContent.writeln('1 1 1 rg');
+    streamContent.writeln('50 745 Td');
+    streamContent.writeln('(UNIQUE IDENTIFICATION AUTHORITY OF INDIA - UIDAI) Tj');
+
+    streamContent.writeln('0 0 0 rg');
+    streamContent.writeln('/F1 15 Tf');
+    streamContent.writeln('0 -40 Td');
+    streamContent.writeln('(GOVERNMENT OF INDIA - RESIDENT E-IDENTITY RECORD) Tj');
+
+    streamContent.writeln('0.15 0.20 0.35 rg');
+    streamContent.writeln('/F1 13 Tf');
+    streamContent.writeln('0 -35 Td');
+    final uid = documentNumber.isNotEmpty ? documentNumber : 'XXXX-XXXX-9021';
+    streamContent.writeln('(Document Reference / Masked UID: ${_escapePdf(uid)}) Tj');
+
+    streamContent.writeln('/F1 11 Tf');
+    streamContent.writeln('0 -25 Td');
+    streamContent.writeln('(Resident Name: ${_escapePdf(partnerName)}) Tj');
+
+    streamContent.writeln('0 -22 Td');
+    streamContent.writeln('(Identity Verification Status: ${_escapePdf(status)}) Tj');
+
+    streamContent.writeln('0 -22 Td');
+    streamContent.writeln('(Document Classification: Primary Identity & Address Proof) Tj');
+
+    streamContent.writeln('0 -25 Td');
+    streamContent.writeln('(${_escapePdf(remarks)}) Tj');
+
+    streamContent.writeln('/F1 10 Tf');
+    streamContent.writeln('0.75 0.25 0.10 rg');
+    streamContent.writeln('0 -50 Td');
+    streamContent.writeln('([VERIFIED] Digitally Authenticated via UIDAI Identity Registry) Tj');
+    streamContent.writeln('ET');
+
+    return _buildPdf14Document(streamContent.toString());
+  }
+
+  /// 5. Channel Partner Agreement / MOU PDF
+  static List<int> generateCpAgreementPdf({
+    required String documentNumber,
+    required String partnerName,
+    required String status,
+    String? validTill,
+    required String remarks,
+  }) {
+    final streamContent = StringBuffer();
+    // Purple header
+    streamContent.writeln('0.35 0.15 0.60 rg 40 735 532 30 re f');
+    streamContent.writeln('0.85 0.88 0.92 RG 1 w 40 60 532 705 re S');
+
+    streamContent.writeln('BT');
+    streamContent.writeln('/F1 13 Tf');
+    streamContent.writeln('1 1 1 rg');
+    streamContent.writeln('50 745 Td');
+    streamContent.writeln('(DEVELOPER & CHANNEL PARTNER MASTER SERVICE AGREEMENT) Tj');
+
+    streamContent.writeln('0 0 0 rg');
+    streamContent.writeln('/F1 14 Tf');
+    streamContent.writeln('0 -40 Td');
+    streamContent.writeln('(CHANNEL PARTNER EMPANELMENT AGREEMENT / MOU) Tj');
+
+    streamContent.writeln('0.15 0.20 0.35 rg');
+    streamContent.writeln('/F1 11 Tf');
+    streamContent.writeln('0 -32 Td');
+    final mouNo = documentNumber.isNotEmpty ? documentNumber : 'CP-MOU-2024-8841';
+    streamContent.writeln('(MOU Reference Agreement No: ${_escapePdf(mouNo)}) Tj');
+
+    streamContent.writeln('0 -22 Td');
+    streamContent.writeln('(Empaneled Agency: ${_escapePdf(partnerName)}) Tj');
+
+    streamContent.writeln('0 -22 Td');
+    streamContent.writeln('(Empanelment Status: ${_escapePdf(status)}) Tj');
+
+    final validity = (validTill != null && validTill.isNotEmpty) ? validTill : '24 Months From Signoff';
+    streamContent.writeln('0 -22 Td');
+    streamContent.writeln('(Agreement Term: ${_escapePdf(validity)}) Tj');
+
+    streamContent.writeln('0 -25 Td');
+    streamContent.writeln('(${_escapePdf(remarks)}) Tj');
+
+    streamContent.writeln('/F1 9.5 Tf');
+    streamContent.writeln('0.2 0.2 0.2 rg');
+    streamContent.writeln('0 -35 Td');
+    streamContent.writeln('(Key Covenant Summary:) Tj');
+    streamContent.writeln('0 -15 Td');
+    streamContent.writeln('(1. Commission slabs credited directly to verified bank within 15 days of buyer milestone.) Tj');
+    streamContent.writeln('0 -15 Td');
+    streamContent.writeln('(2. All client leads registered through the CP CRM app retain 60-day sole tag protection.) Tj');
+    streamContent.writeln('0 -15 Td');
+    streamContent.writeln('(3. Strictly authorized marketing collaterals and approved project prices only.) Tj');
+
+    streamContent.writeln('/F1 10 Tf');
+    streamContent.writeln('0.35 0.15 0.60 rg');
+    streamContent.writeln('0 -40 Td');
+    streamContent.writeln('(Executed & Sealed: Developer Marketing Division & Channel Partner) Tj');
+    streamContent.writeln('ET');
+
+    return _buildPdf14Document(streamContent.toString());
+  }
+
+  /// 6. Bank Mandate / Cancelled Cheque PDF
+  static List<int> generateBankMandatePdf({
+    required String documentNumber,
+    required String partnerName,
+    required String status,
+    required String remarks,
+  }) {
+    final streamContent = StringBuffer();
+    // Dark green header
+    streamContent.writeln('0.05 0.45 0.25 rg 40 735 532 30 re f');
+    streamContent.writeln('0.85 0.88 0.92 RG 1 w 40 70 532 695 re S');
+
+    streamContent.writeln('BT');
+    streamContent.writeln('/F1 13 Tf');
+    streamContent.writeln('1 1 1 rg');
+    streamContent.writeln('50 745 Td');
+    streamContent.writeln('(BANKING MANDATE & DIRECT COMMISSION DISBURSAL PROOF) Tj');
+
+    streamContent.writeln('0 0 0 rg');
+    streamContent.writeln('/F1 14 Tf');
+    streamContent.writeln('0 -40 Td');
+    streamContent.writeln('(CANCELLED CHEQUE / BANK ACCOUNT VERIFICATION) Tj');
+
+    streamContent.writeln('0.15 0.20 0.35 rg');
+    streamContent.writeln('/F1 11 Tf');
+    streamContent.writeln('0 -35 Td');
+    final chq = documentNumber.isNotEmpty ? documentNumber : 'CHQ-HDFC-002914';
+    streamContent.writeln('(Account Proof Reference / Cheque: ${_escapePdf(chq)}) Tj');
+
+    streamContent.writeln('0 -22 Td');
+    streamContent.writeln('(Beneficiary Account Holder: ${_escapePdf(partnerName)}) Tj');
+
+    streamContent.writeln('0 -22 Td');
+    streamContent.writeln('(Verification Status: ${_escapePdf(status)}) Tj');
+
+    streamContent.writeln('0 -22 Td');
+    streamContent.writeln('(Disbursal Route: Automated NACH / RTGS Commission Credit) Tj');
+
+    streamContent.writeln('0 -25 Td');
+    streamContent.writeln('(${_escapePdf(remarks)}) Tj');
+
+    streamContent.writeln('/F1 9 Tf');
+    streamContent.writeln('0.3 0.3 0.3 rg');
+    streamContent.writeln('0 -45 Td');
+    streamContent.writeln('(Bank IFSC, Account Number, and MICR cross-referenced against Developer Escrow.) Tj');
+
+    streamContent.writeln('/F1 10 Tf');
+    streamContent.writeln('0.05 0.45 0.25 rg');
+    streamContent.writeln('0 -35 Td');
+    streamContent.writeln('([VERIFIED] Direct Payout Clearance Mandate Activated) Tj');
+    streamContent.writeln('ET');
+
+    return _buildPdf14Document(streamContent.toString());
+  }
+
+  /// Fallback Generic Certificate PDF (Preserves original signature for tests)
   static List<int> generateCertificatePdf({
     required String title,
     required String documentNumber,

@@ -3,6 +3,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/models/app_models.dart';
 import '../../core/state/app_state.dart';
 import '../../core/services/url_action_service.dart';
+import '../../shared/widgets/powered_by_branding.dart';
 
 class SpocHelpdeskScreen extends StatelessWidget {
   final AppState state;
@@ -107,6 +108,9 @@ class SpocHelpdeskScreen extends StatelessWidget {
                 ),
               ),
             ),
+            const SizedBox(height: 16),
+            PoweredByBranding(isDark: isDark),
+            const SizedBox(height: 16),
           ],
         ),
       ),

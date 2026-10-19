@@ -347,6 +347,8 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
     );
   }
 
+
+
   // Overall Financial Overview
   Widget _buildOverallKpiGrid(bool isDark) {
     final total = widget.state.totalCommissionClaimed;

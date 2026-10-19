@@ -5,12 +5,19 @@ import '../../core/theme/app_theme.dart';
 import '../../core/services/url_action_service.dart';
 import '../../core/services/file_download_service.dart';
 import '../../core/services/document_picker_service.dart';
+import '../../shared/widgets/powered_by_branding.dart';
 
 class ProjectDetailScreen extends StatefulWidget {
   final AppState state;
   final ProjectModel project;
+  final String initialSection; // 'details' or 'brochure'
 
-  const ProjectDetailScreen({super.key, required this.state, required this.project});
+  const ProjectDetailScreen({
+    super.key,
+    required this.state,
+    required this.project,
+    this.initialSection = 'details',
+  });
 
   @override
   State<ProjectDetailScreen> createState() => _ProjectDetailScreenState();
@@ -19,11 +26,13 @@ class ProjectDetailScreen extends StatefulWidget {
 class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
   String _selectedTower = '';
   String _selectedUnitFilter = 'ALL';
+  late String _activeSection;
 
   @override
   void initState() {
     super.initState();
     _selectedTower = 'All Towers';
+    _activeSection = widget.initialSection;
   }
 
   @override
@@ -42,257 +51,518 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(p.name),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.calculate_outlined),
-            tooltip: 'Mobile Cost Estimator',
-            onPressed: () => _openCostEstimator(context, p),
-          ),
-          IconButton(
-            icon: const Icon(Icons.picture_as_pdf_outlined),
-            tooltip: 'Add / View Brochure',
-            onPressed: () => _openBrochureUploadModal(context, p),
-          ),
-        ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.only(bottom: 40),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Hero Photo
-            Container(
-              height: 200,
-              width: double.infinity,
-              color: Colors.grey.shade900,
-              child: Image.network(
-                p.heroImageUrl,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => const Center(
-                  child: Icon(Icons.apartment, size: 48, color: Colors.grey),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final isWide = constraints.maxWidth >= 850;
 
-            // Header Info
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          return SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header Info (Name, Price, Location)
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        p.name,
+                        style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(8)),
+                      child: Text(p.startingPrice, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(p.location, style: TextStyle(color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary)),
+                const SizedBox(height: 12),
+
+                // Distance & Connectivity Card
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: isDark ? AppColors.darkSurfaceSubtle : AppColors.lightSurfaceSubtle,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
+                  ),
+                  child: Row(
                     children: [
+                      const Icon(Icons.directions_subway, color: AppColors.primary, size: 20),
+                      const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          p.name,
-                          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                          p.distanceDetails,
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
                         ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(8)),
-                        child: Text(p.startingPrice, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 4),
-                  Text(p.location, style: TextStyle(color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary)),
-                  const SizedBox(height: 12),
+                ),
+                const SizedBox(height: 16),
 
-                  // Distance & Connectivity Card
+                // Multi-Column Layout: Side-by-side on wide/desktop, Segmented switcher on mobile
+                if (isWide) ...[
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        flex: 6,
+                        child: _buildDetailsColumn(context, p, units, isDark),
+                      ),
+                      const SizedBox(width: 20),
+                      Expanded(
+                        flex: 4,
+                        child: _buildBrochureColumn(context, p, isDark),
+                      ),
+                    ],
+                  ),
+                ] else ...[
+                  // Mobile / Compact: Segmented tab switcher on the same page
                   Container(
-                    padding: const EdgeInsets.all(12),
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(4),
                     decoration: BoxDecoration(
-                      color: isDark ? AppColors.darkSurfaceSubtle : AppColors.lightSurfaceSubtle,
+                      color: isDark ? AppColors.darkSurfaceSubtle : const Color(0xFFF1F5F9),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
+                      border: Border.all(
+                        color: isDark ? AppColors.darkBorder : const Color(0xFFE2E8F0),
+                        width: 1,
+                      ),
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.directions_subway, color: AppColors.primary, size: 20),
-                        const SizedBox(width: 8),
                         Expanded(
-                          child: Text(
-                            p.distanceDetails,
-                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                          child: InkWell(
+                            onTap: () => setState(() => _activeSection = 'details'),
+                            borderRadius: BorderRadius.circular(9),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 9),
+                              decoration: BoxDecoration(
+                                color: _activeSection == 'details'
+                                    ? const Color(0xFF2563EB)
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(9),
+                              ),
+                              alignment: Alignment.center,
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.domain_rounded,
+                                    size: 16,
+                                    color: _activeSection == 'details'
+                                        ? Colors.white
+                                        : (isDark ? AppColors.darkTextSecondary : const Color(0xFF64748B)),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Project Details',
+                                    style: TextStyle(
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.w700,
+                                      color: _activeSection == 'details'
+                                          ? Colors.white
+                                          : (isDark ? AppColors.darkTextSecondary : const Color(0xFF64748B)),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: InkWell(
+                            onTap: () => setState(() => _activeSection = 'brochure'),
+                            borderRadius: BorderRadius.circular(9),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 9),
+                              decoration: BoxDecoration(
+                                color: _activeSection == 'brochure'
+                                    ? const Color(0xFF7C3AED)
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(9),
+                              ),
+                              alignment: Alignment.center,
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.article_rounded,
+                                    size: 16,
+                                    color: _activeSection == 'brochure'
+                                        ? Colors.white
+                                        : (isDark ? AppColors.darkTextSecondary : const Color(0xFF64748B)),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Brochure & Collateral',
+                                    style: TextStyle(
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.w700,
+                                      color: _activeSection == 'brochure'
+                                          ? Colors.white
+                                          : (isDark ? AppColors.darkTextSecondary : const Color(0xFF64748B)),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 12),
-
-                  // Project Brochure & Collateral Section
-                  _buildBrochureCard(context, p, isDark),
-                  const SizedBox(height: 20),
-
-                  // Interactive Unit Inventory Explorer Section
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text('Live Unit Inventory Matrix', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                      TextButton.icon(
-                        icon: const Icon(Icons.calculate, size: 16),
-                        label: const Text('Cost Estimator', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                        onPressed: () => _openCostEstimator(context, p),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-
-                  // Tower Selector Chips
-                  if (p.towers.isNotEmpty)
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: ['All Towers', ...p.towers].map((t) {
-                          final isSelected = _selectedTower == t;
-                          return Padding(
-                            padding: const EdgeInsets.only(right: 8),
-                            child: InkWell(
-                              onTap: () => setState(() => _selectedTower = t),
-                              borderRadius: BorderRadius.circular(20),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                                decoration: BoxDecoration(
-                                  color: isSelected
-                                      ? AppColors.primary
-                                      : (isDark ? AppColors.darkSurfaceSubtle : AppColors.lightSurfaceSubtle),
-                                  borderRadius: BorderRadius.circular(20),
-                                  border: Border.all(
-                                    color: isSelected
-                                        ? AppColors.primary
-                                        : (isDark ? AppColors.darkBorder : AppColors.lightBorder),
-                                    width: 1.2,
-                                  ),
-                                ),
-                                child: Text(
-                                  t,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                                    color: isSelected
-                                        ? Colors.white
-                                        : (isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    ),
-                  const SizedBox(height: 10),
-
-                  // Unit Status Legend & Filter
-                  Row(
-                    children: [
-                      _buildUnitStatusFilter('ALL', 'All Units', Colors.grey),
-                      const SizedBox(width: 6),
-                      _buildUnitStatusFilter('AVAILABLE', 'Available', AppColors.success),
-                      const SizedBox(width: 6),
-                      _buildUnitStatusFilter('BLOCKED', 'Blocked', AppColors.warning),
-                      const SizedBox(width: 6),
-                      _buildUnitStatusFilter('SOLD', 'Sold', AppColors.danger),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Units Grid
-                  if (units.isEmpty)
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 16),
-                      decoration: BoxDecoration(
-                        color: isDark ? AppColors.darkSurface : Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
-                        ),
-                      ),
-                      child: Column(
-                        children: [
-                          Icon(
-                            Icons.domain_disabled_rounded,
-                            size: 36,
-                            color: isDark ? Colors.grey.shade600 : Colors.grey.shade400,
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'No units match the selected filters',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    )
+                  const SizedBox(height: 16),
+                  if (_activeSection == 'details')
+                    _buildDetailsColumn(context, p, units, isDark)
                   else
-                    GridView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        crossAxisSpacing: 10,
-                        mainAxisSpacing: 10,
-                        childAspectRatio: 1.15,
+                    _buildBrochureColumn(context, p, isDark),
+                ],
+                const SizedBox(height: 24),
+                PoweredByBranding(isDark: isDark),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildDetailsColumn(
+    BuildContext context,
+    ProjectModel p,
+    List<UnitModel> units,
+    bool isDark,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Interactive Unit Inventory Explorer Section (No Cost Estimator button)
+        const Text(
+          'Unit Inventory & Pricing Matrix',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+
+        // Tower Selector Chips
+        if (p.towers.isNotEmpty)
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: ['All Towers', ...p.towers].map((t) {
+                final isSelected = _selectedTower == t;
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: InkWell(
+                    onTap: () => setState(() => _selectedTower = t),
+                    borderRadius: BorderRadius.circular(20),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? AppColors.primary
+                            : (isDark ? AppColors.darkSurfaceSubtle : AppColors.lightSurfaceSubtle),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: isSelected
+                              ? AppColors.primary
+                              : (isDark ? AppColors.darkBorder : AppColors.lightBorder),
+                          width: 1.2,
+                        ),
                       ),
-                      itemCount: units.length,
-                      itemBuilder: (context, index) {
-                        final u = units[index];
-                        return _buildUnitCard(context, u, isDark);
-                      },
+                      child: Text(
+                        t,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                          color: isSelected
+                              ? Colors.white
+                              : (isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary),
+                        ),
+                      ),
                     ),
-                  const SizedBox(height: 24),
-
-                  // Master Amenities
-                  const Text('Master Amenities', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: p.amenities.map((a) {
-                      return Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.check_circle_outline, size: 14, color: AppColors.success),
-                            const SizedBox(width: 6),
-                            Text(a, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
-                          ],
-                        ),
-                      );
-                    }).toList(),
                   ),
-                  const SizedBox(height: 24),
+                );
+              }).toList(),
+            ),
+          ),
+        const SizedBox(height: 10),
 
-                  // Approved Banks
-                  const Text('Approved Home Loan Banks', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 8,
-                    children: p.approvedBanks.map((b) {
-                      return Chip(
-                        avatar: const Icon(Icons.account_balance, size: 14, color: AppColors.primary),
-                        label: Text(b, style: const TextStyle(fontSize: 12)),
-                      );
-                    }).toList(),
+        // Unit Status Legend & Filter
+        Row(
+          children: [
+            _buildUnitStatusFilter('ALL', 'All Units', Colors.grey),
+            const SizedBox(width: 6),
+            _buildUnitStatusFilter('AVAILABLE', 'Available', AppColors.success),
+            const SizedBox(width: 6),
+            _buildUnitStatusFilter('BLOCKED', 'Blocked', AppColors.warning),
+            const SizedBox(width: 6),
+            _buildUnitStatusFilter('SOLD', 'Sold', AppColors.danger),
+          ],
+        ),
+        const SizedBox(height: 12),
+
+        // Units Grid
+        if (units.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 16),
+            decoration: BoxDecoration(
+              color: isDark ? AppColors.darkSurface : Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+              ),
+            ),
+            child: Column(
+              children: [
+                Icon(
+                  Icons.domain_disabled_rounded,
+                  size: 36,
+                  color: isDark ? Colors.grey.shade600 : Colors.grey.shade400,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'No units match the selected filters',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                  ),
+                ),
+              ],
+            ),
+          )
+        else
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10,
+              childAspectRatio: 1.15,
+            ),
+            itemCount: units.length,
+            itemBuilder: (context, index) {
+              final u = units[index];
+              return _buildUnitCard(context, u, isDark);
+            },
+          ),
+        const SizedBox(height: 24),
+
+        // Master Amenities
+        const Text('Master Amenities', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: p.amenities.map((a) {
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.check_circle_outline, size: 14, color: AppColors.success),
+                  const SizedBox(width: 6),
+                  Text(a, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+                ],
+              ),
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: 24),
+
+        // Approved Banks
+        const Text('Approved Home Loan Banks', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 8,
+          children: p.approvedBanks.map((b) {
+            return Chip(
+              avatar: const Icon(Icons.account_balance, size: 14, color: AppColors.primary),
+              label: Text(b, style: const TextStyle(fontSize: 12)),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBrochureColumn(BuildContext context, ProjectModel p, bool isDark) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Project Brochure & Marketing Deck',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 10),
+        _buildBrochureCard(context, p, isDark),
+        const SizedBox(height: 16),
+
+        // Project Specifications Card
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.darkSurface : Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isDark ? AppColors.darkBorder : const Color(0xFFE2E8F0),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.03),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.verified_outlined, size: 18, color: Color(0xFF16A34A)),
+                  const SizedBox(width: 8),
+                  Text(
+                    'RERA & Project Specifications',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: isDark ? AppColors.darkTextPrimary : const Color(0xFF0F172A),
+                    ),
                   ),
                 ],
               ),
-            ),
-          ],
+              const SizedBox(height: 12),
+              _buildSpecRow('RERA Number', p.reraNumber, isDark),
+              _buildSpecRow('Project Type', p.type, isDark),
+              _buildSpecRow('Possession Date', p.possessionDate, isDark),
+              _buildSpecRow('Towers', '${p.towers.length} Towers (${p.towers.join(", ")})', isDark),
+              _buildSpecRow('Total Inventory', '${p.units.length} Units', isDark),
+              _buildSpecRow('Starting Price', p.startingPrice, isDark),
+            ],
+          ),
         ),
+        const SizedBox(height: 16),
+
+        // Collaterals & Downloads Summary
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.darkSurface : Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isDark ? AppColors.darkBorder : const Color(0xFFE2E8F0),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.03),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.folder_copy_outlined, size: 18, color: Color(0xFF2563EB)),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Marketing Assets & Collaterals',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: isDark ? AppColors.darkTextPrimary : const Color(0xFF0F172A),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              _buildCollateralRow('Master Floor Plan (All Configurations)', 'PDF • 4.8 MB', Icons.layers_outlined, isDark),
+              _buildCollateralRow('Price List & Payment Schedule', 'XLSX • 1.2 MB', Icons.table_chart_outlined, isDark),
+              _buildCollateralRow('Walkthrough & Drone Video', 'MP4 • 24.1 MB', Icons.play_circle_outline, isDark),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSpecRow(String label, String value, bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              color: isDark ? AppColors.darkTextSecondary : const Color(0xFF64748B),
+            ),
+          ),
+          Flexible(
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: isDark ? AppColors.darkTextPrimary : const Color(0xFF0F172A),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCollateralRow(String title, String meta, IconData icon, bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: const Color(0xFF2563EB)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? AppColors.darkTextPrimary : const Color(0xFF0F172A),
+                  ),
+                ),
+                Text(
+                  meta,
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    color: isDark ? AppColors.darkTextSecondary : const Color(0xFF94A3B8),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Icon(Icons.arrow_forward_ios_rounded, size: 12, color: Color(0xFF94A3B8)),
+        ],
       ),
     );
   }
@@ -594,22 +864,6 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
                 child: OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
-                    side: BorderSide(color: isDark ? AppColors.darkBorder : const Color(0xFFCBD5E1)),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  ),
-                  icon: const Icon(Icons.cloud_upload_outlined, size: 15, color: Color(0xFF2563EB)),
-                  label: Text(
-                    hasCustomBrochure ? 'Replace' : '+ Add Brochure',
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF2563EB)),
-                  ),
-                  onPressed: () => _openBrochureUploadModal(context, p),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
                     side: const BorderSide(color: Color(0xFF25D366)),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
@@ -630,7 +884,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
                   },
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 10),
               Expanded(
                 child: ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(

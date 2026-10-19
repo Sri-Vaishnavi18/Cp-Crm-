@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/state/app_state.dart';
 import '../commissions/commissions_screen.dart';
@@ -21,9 +22,9 @@ class ProfileScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = state.isDarkMode;
     final user = state.currentUser;
-    final userName = user?.name.isNotEmpty == true ? user!.name : 'Vaishu';
-    final rera = user?.reraNumber.isNotEmpty == true ? user!.reraNumber : '0283838';
-    final safeRera = rera.startsWith('RERA:') ? rera : 'RERA: $rera';
+    final userName = user?.name.isNotEmpty == true ? user!.name : 'Channel Partner';
+    final rera = user?.reraNumber.isNotEmpty == true ? user!.reraNumber : 'Verified Partner';
+    final safeRera = rera.startsWith('RERA:') ? rera : (rera == 'Verified Partner' ? rera : 'RERA: $rera');
     final firmOrRole = user?.firmName.isNotEmpty == true ? user!.firmName : 'Channel Partner (Realtor)';
 
     return Scaffold(
@@ -155,80 +156,168 @@ class ProfileScreen extends StatelessWidget {
             ),
             const SizedBox(height: 16),
 
-            // Sync Status Card
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              decoration: BoxDecoration(
-                color: isDark ? AppColors.darkSurface : Colors.white,
+            // Interactive Cloud Sync Status Card
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: isDark ? AppColors.darkBorder : const Color(0xFFE5E9F0),
+                onTap: state.isSyncing
+                    ? null
+                    : () async {
+                        final count = await state.triggerCloudSync();
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Row(
+                                children: [
+                                  const Icon(Icons.check_circle_rounded, color: Colors.white, size: 18),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      count > 0
+                                          ? 'Cloud sync complete! $count queued offline item(s) synchronized.'
+                                          : 'Everything is up to date with cloud!',
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              backgroundColor: const Color(0xFF16A34A),
+                              behavior: SnackBarBehavior.floating,
+                              duration: const Duration(seconds: 2),
+                            ),
+                          );
+                        }
+                      },
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  decoration: BoxDecoration(
+                    color: isDark ? AppColors.darkSurface : Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: isDark ? AppColors.darkBorder : const Color(0xFFE5E9F0),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: state.isSyncing
+                              ? (isDark ? const Color(0xFF1E3A8A) : const Color(0xFFDBEAFE))
+                              : state.isOffline
+                                  ? (isDark ? const Color(0xFF78350F) : const Color(0xFFFEF3C7))
+                                  : const Color(0xFFDCFCE7),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: state.isSyncing
+                            ? const Center(
+                                child: SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Color(0xFF2563EB),
+                                  ),
+                                ),
+                              )
+                            : Icon(
+                                state.isOffline ? Icons.cloud_off_rounded : Icons.cloud_outlined,
+                                color: state.isOffline ? const Color(0xFFD97706) : const Color(0xFF16A34A),
+                                size: 20,
+                              ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Text(
+                                  'Sync Status',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                    color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  '(Tap to sync)',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: isDark ? AppColors.darkTextSecondary : const Color(0xFF94A3B8),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              state.isSyncing
+                                  ? 'Syncing pipeline with cloud...'
+                                  : state.isOffline
+                                      ? 'Offline mode • ${state.offlineQueueCount} leads queued'
+                                      : 'Last synced ${DateFormat('dd MMM yyyy • hh:mm a').format(state.lastSyncedAt)}',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: isDark ? AppColors.darkTextSecondary : const Color(0xFF64748B),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: state.isSyncing
+                              ? (isDark ? const Color(0xFF1E3A8A) : const Color(0xFFDBEAFE))
+                              : state.isOffline
+                                  ? (isDark ? const Color(0xFF78350F) : const Color(0xFFFEF3C7))
+                                  : const Color(0xFFDCFCE7),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              state.isSyncing
+                                  ? Icons.sync_rounded
+                                  : state.isOffline
+                                      ? Icons.wifi_off_rounded
+                                      : Icons.cloud_done_rounded,
+                              color: state.isSyncing
+                                  ? const Color(0xFF2563EB)
+                                  : state.isOffline
+                                      ? const Color(0xFFD97706)
+                                      : const Color(0xFF16A34A),
+                              size: 12,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              state.isSyncing
+                                  ? 'SYNCING...'
+                                  : state.isOffline
+                                      ? 'OFFLINE (${state.offlineQueueCount})'
+                                      : 'SYNCED',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                                color: state.isSyncing
+                                  ? const Color(0xFF2563EB)
+                                  : state.isOffline
+                                      ? const Color(0xFFD97706)
+                                      : const Color(0xFF16A34A),
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFDCFCE7),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(
-                      Icons.cloud_outlined,
-                      color: Color(0xFF16A34A),
-                      size: 20,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Sync Status',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          'Last synced 10 Oct 2026 • 09:40 AM',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: isDark ? AppColors.darkTextSecondary : const Color(0xFF64748B),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFDCFCE7),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.cloud_done_rounded, color: Color(0xFF16A34A), size: 12),
-                        SizedBox(width: 4),
-                        Text(
-                          'SYNCED',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w800,
-                            color: Color(0xFF16A34A),
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
               ),
             ),
             const SizedBox(height: 16),
@@ -248,22 +337,10 @@ class ProfileScreen extends StatelessWidget {
                     context: context,
                     icon: Icons.notifications_none_rounded,
                     title: 'Notifications',
-                    badgeText: '4',
+                    badgeText: state.unreadNotificationCount > 0 ? '${state.unreadNotificationCount}' : null,
                     onTap: () {
                       Navigator.of(context).push(
                         MaterialPageRoute(builder: (ctx) => NotificationCenterScreen(state: state)),
-                      );
-                    },
-                    isDark: isDark,
-                  ),
-                  _buildDivider(isDark),
-                  _buildMenuItem(
-                    context: context,
-                    icon: Icons.people_outline_rounded,
-                    title: 'My Team',
-                    onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Team management view active.')),
                       );
                     },
                     isDark: isDark,
@@ -304,30 +381,6 @@ class ProfileScreen extends StatelessWidget {
                   _buildDivider(isDark),
                   _buildMenuItem(
                     context: context,
-                    icon: Icons.bar_chart_rounded,
-                    title: 'Performance',
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(builder: (ctx) => CommissionsScreen(state: state)),
-                      );
-                    },
-                    isDark: isDark,
-                  ),
-                  _buildDivider(isDark),
-                  _buildMenuItem(
-                    context: context,
-                    icon: Icons.favorite_border_rounded,
-                    title: 'Targets & Incentives',
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(builder: (ctx) => CommissionsScreen(state: state)),
-                      );
-                    },
-                    isDark: isDark,
-                  ),
-                  _buildDivider(isDark),
-                  _buildMenuItem(
-                    context: context,
                     icon: Icons.help_outline_rounded,
                     title: 'Help & Support',
                     onTap: () {
@@ -352,6 +405,7 @@ class ProfileScreen extends StatelessWidget {
                     },
                     isDark: isDark,
                   ),
+
                   _buildDivider(isDark),
                   _buildMenuItem(
                     context: context,
@@ -364,6 +418,8 @@ class ProfileScreen extends StatelessWidget {
                 ],
               ),
             ),
+            const SizedBox(height: 20),
+            PoweredByBranding(isDark: isDark),
             const SizedBox(height: 30),
           ],
         ),
@@ -462,6 +518,7 @@ class ProfileScreen extends StatelessWidget {
       indent: 48,
     );
   }
+
 
   void _confirmLogout(BuildContext context) {
     showDialog(

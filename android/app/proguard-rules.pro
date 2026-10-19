@@ -20,5 +20,8 @@
 -keep class androidx.biometric.** { *; }
 -dontwarn androidx.biometric.**
 
-# Flutter Deferred Components / Play Core
+# Play Core / Deferred Components
 -dontwarn com.google.android.play.core.**
+-dontwarn com.google.android.play.core.splitcompat.**
+-dontwarn com.google.android.play.core.splitinstall.**
+-dontwarn com.google.android.play.core.tasks.**

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/models/app_models.dart';
 import '../../core/services/document_picker_service.dart';
+import '../../core/services/file_download_service.dart';
 import '../../core/services/url_action_service.dart';
 import '../../core/state/app_state.dart';
 import '../../core/theme/app_theme.dart';
@@ -21,7 +22,6 @@ class LeadDetailScreen extends StatefulWidget {
 }
 
 class _LeadDetailScreenState extends State<LeadDetailScreen> {
-  int _selectedTab = 0; // 0: Overview, 1: Site Visits, 2: Payouts & Invoices, 3: Notes & Timeline
 
   void _openScheduleVisit(LeadModel lead) {
     showModalBottomSheet(
@@ -665,32 +665,22 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
                     _buildActionButtonsGrid(lead, isDark),
                     const SizedBox(height: 16),
 
-                    // 3. ERGONOMIC SEGMENTED TAB BAR
-                    _buildSegmentedTabBar(lead, isDark),
+                    // 3. UNIFIED LEAD DETAILS CONTENT
+                    _buildLeadInformationCard(lead, isDark),
                     const SizedBox(height: 16),
-
-                    // 4. TAB-SPECIFIC CONTENT (Ergonomic thumb-accessible navigation)
-                    if (_selectedTab == 0) ...[
-                      // TAB 1: OVERVIEW & PIPELINE
-                      _buildLeadInformationCard(lead, isDark),
-                      const SizedBox(height: 16),
-                      _buildStatusAndTemperatureCard(lead, isDark, tempColor),
-                      const SizedBox(height: 16),
-                      _buildSiteVisitHistoryCard(lead, isDark),
-                      const SizedBox(height: 16),
-                      _buildUpdateStatusCard(lead, isDark),
-                    ] else if (_selectedTab == 1) ...[
-                      // TAB 2: SITE VISITS & ZERO-OTP PASSES
-                      _buildSiteVisitHistoryCard(lead, isDark),
-                    ] else if (_selectedTab == 2) ...[
-                      // TAB 3: INVOICES & BROKERAGE PAYOUTS
-                      _buildInvoicesAndCommissionsCard(lead, isDark),
-                    ] else ...[
-                      // TAB 4: AUDIT TIMELINE & NOTES
-                      _buildNotesCard(lead, isDark),
-                      const SizedBox(height: 16),
-                      _buildActivityTimelineCard(lead, isDark),
-                    ],
+                    _buildStatusAndTemperatureCard(lead, isDark, tempColor),
+                    const SizedBox(height: 16),
+                    _buildSiteVisitHistoryCard(lead, isDark),
+                    const SizedBox(height: 16),
+                    _buildInvoicesAndCommissionsCard(lead, isDark),
+                    const SizedBox(height: 16),
+                    _buildNotesCard(lead, isDark),
+                    const SizedBox(height: 16),
+                    _buildActivityTimelineCard(lead, isDark),
+                    const SizedBox(height: 16),
+                    _buildUpdateStatusCard(lead, isDark),
+                    const SizedBox(height: 20),
+                    PoweredByBranding(isDark: isDark),
                     const SizedBox(height: 24),
                   ],
                 ),
@@ -702,115 +692,23 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
     );
   }
 
-  // Segmented Pill Navigation Bar
-  Widget _buildSegmentedTabBar(LeadModel lead, bool isDark) {
-    final visitCount = widget.state.siteVisits.where((v) => v.leadId == lead.id).length;
-    final invoiceCount = widget.state.getInvoicesForLead(lead.id).length;
-    final timelineCount = lead.notesList.length + lead.activityList.length;
-
-    final tabs = [
-      ('Overview', Icons.badge_outlined, null),
-      ('Site Visits', Icons.confirmation_number_outlined, visitCount > 0 ? '$visitCount' : null),
-      ('Invoices', Icons.receipt_long_rounded, invoiceCount > 0 ? '$invoiceCount' : null),
-      ('Timeline', Icons.history_rounded, timelineCount > 0 ? '$timelineCount' : null),
-    ];
-
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF131A26) : AppColors.lightSurfaceSubtle,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: isDark ? const Color(0xFF222F43) : AppColors.lightBorder,
-        ),
-      ),
-      child: Row(
-        children: List.generate(tabs.length, (idx) {
-          final item = tabs[idx];
-          final isSelected = _selectedTab == idx;
-          return Expanded(
-            child: InkWell(
-              borderRadius: BorderRadius.circular(10),
-              onTap: () => setState(() => _selectedTab = idx),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                curve: Curves.easeInOut,
-                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 2),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? (isDark ? const Color(0xFF1E293B) : Colors.white)
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(10),
-                  boxShadow: isSelected
-                      ? [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.1),
-                            blurRadius: 4,
-                            offset: const Offset(0, 2),
-                          ),
-                        ]
-                      : null,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      item.$2,
-                      size: 13,
-                      color: isSelected
-                          ? (isDark ? AppColors.accentGold : AppColors.primary)
-                          : (isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary),
-                    ),
-                    const SizedBox(width: 4),
-                    Flexible(
-                      child: Text(
-                        item.$1,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                          color: isSelected
-                              ? (isDark ? Colors.white : AppColors.lightTextPrimary)
-                              : (isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary),
-                        ),
-                      ),
-                    ),
-                    if (item.$3 != null) ...[
-                      const SizedBox(width: 4),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                        decoration: BoxDecoration(
-                          color: isSelected
-                              ? (isDark ? AppColors.accentGold : AppColors.primary)
-                              : (isDark ? const Color(0xFF222F43) : Colors.grey.shade300),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          item.$3!,
-                          style: TextStyle(
-                            fontSize: 9,
-                            fontWeight: FontWeight.w900,
-                            color: isSelected
-                                ? (isDark ? Colors.black : Colors.white)
-                                : (isDark ? Colors.white70 : Colors.black87),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-          );
-        }),
-      ),
-    );
-  }
-
   // 1. HERO PROFILE CARD
   Widget _buildHeroCard(LeadModel lead, bool isDark, Color tempColor) {
-    final avatarNumber = '01';
+    final firstLetter = lead.firstName.trim().isNotEmpty ? lead.firstName.trim()[0].toUpperCase() : 'L';
+    final secondLetter = lead.lastName.trim().isNotEmpty && lead.lastName.trim().toLowerCase() != 'client'
+        ? lead.lastName.trim()[0].toUpperCase()
+        : '';
+    final avatarInitials = '$firstLetter$secondLetter'.trim();
+
+    final avatarColors = [
+      const Color(0xFF2563EB), // Blue
+      const Color(0xFF7C3AED), // Purple
+      const Color(0xFF0D9488), // Teal
+      const Color(0xFFEA580C), // Orange
+      const Color(0xFF0284C7), // Sky
+      const Color(0xFF16A34A), // Emerald
+    ];
+    final avatarBgColor = avatarColors[lead.id.hashCode.abs() % avatarColors.length];
 
     return Container(
       decoration: BoxDecoration(
@@ -831,24 +729,25 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Avatar with Star Badge at bottom-right
+                    // Dynamic Initials Avatar with Temperature Badge
                     Stack(
                       clipBehavior: Clip.none,
                       children: [
                         Container(
                           width: 54,
                           height: 54,
-                          decoration: const BoxDecoration(
-                            color: Color(0xFFF59E0B),
+                          decoration: BoxDecoration(
+                            color: avatarBgColor,
                             shape: BoxShape.circle,
                           ),
                           child: Center(
                             child: Text(
-                              avatarNumber,
+                              avatarInitials.isNotEmpty ? avatarInitials : 'L',
                               style: const TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.w900,
                                 color: Colors.white,
+                                letterSpacing: 0.5,
                               ),
                             ),
                           ),
@@ -863,11 +762,15 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
                               color: Colors.white,
                               shape: BoxShape.circle,
                             ),
-                            child: const Center(
+                            child: Center(
                               child: Icon(
-                                Icons.star_rounded,
-                                color: Color(0xFFF59E0B),
-                                size: 14,
+                                lead.stage == LeadStage.booked
+                                    ? Icons.star_rounded
+                                    : (lead.stage == LeadStage.siteVisited
+                                        ? Icons.verified_rounded
+                                        : Icons.person_rounded),
+                                color: avatarBgColor,
+                                size: 13,
                               ),
                             ),
                           ),
@@ -1625,10 +1528,7 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
   // 7. SITE VISIT HISTORY CARD (Rich Zero-OTP verification & schedule action)
   Widget _buildSiteVisitHistoryCard(LeadModel lead, bool isDark) {
     final visits = widget.state.siteVisits
-        .where((v) =>
-            v.leadId == lead.id ||
-            v.clientPhone == lead.phone ||
-            (lead.fullName.isNotEmpty && v.clientName.toLowerCase() == lead.fullName.toLowerCase()))
+        .where((v) => v.leadId == lead.id)
         .toList();
     final rawHistory = lead.siteVisitHistory;
     final totalCount = visits.length + rawHistory.length;
@@ -3195,13 +3095,27 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
                 children: [
                   Expanded(
                     child: OutlinedButton.icon(
-                      onPressed: () {
+                      onPressed: () async {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             backgroundColor: const Color(0xFF4F46E5),
                             content: Text('Downloading digital invoice PDF for ${invoice.invoiceNumber}...'),
                             behavior: SnackBarBehavior.floating,
+                            duration: const Duration(seconds: 1),
                           ),
+                        );
+                        final tds = invoice.amount * 0.05;
+                        final net = invoice.amount - tds;
+                        await FileDownloadService.downloadInvoiceVoucherPdf(
+                          voucherNumber: invoice.invoiceNumber,
+                          clientName: invoice.clientName,
+                          projectName: invoice.projectName,
+                          grossAmount: invoice.amount,
+                          tdsAmount: tds,
+                          netAmount: net,
+                          utrNumber: 'UTR-${invoice.invoiceNumber.replaceAll(RegExp(r'[^0-9]'), '')}',
+                          bankName: invoice.bankDetails.bankName,
+                          dateStr: '${invoice.date.day}/${invoice.date.month}/${invoice.date.year}',
                         );
                       },
                       icon: const Icon(Icons.download_rounded, size: 18),
@@ -3218,12 +3132,17 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
                   Expanded(
                     child: ElevatedButton.icon(
                       onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            backgroundColor: const Color(0xFF10B981),
-                            content: Text('Sharing invoice voucher ${invoice.invoiceNumber} with builder accounts desk...'),
-                            behavior: SnackBarBehavior.floating,
-                          ),
+                        final net = invoice.amount * 0.95;
+                        final shareText = '📄 *INVOICE VOUCHER ${invoice.invoiceNumber}*\n'
+                            'Client: ${invoice.clientName}\n'
+                            'Project: ${invoice.projectName}\n'
+                            'Payout Claim: ₹${net.toStringAsFixed(0)}\n'
+                            'Status: ${invoice.status.displayName}\n'
+                            'Bank: ${invoice.bankDetails.bankName} (A/C: ${invoice.bankDetails.accountNumber})';
+                        UrlActionService.shareContent(
+                          context,
+                          text: shareText,
+                          subject: 'Invoice Voucher ${invoice.invoiceNumber}',
                         );
                       },
                       icon: const Icon(Icons.share_rounded, size: 18),
