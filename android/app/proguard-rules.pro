@@ -19,3 +19,6 @@
 # Local Auth Biometrics
 -keep class androidx.biometric.** { *; }
 -dontwarn androidx.biometric.**
+
+# Flutter Deferred Components / Play Core
+-dontwarn com.google.android.play.core.**

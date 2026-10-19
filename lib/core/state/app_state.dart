@@ -5,6 +5,7 @@ import '../models/app_models.dart';
 import '../services/mock_data_service.dart';
 import '../services/auth_storage_service.dart';
 import '../services/biometric_service.dart';
+import '../services/license_service.dart';
 
 class DuplicateCheckResult {
   final bool isDuplicate;
@@ -53,6 +54,11 @@ class AppState extends ChangeNotifier {
   UserModel? get currentUser => _currentUser;
   bool get isAuthenticated => _isAuthenticated;
   List<UserModel> get savedUsers => _savedUsers;
+
+  // Licensing & Subscription Control
+  final LicenseService _licenseService = LicenseService();
+  LicenseService get licenseService => _licenseService;
+  bool get isSubscriptionActive => _licenseService.isAllowed;
 
   // Active Data Stores
   List<LeadModel> _leads = [];
@@ -243,6 +249,22 @@ class AppState extends ChangeNotifier {
       }
     } catch (_) {}
 
+    // Initialize Licensing Service & Start Opportunistic Listener
+    try {
+      await _licenseService.init();
+      _licenseService.startOpportunisticListener(
+        getPhone: () => _currentUser?.phone,
+        onStatusChanged: (result) {
+          notifyListeners();
+        },
+      );
+      if (_currentUser != null) {
+        _licenseService.verifyLicense(phone: _currentUser!.phone, isSilent: true).then((_) {
+          notifyListeners();
+        });
+      }
+    } catch (_) {}
+
     notifyListeners();
   }
 
@@ -279,6 +301,7 @@ class AppState extends ChangeNotifier {
       _currentUser = user;
       _isAuthenticated = true;
       _savedUsers = await AuthStorageService.getRegisteredUsers();
+      await _licenseService.verifyLicense(phone: user.phone);
       notifyListeners();
       return AuthResult(success: true, user: user);
     }
@@ -314,6 +337,7 @@ class AppState extends ChangeNotifier {
       await AuthStorageService.setActiveSession(user.id);
       _currentUser = user;
       _isAuthenticated = true;
+      await _licenseService.verifyLicense(phone: user.phone);
       notifyListeners();
       return AuthResult(success: true, user: user);
     }
@@ -347,6 +371,7 @@ class AppState extends ChangeNotifier {
     _currentUser = saved;
     _isAuthenticated = true;
     _savedUsers = await AuthStorageService.getRegisteredUsers();
+    await _licenseService.verifyLicense(phone: saved.phone);
 
     // Trigger welcoming notification
     _notifications.insert(
@@ -370,6 +395,7 @@ class AppState extends ChangeNotifier {
     await AuthStorageService.setActiveSession(target.id);
     _currentUser = target;
     _isAuthenticated = true;
+    await _licenseService.verifyLicense(phone: target.phone);
     notifyListeners();
   }
 
@@ -377,6 +403,40 @@ class AppState extends ChangeNotifier {
     await AuthStorageService.clearActiveSession();
     _isAuthenticated = false;
     notifyListeners();
+  }
+
+  Future<LicenseCheckResult> checkSubscription({bool force = false}) async {
+    final phone = _currentUser?.phone ?? '';
+    final result = await _licenseService.verifyLicense(phone: phone, force: force);
+    notifyListeners();
+    return result;
+  }
+
+  Future<void> updateLicenseConfig({required String sheetUrl, required String phone, required String whatsApp}) async {
+    await _licenseService.setSheetUrl(sheetUrl);
+    await _licenseService.setAdminContact(phone: phone, whatsApp: whatsApp);
+    notifyListeners();
+  }
+
+  Future<void> overrideLicenseStatus(LicenseStatus status, {DateTime? validUntil, String? plan}) async {
+    await _licenseService.overrideStatus(status, validUntil: validUntil, plan: plan);
+    notifyListeners();
+  }
+
+  bool _isDisposed = false;
+
+  @override
+  void notifyListeners() {
+    if (!_isDisposed) {
+      super.notifyListeners();
+    }
+  }
+
+  @override
+  void dispose() {
+    _isDisposed = true;
+    _licenseService.dispose();
+    super.dispose();
   }
 
   // Offline Simulation
