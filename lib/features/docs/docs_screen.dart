@@ -169,7 +169,10 @@ class _DocsScreenState extends State<DocsScreen> with SingleTickerProviderStateM
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
+                Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 8,
+                  runSpacing: 4,
                   children: [
                     Text(
                       'Docs & Billing',
@@ -180,7 +183,6 @@ class _DocsScreenState extends State<DocsScreen> with SingleTickerProviderStateM
                         letterSpacing: -0.4,
                       ),
                     ),
-                    const SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
@@ -217,99 +219,137 @@ class _DocsScreenState extends State<DocsScreen> with SingleTickerProviderStateM
 
   // --- Segmented Tab Switcher ---
   Widget _buildTabSwitcher(bool isDark, int missingCount) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.darkSurface : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isDark ? AppColors.darkBorder : const Color(0xFFE2E8F0),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: TabBar(
-        controller: _tabController,
-        indicator: BoxDecoration(
-          color: const Color(0xFF2563EB),
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF2563EB).withValues(alpha: 0.3),
-              blurRadius: 8,
-              offset: const Offset(0, 3),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isCompact = constraints.maxWidth < 450;
+        final docLabel = isCompact ? 'Required Docs' : 'CP Required Docs';
+        final invoiceLabel = isCompact ? 'Invoices' : 'Invoices Received';
+
+        return Container(
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.darkSurface : Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isDark ? AppColors.darkBorder : const Color(0xFFE2E8F0),
             ),
-          ],
-        ),
-        indicatorSize: TabBarIndicatorSize.tab,
-        dividerColor: Colors.transparent,
-        labelColor: Colors.white,
-        unselectedLabelColor: isDark ? AppColors.darkTextSecondary : const Color(0xFF64748B),
-        labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
-        unselectedLabelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-        tabs: [
-          Tab(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.folder_shared_rounded, size: 16),
-                const SizedBox(width: 6),
-                const Text('CP Required Docs'),
-                if (missingCount > 0) ...[
-                  const SizedBox(width: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                    decoration: BoxDecoration(
-                      color: _tabController.index == 0 ? Colors.white : const Color(0xFFEF4444),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      '$missingCount',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        color: _tabController.index == 0 ? const Color(0xFF2563EB) : Colors.white,
-                      ),
-                    ),
-                  ),
-                ],
-              ],
-            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.03),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
-          Tab(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.receipt_long_rounded, size: 16),
-                const SizedBox(width: 6),
-                const Text('Invoices Received'),
-                const SizedBox(width: 6),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                  decoration: BoxDecoration(
-                    color: _tabController.index == 1 ? Colors.white.withValues(alpha: 0.25) : const Color(0xFF2563EB).withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    '${widget.state.receivedInvoices.length}',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      color: _tabController.index == 1 ? Colors.white : const Color(0xFF2563EB),
-                    ),
-                  ),
+          child: TabBar(
+            controller: _tabController,
+            indicator: BoxDecoration(
+              color: const Color(0xFF2563EB),
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF2563EB).withValues(alpha: 0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
                 ),
               ],
             ),
+            indicatorSize: TabBarIndicatorSize.tab,
+            dividerColor: Colors.transparent,
+            labelColor: Colors.white,
+            unselectedLabelColor: isDark ? AppColors.darkTextSecondary : const Color(0xFF64748B),
+            labelStyle: TextStyle(
+              fontSize: isCompact ? 12 : 13,
+              fontWeight: FontWeight.w700,
+            ),
+            unselectedLabelStyle: TextStyle(
+              fontSize: isCompact ? 12 : 13,
+              fontWeight: FontWeight.w600,
+            ),
+            tabs: [
+              Tab(
+                height: 42,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.folder_shared_rounded, size: 16),
+                      const SizedBox(width: 5),
+                      Flexible(
+                        child: Text(
+                          docLabel,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (missingCount > 0) ...[
+                        const SizedBox(width: 5),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                          decoration: BoxDecoration(
+                            color: _tabController.index == 0 ? Colors.white : const Color(0xFFEF4444),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            '$missingCount',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: _tabController.index == 0 ? const Color(0xFF2563EB) : Colors.white,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+              Tab(
+                height: 42,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.receipt_long_rounded, size: 16),
+                      const SizedBox(width: 5),
+                      Flexible(
+                        child: Text(
+                          invoiceLabel,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 5),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                        decoration: BoxDecoration(
+                          color: _tabController.index == 1
+                              ? Colors.white.withValues(alpha: 0.25)
+                              : const Color(0xFF2563EB).withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          '${widget.state.receivedInvoices.length}',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: _tabController.index == 1 ? Colors.white : const Color(0xFF2563EB),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -338,8 +378,11 @@ class _DocsScreenState extends State<DocsScreen> with SingleTickerProviderStateM
           const SizedBox(height: 14),
 
           // Document List Count
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 4,
             children: [
               Text(
                 'DOCUMENTS (${docs.length})',
@@ -646,32 +689,37 @@ class _DocsScreenState extends State<DocsScreen> with SingleTickerProviderStateM
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       if (doc.fileName != null && doc.fileName!.isNotEmpty) ...[
-                        IconButton(
-                          icon: const Icon(Icons.file_download_outlined, size: 18),
-                          color: const Color(0xFF2563EB),
-                          tooltip: 'Download PDF',
-                          constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                          padding: const EdgeInsets.all(5),
-                          onPressed: () async {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Downloading ${doc.fileName ?? doc.title}...'),
-                                duration: const Duration(seconds: 1),
-                                backgroundColor: const Color(0xFF2563EB),
-                              ),
-                            );
-                            await FileDownloadService.downloadDocumentPdf(
-                              documentTitle: doc.title,
-                              documentNumber: doc.documentNumber,
-                              fileName: doc.fileName ?? '${doc.type.name}.pdf',
-                              status: doc.status.displayName,
-                              validTill: doc.expiresAt != null
-                                  ? '${doc.expiresAt!.day}/${doc.expiresAt!.month}/${doc.expiresAt!.year}'
-                                  : null,
-                              partnerName: widget.state.currentUser?.name,
-                              remarks: doc.remarks,
-                              documentType: doc.type,
-                              customBytes: doc.fileBytes,
+                        Builder(
+                          builder: (context) {
+                            final isImg = FileDownloadService.isImageFile(doc.fileName ?? '', doc.fileBytes);
+                            return IconButton(
+                              icon: Icon(isImg ? Icons.image_outlined : Icons.file_download_outlined, size: 18),
+                              color: const Color(0xFF2563EB),
+                              tooltip: isImg ? 'Download Image (${doc.fileName})' : 'Download PDF',
+                              constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                              padding: const EdgeInsets.all(5),
+                              onPressed: () async {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Downloading ${doc.fileName ?? doc.title}...'),
+                                    duration: const Duration(seconds: 1),
+                                    backgroundColor: const Color(0xFF2563EB),
+                                  ),
+                                );
+                                await FileDownloadService.downloadDocumentPdf(
+                                  documentTitle: doc.title,
+                                  documentNumber: doc.documentNumber,
+                                  fileName: doc.fileName ?? (isImg ? '${doc.type.name}.png' : '${doc.type.name}.pdf'),
+                                  status: doc.status.displayName,
+                                  validTill: doc.expiresAt != null
+                                      ? '${doc.expiresAt!.day}/${doc.expiresAt!.month}/${doc.expiresAt!.year}'
+                                      : null,
+                                  partnerName: widget.state.currentUser?.name,
+                                  remarks: doc.remarks,
+                                  documentType: doc.type,
+                                  customBytes: doc.fileBytes,
+                                );
+                              },
                             );
                           },
                         ),
@@ -1381,7 +1429,9 @@ class _DocsScreenState extends State<DocsScreen> with SingleTickerProviderStateM
       backgroundColor: Colors.transparent,
       builder: (ctx) => StatefulBuilder(
         builder: (modalCtx, setModalState) {
-          final isIdOptional = selectedType == CpDocumentType.cancelledCheque || selectedType == CpDocumentType.other;
+          final isIdOptional = selectedType == CpDocumentType.cancelledCheque ||
+              selectedType == CpDocumentType.specimenSignature ||
+              selectedType == CpDocumentType.other;
 
           return Container(
             padding: EdgeInsets.only(
@@ -1531,7 +1581,9 @@ class _DocsScreenState extends State<DocsScreen> with SingleTickerProviderStateM
                     decoration: InputDecoration(
                       hintText: selectedType == CpDocumentType.cancelledCheque
                           ? 'e.g. Bank Account / Cheque Ref (Optional)'
-                          : 'e.g. A51800034921 / ABCDE1234F',
+                          : (selectedType == CpDocumentType.specimenSignature
+                              ? 'e.g. Signatory UID / Ref (Optional)'
+                              : 'e.g. A51800034921 / ABCDE1234F'),
                       hintStyle: TextStyle(
                         fontSize: 13,
                         color: isDark ? AppColors.darkTextSecondary : const Color(0xFF94A3B8),
@@ -1587,6 +1639,10 @@ class _DocsScreenState extends State<DocsScreen> with SingleTickerProviderStateM
                                 selectedFileBytes = picked.bytes;
                                 hasUserPickedFile = true;
                                 fileAttachmentError = null;
+                                final lower = picked.fileName.toLowerCase();
+                                if (existingDoc == null && (lower.contains('sign') || lower.contains('sig_') || lower.contains('signature'))) {
+                                  selectedType = CpDocumentType.specimenSignature;
+                                }
                               });
                             }
                           },
@@ -1798,7 +1854,9 @@ class _DocsScreenState extends State<DocsScreen> with SingleTickerProviderStateM
 
                         if (numText.isEmpty) {
                           if (isIdOptional) {
-                            final prefix = selectedType == CpDocumentType.cancelledCheque ? 'CHQ' : 'DOC';
+                            final prefix = selectedType == CpDocumentType.cancelledCheque
+                                ? 'CHQ'
+                                : (selectedType == CpDocumentType.specimenSignature ? 'SIG' : 'DOC');
                             numText = '$prefix-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
                             docNumCtrl.text = numText;
                           } else {
@@ -1931,67 +1989,120 @@ class _DocsScreenState extends State<DocsScreen> with SingleTickerProviderStateM
               ),
               const SizedBox(height: 18),
 
-              // Mock Certificate Graphic Container
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: isDark
-                        ? [const Color(0xFF1E293B), const Color(0xFF0F172A)]
-                        : [const Color(0xFFEFF6FF), const Color(0xFFDBEAFE)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
+              // Document Preview Graphic or Real Uploaded Image
+              if (doc.fileBytes != null &&
+                  doc.fileBytes!.isNotEmpty &&
+                  FileDownloadService.isImageFile(doc.fileName ?? '', doc.fileBytes)) ...[
+                Container(
+                  width: double.infinity,
+                  constraints: const BoxConstraints(maxHeight: 230),
+                  decoration: BoxDecoration(
+                    color: isDark ? AppColors.darkSurfaceSubtle : const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: const Color(0xFF2563EB).withValues(alpha: 0.3),
+                      width: 1.5,
+                    ),
                   ),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: const Color(0xFF2563EB).withValues(alpha: 0.3),
-                    width: 1.5,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(15),
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Image.memory(
+                          Uint8List.fromList(doc.fileBytes!),
+                          fit: BoxFit.contain,
+                          width: double.infinity,
+                        ),
+                        Positioned(
+                          top: 8,
+                          right: 8,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.75),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.image_rounded, color: Colors.white, size: 13),
+                                SizedBox(width: 4),
+                                Text(
+                                  'Uploaded Image Preview',
+                                  style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-                child: Column(
-                  children: [
-                    const Icon(Icons.verified_user_rounded, color: Color(0xFF2563EB), size: 40),
-                    const SizedBox(height: 8),
-                    Text(
-                      doc.title.toUpperCase(),
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFF1E40AF),
-                        letterSpacing: 0.8,
-                      ),
+              ] else ...[
+                // Mock Certificate Graphic Container
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: isDark
+                          ? [const Color(0xFF1E293B), const Color(0xFF0F172A)]
+                          : [const Color(0xFFEFF6FF), const Color(0xFFDBEAFE)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      doc.documentNumber.isNotEmpty ? doc.documentNumber : 'PENDING SUBMISSION',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w900,
-                        color: Color(0xFF2563EB),
-                        letterSpacing: 1.2,
-                      ),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: const Color(0xFF2563EB).withValues(alpha: 0.3),
+                      width: 1.5,
                     ),
-                    const SizedBox(height: 10),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        'DIGITALLY REGISTERED & ENCRYPTED',
-                        style: TextStyle(
-                          fontSize: 9,
+                  ),
+                  child: Column(
+                    children: [
+                      const Icon(Icons.verified_user_rounded, color: Color(0xFF2563EB), size: 40),
+                      const SizedBox(height: 8),
+                      Text(
+                        doc.title.toUpperCase(),
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 13,
                           fontWeight: FontWeight.w800,
-                          color: Colors.blue.shade900,
+                          color: Color(0xFF1E40AF),
+                          letterSpacing: 0.8,
                         ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 4),
+                      Text(
+                        doc.documentNumber.isNotEmpty ? doc.documentNumber : 'PENDING SUBMISSION',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w900,
+                          color: Color(0xFF2563EB),
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          'DIGITALLY REGISTERED & ENCRYPTED',
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.blue.shade900,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
+              ],
               const SizedBox(height: 16),
 
               // Metadata Grid
@@ -2014,71 +2125,124 @@ class _DocsScreenState extends State<DocsScreen> with SingleTickerProviderStateM
               const SizedBox(height: 20),
 
               // Actions
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        side: const BorderSide(color: Color(0xFF2563EB)),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                      icon: const Icon(Icons.download_rounded, size: 16, color: Color(0xFF2563EB)),
-                      label: const Text(
-                        'Download PDF',
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF2563EB)),
-                      ),
-                      onPressed: () async {
-                        Navigator.of(ctx).pop();
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Downloading ${doc.fileName ?? doc.title}...'),
-                            backgroundColor: const Color(0xFF2563EB),
-                            duration: const Duration(seconds: 1),
+              Builder(
+                builder: (context) {
+                  final isImg = FileDownloadService.isImageFile(doc.fileName ?? '', doc.fileBytes);
+                  return Column(
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                side: const BorderSide(color: Color(0xFF2563EB)),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                              icon: Icon(
+                                isImg ? Icons.image_outlined : Icons.download_rounded,
+                                size: 16,
+                                color: const Color(0xFF2563EB),
+                              ),
+                              label: Text(
+                                isImg ? 'Download Image' : 'Download PDF',
+                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF2563EB)),
+                              ),
+                              onPressed: () async {
+                                Navigator.of(ctx).pop();
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Downloading ${doc.fileName ?? doc.title}...'),
+                                    backgroundColor: const Color(0xFF2563EB),
+                                    duration: const Duration(seconds: 1),
+                                  ),
+                                );
+                                await FileDownloadService.downloadDocumentPdf(
+                                  documentTitle: doc.title,
+                                  documentNumber: doc.documentNumber,
+                                  fileName: doc.fileName ?? (isImg ? '${doc.type.name}.png' : '${doc.type.name}.pdf'),
+                                  status: doc.status.displayName,
+                                  validTill: doc.expiresAt != null
+                                      ? '${doc.expiresAt!.day}/${doc.expiresAt!.month}/${doc.expiresAt!.year}'
+                                      : null,
+                                  partnerName: widget.state.currentUser?.name,
+                                  remarks: doc.remarks,
+                                  documentType: doc.type,
+                                  customBytes: doc.fileBytes,
+                                );
+                              },
+                            ),
                           ),
-                        );
-                        await FileDownloadService.downloadDocumentPdf(
-                          documentTitle: doc.title,
-                          documentNumber: doc.documentNumber,
-                          fileName: doc.fileName ?? '${doc.type.name}.pdf',
-                          status: doc.status.displayName,
-                          validTill: doc.expiresAt != null
-                              ? '${doc.expiresAt!.day}/${doc.expiresAt!.month}/${doc.expiresAt!.year}'
-                              : null,
-                          partnerName: widget.state.currentUser?.name,
-                          remarks: doc.remarks,
-                          documentType: doc.type,
-                          customBytes: doc.fileBytes,
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        backgroundColor: const Color(0xFF2563EB),
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                backgroundColor: const Color(0xFF2563EB),
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                              icon: const Icon(Icons.cloud_upload_outlined, size: 16),
+                              label: const Text(
+                                'Replace Doc',
+                                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                              ),
+                              onPressed: () {
+                                Navigator.of(ctx).pop();
+                                Future.microtask(() {
+                                  if (context.mounted) {
+                                    _openUploadDocModal(context, doc);
+                                  }
+                                });
+                              },
+                            ),
+                          ),
+                        ],
                       ),
-                      icon: const Icon(Icons.cloud_upload_outlined, size: 16),
-                      label: const Text(
-                        'Replace Doc',
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
-                      ),
-                      onPressed: () {
-                        Navigator.of(ctx).pop();
-                        Future.microtask(() {
-                          if (context.mounted) {
-                            _openUploadDocModal(context, doc);
-                          }
-                        });
-                      },
-                    ),
-                  ),
-                ],
+                      if (isImg) ...[
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          width: double.infinity,
+                          child: TextButton.icon(
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 6),
+                              foregroundColor: const Color(0xFF2563EB),
+                            ),
+                            icon: const Icon(Icons.picture_as_pdf_outlined, size: 15),
+                            label: const Text(
+                              'Export as Official PDF Certificate',
+                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                            ),
+                            onPressed: () async {
+                              Navigator.of(ctx).pop();
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Exporting official PDF certificate for ${doc.title}...'),
+                                  backgroundColor: const Color(0xFF2563EB),
+                                  duration: const Duration(seconds: 1),
+                                ),
+                              );
+                              await FileDownloadService.downloadDocumentPdf(
+                                documentTitle: doc.title,
+                                documentNumber: doc.documentNumber,
+                                fileName: '${doc.type.name}_Certificate.pdf',
+                                status: doc.status.displayName,
+                                validTill: doc.expiresAt != null
+                                    ? '${doc.expiresAt!.day}/${doc.expiresAt!.month}/${doc.expiresAt!.year}'
+                                    : null,
+                                partnerName: widget.state.currentUser?.name,
+                                remarks: doc.remarks,
+                                documentType: doc.type,
+                                forcePdfCertificate: true,
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    ],
+                  );
+                },
               ),
             ],
           ),
@@ -2925,12 +3089,18 @@ class _DocsScreenState extends State<DocsScreen> with SingleTickerProviderStateM
               color: isDark ? AppColors.darkTextSecondary : const Color(0xFF64748B),
             ),
           ),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: isDark ? AppColors.darkTextPrimary : const Color(0xFF0F172A),
+          const SizedBox(width: 12),
+          Flexible(
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              overflow: TextOverflow.ellipsis,
+              maxLines: 2,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: isDark ? AppColors.darkTextPrimary : const Color(0xFF0F172A),
+              ),
             ),
           ),
         ],
@@ -3017,6 +3187,8 @@ class _DocsScreenState extends State<DocsScreen> with SingleTickerProviderStateM
         return Icons.assignment_rounded;
       case CpDocumentType.cancelledCheque:
         return Icons.account_balance_rounded;
+      case CpDocumentType.specimenSignature:
+        return Icons.draw_rounded;
       case CpDocumentType.other:
         return Icons.folder_shared_rounded;
     }

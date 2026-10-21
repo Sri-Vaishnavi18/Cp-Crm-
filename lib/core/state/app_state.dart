@@ -847,6 +847,32 @@ class AppState extends ChangeNotifier {
     _persistProjects();
   }
 
+  // Update an Existing Project
+  bool updateProject(ProjectModel updatedProject) {
+    final idx = _projects.indexWhere((p) => p.id == updatedProject.id);
+    if (idx == -1) return false;
+
+    _projects[idx] = updatedProject;
+
+    _notifications.insert(
+      0,
+      AppNotificationModel(
+        id: 'notif_${DateTime.now().millisecondsSinceEpoch}',
+        title: '✏️ Project Updated: ${updatedProject.name}',
+        message: '${updatedProject.name} details & inventory (${updatedProject.units.length} units) were updated.',
+        type: 'broadcast',
+        timestamp: DateTime.now(),
+        targetRoute: '/projects',
+        targetId: updatedProject.id,
+      ),
+    );
+
+    _persistNotifications();
+    notifyListeners();
+    _persistProjects();
+    return true;
+  }
+
   // Bulk Import Units for a Project
   int bulkImportUnits(String projectId, List<UnitModel> newUnits) {
     final idx = _projects.indexWhere((p) => p.id == projectId);

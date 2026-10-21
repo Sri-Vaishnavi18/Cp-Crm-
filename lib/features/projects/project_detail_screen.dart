@@ -6,6 +6,7 @@ import '../../core/services/url_action_service.dart';
 import '../../core/services/file_download_service.dart';
 import '../../core/services/document_picker_service.dart';
 import '../../shared/widgets/powered_by_branding.dart';
+import 'edit_project_modal.dart';
 
 class ProjectDetailScreen extends StatefulWidget {
   final AppState state;
@@ -51,6 +52,23 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(p.name),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.edit_note_rounded, color: Color(0xFFD97706)),
+            tooltip: 'Edit Project Details',
+            onPressed: () {
+              showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                backgroundColor: Colors.transparent,
+                builder: (ctx) => EditProjectModalSheet(
+                  state: widget.state,
+                  project: p,
+                ),
+              );
+            },
+          ),
+        ],
       ),
       body: LayoutBuilder(
         builder: (context, constraints) {

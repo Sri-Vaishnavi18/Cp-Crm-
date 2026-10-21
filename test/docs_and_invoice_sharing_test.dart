@@ -6,6 +6,7 @@ import 'package:cp_crm/core/services/mock_data_service.dart';
 import 'package:cp_crm/core/services/file_download_service.dart';
 import 'package:cp_crm/core/state/app_state.dart';
 import 'package:cp_crm/features/projects/project_detail_screen.dart';
+import 'package:cp_crm/features/docs/docs_screen.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -171,11 +172,26 @@ void main() {
       expect(chequeStr.contains('BANKING MANDATE'), isTrue);
       expect(chequeStr.contains('CANCELLED CHEQUE'), isTrue);
 
+      // 7. Authorized Specimen Signature
+      final sigBytes = FileDownloadService.generateDocumentTypePdf(
+        type: CpDocumentType.specimenSignature,
+        title: 'Authorized Specimen Signature',
+        documentNumber: 'SIG-AUTH-9921',
+        status: 'VERIFIED',
+        partnerName: 'Ashvik',
+        remarks: 'Specimen signature registered.',
+      );
+      final sigStr = String.fromCharCodes(sigBytes);
+      expect(sigStr.contains('AUTHORIZED SPECIMEN SIGNATURE'), isTrue);
+      expect(sigStr.contains('CHANNEL PARTNER SPECIMEN SIGNATURE RECORD'), isTrue);
+      expect(sigStr.contains('CANCELLED CHEQUE'), isFalse);
+
       // Verify each document type produces different content
       expect(reraBytes, isNot(equals(panBytes)));
       expect(panBytes, isNot(equals(gstBytes)));
       expect(gstBytes, isNot(equals(mouBytes)));
       expect(mouBytes, isNot(equals(chequeBytes)));
+      expect(chequeBytes, isNot(equals(sigBytes)));
     });
   });
 
@@ -250,6 +266,147 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Unit Inventory & Pricing Matrix'), findsOneWidget);
+    });
+
+    testWidgets('DocsScreen renders decongested adaptive tabs on mobile screens', (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(360, 640);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final state = AppState();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: DocsScreen(state: state),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // On 360px mobile width, adaptive uncongested labels should be displayed
+      expect(find.text('Required Docs'), findsOneWidget);
+      expect(find.text('Invoices'), findsOneWidget);
+      expect(find.byIcon(Icons.folder_shared_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.receipt_long_rounded), findsOneWidget);
+    });
+
+    test('FileDownloadService detects image types and MIME formats correctly', () {
+      // Filename based
+      expect(FileDownloadService.isImageFile('pan.png'), isTrue);
+      expect(FileDownloadService.isImageFile('aadhaar.jpg'), isTrue);
+      expect(FileDownloadService.isImageFile('rera.jpeg'), isTrue);
+      expect(FileDownloadService.isImageFile('cheque.webp'), isTrue);
+      expect(FileDownloadService.isImageFile('document.pdf'), isFalse);
+
+      // Magic byte based
+      final pngBytes = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
+      final jpgBytes = [0xFF, 0xD8, 0xFF, 0xE0];
+      final pdfBytes = [0x25, 0x50, 0x44, 0x46];
+
+      expect(FileDownloadService.isImageFile('blob_file', pngBytes), isTrue);
+      expect(FileDownloadService.isImageFile('blob_file', jpgBytes), isTrue);
+      expect(FileDownloadService.isImageFile('blob_file', pdfBytes), isFalse);
+
+      expect(FileDownloadService.detectMimeType('pan.png', pngBytes), 'image/png');
+      expect(FileDownloadService.detectMimeType('aadhaar.jpg', jpgBytes), 'image/jpeg');
+      expect(FileDownloadService.detectMimeType('rera.pdf', pdfBytes), 'application/pdf');
+    });
+
+    testWidgets('DocsScreen displays uploaded image preview inside preview modal', (WidgetTester tester) async {
+      late AppState state;
+      await tester.runAsync(() async {
+        state = AppState();
+        await Future.delayed(const Duration(milliseconds: 60));
+        // Attach transparent 1x1 PNG bytes to the first document
+        final dummyPngBytes = [
+          0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D,
+          0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
+          0x08, 0x06, 0x00, 0x00, 0x00, 0x1F, 0x15, 0xC4, 0x89, 0x00, 0x00, 0x00,
+          0x0A, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9C, 0x63, 0x00, 0x01, 0x00, 0x00,
+          0x05, 0x00, 0x01, 0x0D, 0x0A, 0x2D, 0xB4, 0x00, 0x00, 0x00, 0x00, 0x49,
+          0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82,
+        ];
+
+        await state.uploadOrUpdateDocument(
+          documentId: state.cpDocuments.first.id,
+          documentNumber: 'A123456789',
+          fileName: 'rera_certificate.png',
+          fileSize: '120 KB',
+          fileBytes: dummyPngBytes,
+        );
+      });
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: DocsScreen(state: state),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Tap on the first document to open preview modal
+      await tester.tap(find.text(state.cpDocuments.first.title).first);
+      await tester.pumpAndSettle();
+
+      // Verify that the Image preview and Download Image button are shown
+      expect(find.byType(Image), findsOneWidget);
+      expect(find.text('Uploaded Image Preview'), findsOneWidget);
+      expect(find.text('Download Image'), findsOneWidget);
+      expect(find.text('Export as Official PDF Certificate'), findsOneWidget);
+    });
+
+    testWidgets('Uploading signature image creates specimenSignature and displays image preview', (WidgetTester tester) async {
+      late AppState state;
+      await tester.runAsync(() async {
+        state = AppState();
+        await Future.delayed(const Duration(milliseconds: 60));
+        const dummyPngBytes = [
+          0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D,
+          0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
+          0x08, 0x06, 0x00, 0x00, 0x00, 0x1F, 0x15, 0xC4, 0x89, 0x00, 0x00, 0x00,
+          0x0A, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9C, 0x63, 0x00, 0x01, 0x00, 0x00,
+          0x05, 0x00, 0x01, 0x0D, 0x0A, 0x2D, 0xB4, 0x00, 0x00, 0x00, 0x00, 0x49,
+          0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82,
+        ];
+
+        final sigDoc = state.cpDocuments.firstWhere((d) => d.type == CpDocumentType.specimenSignature);
+        await state.uploadOrUpdateDocument(
+          documentId: sigDoc.id,
+          documentNumber: 'SIG-881920',
+          fileName: 'Ashvik_sign.png',
+          fileSize: '45 KB',
+          fileBytes: dummyPngBytes,
+          documentType: CpDocumentType.specimenSignature,
+        );
+      });
+
+      tester.view.physicalSize = const Size(1000, 1600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: DocsScreen(state: state),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Authorized Specimen Signature'), findsWidgets);
+
+      // Tap on Authorized Specimen Signature card to open preview modal
+      await tester.tap(find.text('Authorized Specimen Signature').first);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Uploaded Image Preview'), findsOneWidget);
+      expect(find.text('Download Image'), findsOneWidget);
+      expect(find.text('Export as Official PDF Certificate'), findsOneWidget);
     });
   });
 }

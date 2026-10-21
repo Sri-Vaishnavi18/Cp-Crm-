@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cp_crm/core/models/app_models.dart';
 import 'package:cp_crm/core/state/app_state.dart';
 import 'package:cp_crm/features/commissions/commissions_screen.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+  });
 
   group('Commission & Invoice Models & Logic Tests', () {
     test('InvoiceType extension values and labels', () {
@@ -222,7 +227,7 @@ void main() {
       expect(isType2ForBooked, isTrue);
     });
 
-    testWidgets('CommissionsScreen renders financial KPI grid and project directory', (WidgetTester tester) async {
+    testWidgets('CommissionsScreen renders settlement destination bank and project directory without redundant bank icon or kpi grid', (WidgetTester tester) async {
       final state = AppState();
       await tester.pumpWidget(
         MaterialApp(
@@ -232,10 +237,13 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Commissions & Payouts'), findsOneWidget);
-      expect(find.text('Total Claimed'), findsOneWidget);
-      expect(find.text('Amount Received'), findsOneWidget);
-      expect(find.text('Pending Clearance'), findsOneWidget);
       expect(find.text('Settlement Destination Bank'), findsOneWidget);
+      // Verify analytic KPI cards are removed
+      expect(find.text('Total Claimed'), findsNothing);
+      expect(find.text('Amount Received'), findsNothing);
+      expect(find.text('Pending Clearance'), findsNothing);
+      // Verify bank icon beside heading is removed
+      expect(find.byIcon(Icons.account_balance_outlined), findsNothing);
     });
   });
 }

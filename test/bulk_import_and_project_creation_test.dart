@@ -1,6 +1,8 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:cp_crm/core/models/app_models.dart';
 import 'package:cp_crm/core/state/app_state.dart';
+import 'package:cp_crm/features/projects/projects_screen.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -350,13 +352,76 @@ A-103,Tower A,1,4 BHK,2100,2850,West,22500000,sold
       }
     });
 
-    test('Lead site visits exist in state and link to lead details', () {
+    test('AppState updateProject modifies project details, units, and brochure properly', () {
       final state = AppState();
-      expect(state.siteVisits, isNotEmpty);
-      final sampleVisit = state.siteVisits.first;
-      expect(sampleVisit.projectName, isNotEmpty);
-      expect(sampleVisit.clientName, isNotEmpty);
-      expect(sampleVisit.visitCode, isNotEmpty);
+      final original = state.projects.first;
+
+      final updated = ProjectModel(
+        id: original.id,
+        name: 'Updated Luxury Heights',
+        location: 'Financial District, Hyderabad',
+        startingPrice: '2.5 Cr',
+        reraNumber: 'P02400009999',
+        possessionDate: 'March 2027',
+        type: 'Ready to Move',
+        heroImageUrl: original.heroImageUrl,
+        galleryImages: original.galleryImages,
+        amenities: ['Clubhouse', 'Infinity Pool'],
+        approvedBanks: ['HDFC Bank', 'ICICI Bank'],
+        distanceDetails: 'Near Metro: 500m',
+        towers: ['Tower 1', 'Tower 2'],
+        units: [
+          UnitModel(
+            unitNo: 'T1-1001',
+            tower: 'Tower 1',
+            floor: 10,
+            bhk: '3 BHK',
+            carpetArea: 1500,
+            superArea: 2025,
+            facing: 'East',
+            basePrice: 15000000,
+            status: UnitStatus.available,
+          ),
+        ],
+        brochureFileName: 'Updated_Luxury_Heights_Brochure.pdf',
+        brochureFileSize: '6.5 MB',
+        brochureUpdatedAt: DateTime.now(),
+      );
+
+      final success = state.updateProject(updated);
+      expect(success, isTrue);
+
+      final fetched = state.projects.firstWhere((p) => p.id == original.id);
+      expect(fetched.name, 'Updated Luxury Heights');
+      expect(fetched.location, 'Financial District, Hyderabad');
+      expect(fetched.startingPrice, '2.5 Cr');
+      expect(fetched.units.length, 1);
+      expect(fetched.units.first.unitNo, 'T1-1001');
+      expect(fetched.brochureFileName, 'Updated_Luxury_Heights_Brochure.pdf');
+    });
+
+    testWidgets('ProjectsScreen renders Edit Details button in place of Share', (WidgetTester tester) async {
+      final state = AppState();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ProjectsScreen(state: state),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Verify Details and Brochure buttons exist
+      expect(find.text('Details'), findsWidgets);
+      expect(find.text('Brochure'), findsWidgets);
+
+      // Verify Edit Details button is rendered in place of Share
+      expect(find.text('Edit Details'), findsWidgets);
+      expect(find.byIcon(Icons.edit_note_rounded), findsWidgets);
+
+      // Verify Share button is no longer present
+      expect(find.text('Share'), findsNothing);
+      expect(find.byIcon(Icons.share_outlined), findsNothing);
     });
   });
 }

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 class UserModel {
   final String id;
   final String name;
@@ -1385,6 +1387,7 @@ enum CpDocumentType {
   aadhaarCard,
   cpAgreement,
   cancelledCheque,
+  specimenSignature,
   other,
 }
 
@@ -1403,6 +1406,8 @@ extension CpDocumentTypeExtension on CpDocumentType {
         return 'CP Agreement / MOU';
       case CpDocumentType.cancelledCheque:
         return 'Bank Proof / Cheque';
+      case CpDocumentType.specimenSignature:
+        return 'Authorized Specimen Signature';
       case CpDocumentType.other:
         return 'Other Document';
     }
@@ -1415,6 +1420,7 @@ extension CpDocumentTypeExtension on CpDocumentType {
       case CpDocumentType.aadhaarCard:
         return 'Mandatory (KYC)';
       case CpDocumentType.gstCertificate:
+      case CpDocumentType.specimenSignature:
         return 'Tax & Legal';
       case CpDocumentType.cpAgreement:
         return 'Agreements';
@@ -1492,6 +1498,7 @@ class CpDocumentModel {
     'status': status.name,
     'isMandatory': isMandatory,
     'remarks': remarks,
+    'fileBytes': fileBytes != null ? base64Encode(fileBytes!) : null,
   };
 
   factory CpDocumentModel.fromJson(Map<String, dynamic> json) => CpDocumentModel(
@@ -1513,6 +1520,9 @@ class CpDocumentModel {
     ),
     isMandatory: json['isMandatory'] == true,
     remarks: json['remarks']?.toString(),
+    fileBytes: json['fileBytes'] != null
+        ? base64Decode(json['fileBytes'].toString())
+        : null,
   );
 
   CpDocumentModel copyWith({

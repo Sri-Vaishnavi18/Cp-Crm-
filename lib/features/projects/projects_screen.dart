@@ -5,6 +5,7 @@ import '../../core/state/app_state.dart';
 import '../../core/services/url_action_service.dart';
 import 'project_detail_screen.dart';
 import 'create_project_modal.dart';
+import 'edit_project_modal.dart';
 
 class ProjectsScreen extends StatefulWidget {
   final AppState state;
@@ -78,6 +79,18 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => CreateProjectModalSheet(state: widget.state),
+    );
+  }
+
+  void _openEditProjectModal(ProjectModel project) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => EditProjectModalSheet(
+        state: widget.state,
+        project: project,
+      ),
     );
   }
 
@@ -592,18 +605,13 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
                     ),
                     const SizedBox(width: 8),
 
-                    // Share Button (Green)
+                    // Edit Details Button (Warm Amber)
                     Expanded(
                       child: _buildProjectActionButton(
-                        icon: Icons.share_outlined,
-                        iconColor: const Color(0xFF16A34A),
-                        label: 'Share',
-                        onTap: () {
-                          UrlActionService.shareContent(
-                            context,
-                            text: 'Check out ${project.name} in ${project.location}! Starting price: $priceDisplay.',
-                          );
-                        },
+                        icon: Icons.edit_note_rounded,
+                        iconColor: const Color(0xFFD97706),
+                        label: 'Edit Details',
+                        onTap: () => _openEditProjectModal(project),
                         isDark: isDark,
                       ),
                     ),

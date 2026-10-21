@@ -1062,6 +1062,19 @@ class MockDataService {
         isMandatory: true,
         remarks: 'Pending bank account payout proof upload.',
       ),
+      CpDocumentModel(
+        id: 'doc_signature',
+        type: CpDocumentType.specimenSignature,
+        title: 'Authorized Specimen Signature',
+        documentNumber: '',
+        fileName: null,
+        fileSize: null,
+        uploadedAt: null,
+        expiresAt: null,
+        status: CpDocumentStatus.missing,
+        isMandatory: true,
+        remarks: 'Pending authorized partner specimen signature upload.',
+      ),
     ];
   }
 
