@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sample Invoice - DISB-BKG-8819 | CP CRM</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #2563EB;
+      --primary-dark: #1D4ED8;
+      --success: #16A34A;
+      --success-bg: #DCFCE7;
+      --slate-50: #F8FAFC;
+      --slate-100: #F1F5F9;
+      --slate-200: #E2E8F0;
+      --slate-400: #94A3B8;
+      --slate-600: #475569;
+      --slate-800: #1E293B;
+      --slate-900: #0F172A;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background-color: #F4F7FB;
+      color: var(--slate-800);
+      padding: 32px 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+    }
+
+    .toolbar {
+      width: 100%;
+      max-width: 820px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .toolbar .badge-tag {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--primary);
+      background: #EFF6FF;
+      padding: 6px 14px;
+      border-radius: 999px;
+      border: 1px solid #BFDBFE;
+    }
+
+    .toolbar-actions {
+      display: flex;
+      gap: 10px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.15s ease;
+      border: 1px solid transparent;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: var(--primary-dark);
+    }
+
+    .btn-outline {
+      background: white;
+      color: var(--slate-800);
+      border-color: var(--slate-200);
+    }
+
+    .btn-outline:hover {
+      background: var(--slate-50);
+    }
+
+    .invoice-card {
+      width: 100%;
+      max-width: 820px;
+      background: #FFFFFF;
+      border-radius: 20px;
+      box-shadow: 0 10px 30px -5px rgba(15, 23, 42, 0.08), 0 0 1px 1px rgba(15, 23, 42, 0.05);
+      border: 1px solid var(--slate-200);
+      overflow: hidden;
+      padding: 40px;
+    }
+
+    /* Header */
+    .invoice-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      border-bottom: 2px solid var(--slate-100);
+      padding-bottom: 24px;
+      margin-bottom: 28px;
+    }
+
+    .company-brand h1 {
+      font-size: 20px;
+      font-weight: 900;
+      letter-spacing: 0.5px;
+      color: var(--primary);
+    }
+
+    .company-brand p {
+      font-size: 13px;
+      color: var(--slate-600);
+      margin-top: 4px;
+    }
+
+    .company-reg {
+      font-size: 11px;
+      color: var(--slate-400);
+      margin-top: 6px;
+      font-family: monospace;
+    }
+
+    .status-pill {
+      background: var(--success-bg);
+      color: var(--success);
+      border: 1px solid #86EFAC;
+      font-size: 11.5px;
+      font-weight: 800;
+      padding: 6px 14px;
+      border-radius: 999px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      background: var(--success);
+      border-radius: 50%;
+    }
+
+    /* Meta Grid */
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      background: var(--slate-50);
+      border: 1px solid var(--slate-200);
+      border-radius: 14px;
+      padding: 16px 20px;
+      margin-bottom: 28px;
+    }
+
+    .meta-item .label {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--slate-400);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+
+    .meta-item .value {
+      font-size: 14px;
+      font-weight: 800;
+      color: var(--slate-900);
+    }
+
+    /* 2-Column Info Section */
+    .party-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      margin-bottom: 28px;
+    }
+
+    .party-box {
+      border: 1px solid var(--slate-200);
+      border-radius: 14px;
+      padding: 18px;
+      background: #FFFFFF;
+    }
+
+    .party-box-title {
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--primary);
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .party-box .name {
+      font-size: 16px;
+      font-weight: 800;
+      color: var(--slate-900);
+      margin-bottom: 2px;
+    }
+
+    .party-box .subtext {
+      font-size: 13px;
+      color: var(--slate-600);
+      margin-bottom: 8px;
+    }
+
+    .party-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .tag {
+      font-size: 11px;
+      font-weight: 600;
+      background: var(--slate-100);
+      color: var(--slate-600);
+      padding: 3px 8px;
+      border-radius: 6px;
+    }
+
+    /* Table */
+    .particulars-section {
+      margin-bottom: 28px;
+    }
+
+    .table-title {
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--slate-600);
+      margin-bottom: 12px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      border: 1px solid var(--slate-200);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    th {
+      background: var(--slate-50);
+      color: var(--slate-600);
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      text-align: left;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--slate-200);
+    }
+
+    th.text-right, td.text-right {
+      text-align: right;
+    }
+
+    td {
+      padding: 14px 16px;
+      font-size: 13.5px;
+      border-bottom: 1px solid var(--slate-100);
+    }
+
+    .td-title {
+      font-weight: 700;
+      color: var(--slate-900);
+    }
+
+    .td-subtitle {
+      font-size: 12px;
+      color: var(--slate-600);
+      margin-top: 3px;
+    }
+
+    tr.deduction td {
+      color: #DC2626;
+      font-weight: 600;
+      background: #FEF2F2;
+    }
+
+    tr.total-row td {
+      background: #F0FDF4;
+      border-bottom: none;
+      font-weight: 900;
+      font-size: 16px;
+      color: #15803D;
+      padding: 16px;
+    }
+
+    /* Settlement Bank Box */
+    .bank-box {
+      background: #F0FDF4;
+      border: 1px solid #BBF7D0;
+      border-radius: 14px;
+      padding: 18px;
+      margin-bottom: 28px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .bank-left .bank-title {
+      font-size: 12px;
+      font-weight: 800;
+      color: #16A34A;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .bank-left .bank-details {
+      font-size: 13px;
+      color: var(--slate-800);
+      font-weight: 600;
+    }
+
+    .bank-left .utr {
+      font-size: 12px;
+      font-family: monospace;
+      color: var(--slate-600);
+      margin-top: 4px;
+    }
+
+    .utr-pill {
+      background: white;
+      padding: 2px 8px;
+      border-radius: 6px;
+      border: 1px solid #86EFAC;
+      font-weight: 700;
+      color: #166534;
+    }
+
+    /* Footer / Signoff */
+    .invoice-footer {
+      border-top: 1px solid var(--slate-200);
+      padding-top: 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+    }
+
+    .notes {
+      font-size: 11.5px;
+      color: var(--slate-600);
+      line-height: 1.6;
+      max-width: 440px;
+    }
+
+    .seal-box {
+      text-align: right;
+    }
+
+    .digital-seal {
+      display: inline-block;
+      padding: 10px 16px;
+      border: 2px dashed #93C5FD;
+      border-radius: 10px;
+      background: #F0F7FF;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--primary);
+      text-align: center;
+    }
+
+    .signature-title {
+      font-size: 11px;
+      color: var(--slate-400);
+      margin-top: 6px;
+    }
+
+    @media print {
+      body {
+        background: white;
+        padding: 0;
+      }
+      .toolbar {
+        display: none;
+      }
+      .invoice-card {
+        border: none;
+        box-shadow: none;
+        padding: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Toolbar -->
+  <div class="toolbar">
+    <div class="badge-tag">CP CRM • Official Financial Disbursal Voucher</div>
+    <div class="toolbar-actions">
+      <button class="btn btn-outline" onclick="window.print()">🖨️ Print / Save PDF</button>
+      <a class="btn btn-primary" href="sample_invoice.pdf" download="sample_invoice.pdf">📥 Download PDF File</a>
+    </div>
+  </div>
+
+  <!-- Invoice Sheet -->
+  <div class="invoice-card">
+    
+    <!-- Header -->
+    <div class="invoice-header">
+      <div class="company-brand">
+        <h1>DEVELOPER REALTY GROUP</h1>
+        <p>Corporate Finance &amp; Channel Partner Relations Desk</p>
+        <div class="company-reg">CIN: U45200MH2012PTC239812 • GSTIN: 27AABCD8891E1Z8</div>
+      </div>
+      <div class="status-pill">
+        <span class="status-dot"></span>
+        Paid / Settled
+      </div>
+    </div>
+
+    <!-- Meta Details Grid -->
+    <div class="meta-grid">
+      <div class="meta-item">
+        <div class="label">Voucher Number</div>
+        <div class="value">DISB-BKG-8819</div>
+      </div>
+      <div class="meta-item">
+        <div class="label">Claim Reference</div>
+        <div class="value">INV-2026-1002</div>
+      </div>
+      <div class="meta-item">
+        <div class="label">Disbursal Date</div>
+        <div class="value">17 Oct 2026</div>
+      </div>
+      <div class="meta-item">
+        <div class="label">Financial Year</div>
+        <div class="value">FY 2024-25</div>
+      </div>
+    </div>
+
+    <!-- Party Details (CP & Transaction) -->
+    <div class="party-grid">
+      <div class="party-box">
+        <div class="party-box-title">👤 Issued to Channel Partner</div>
+        <div class="name">Rahul Sharma</div>
+        <div class="subtext">Apex Realty Advisory LLP</div>
+        <div class="party-tags">
+          <span class="tag">RERA: A51800034921</span>
+          <span class="tag">PAN: ABCDE1234F</span>
+          <span class="tag">GSTIN: 27ABCDE1234F1Z5</span>
+        </div>
+      </div>
+
+      <div class="party-box">
+        <div class="party-box-title">🏢 Project &amp; Allotment Context</div>
+        <div class="name">Godrej Skyward Horizons</div>
+        <div class="subtext">Unit: Tower A - 402 (3 BHK Luxury)</div>
+        <div class="party-tags">
+          <span class="tag">Client: Siddharth Mehta</span>
+          <span class="tag">Agreement: ₹92,50,000</span>
+          <span class="tag">Slab: 2.0% Brokerage</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Breakdown Table -->
+    <div class="particulars-section">
+      <div class="table-title">Payout Particulars &amp; Tax Withholding</div>
+      <table>
+        <thead>
+          <tr>
+            <th>Description</th>
+            <th>Type</th>
+            <th class="text-right">Rate</th>
+            <th class="text-right">Amount (INR)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              <div class="td-title">Booking Success Brokerage</div>
+              <div class="td-subtitle">Unit T1-402, Godrej Skyward Horizons • Lead: Siddharth Mehta</div>
+            </td>
+            <td>Brokerage Fee</td>
+            <td class="text-right">2.00%</td>
+            <td class="text-right">₹ 1,85,000.00</td>
+          </tr>
+          <tr class="deduction">
+            <td>
+              <div class="td-title">Less: TDS Under Section 194H</div>
+              <div class="td-subtitle">Income Tax Withholding on Real Estate Brokerage / Commission</div>
+            </td>
+            <td>Tax Deduction</td>
+            <td class="text-right">5.00%</td>
+            <td class="text-right">- ₹ 9,250.00</td>
+          </tr>
+          <tr class="total-row">
+            <td colspan="3">
+              <div>NET AMOUNT DISBURSED &amp; CREDITED TO BANK</div>
+            </td>
+            <td class="text-right">₹ 1,75,750.00</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Bank Disbursal & UTR Proof -->
+    <div class="bank-box">
+      <div class="bank-left">
+        <div class="bank-title">✅ Electronic Funds Transfer Confirmation</div>
+        <div class="bank-details">
+          Beneficiary Bank: <strong>HDFC Bank Ltd</strong> • Account: <strong>••••••••7561</strong> (IFSC: <strong>HDFC0001234</strong>)
+        </div>
+        <div class="utr">
+          Transaction Reference / UTR: <span class="utr-pill">UTR-HDFC889210492</span> • Settlement Mode: RTGS
+        </div>
+      </div>
+      <div>
+        <span style="font-size: 28px;">🏦</span>
+      </div>
+    </div>
+
+    <!-- Signoff Footer -->
+    <div class="invoice-footer">
+      <div class="notes">
+        • This is a system-generated electronic payment voucher digitally authenticated by Developer Realty Group.<br>
+        • Form 16A quarterly TDS certificate will be generated and issued under PAN <strong>ABCDE1234F</strong> for tax filing.<br>
+        • For queries, contact: finance-helpdesk@developerrealty.in
+      </div>
+      <div class="seal-box">
+        <div class="digital-seal">
+          🔒 DIGITALLY AUTHENTICATED<br>
+          Builder Finance Desk
+        </div>
+        <div class="signature-title">Authorized Signatory</div>
+      </div>
+    </div>
+
+  </div>
+
+</body>
+</html>

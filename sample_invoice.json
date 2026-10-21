@@ -1,0 +1,62 @@
+{
+  "application": "CP CRM",
+  "currency": "INR",
+  "disbursalVoucher": {
+    "id": "rec_1",
+    "voucherNumber": "DISB-BKG-8819",
+    "invoiceNumber": "INV-2026-1002",
+    "leadId": "lead_siddharth",
+    "clientName": "Siddharth Mehta",
+    "clientPhone": "9766554433",
+    "projectId": "proj_2",
+    "projectName": "Godrej Skyward Horizons",
+    "unitNumber": "Tower A - 402",
+    "type": "bookingBrokerage",
+    "grossAmount": 185000.00,
+    "tdsRate": 0.05,
+    "tdsAmount": 9250.00,
+    "netAmount": 175750.00,
+    "disbursedDate": "2026-10-17T14:30:00.000Z",
+    "status": "credited",
+    "bankName": "HDFC Bank Ltd",
+    "bankAccountNumber": "••••••••7561",
+    "ifscCode": "HDFC0001234",
+    "utrNumber": "UTR-HDFC889210492",
+    "financialYear": "FY 2024-25",
+    "developer": {
+      "name": "DEVELOPER REALTY GROUP",
+      "desk": "Corporate Finance & Partner Relations Desk",
+      "cin": "U45200MH2012PTC239812",
+      "gstin": "27AABCD8891E1Z8"
+    },
+    "channelPartner": {
+      "agentName": "Rahul Sharma",
+      "firmName": "Apex Realty Advisory LLP",
+      "reraNumber": "A51800034921",
+      "panNumber": "ABCDE1234F",
+      "gstin": "27ABCDE1234F1Z5"
+    },
+    "notes": "2% brokerage claim on Unit T1-402, Godrej Skyward Horizons."
+  },
+  "siteVisitClaimInvoice": {
+    "id": "inv_1",
+    "invoiceNumber": "INV-2026-1001",
+    "leadId": "lead_1",
+    "clientName": "Deepak Verma",
+    "clientPhone": "9811223344",
+    "projectId": "proj_1",
+    "projectName": "Prestige Serenity Palms",
+    "type": "siteVisit",
+    "amount": 3000.00,
+    "date": "2026-10-18T14:30:00.000Z",
+    "status": "approved",
+    "bankDetails": {
+      "accountHolder": "Rahul Sharma",
+      "bankName": "HDFC Bank Ltd",
+      "accountNumber": "50100293847561",
+      "ifscCode": "HDFC0001234",
+      "upiId": "rahul@okhdfcbank"
+    },
+    "notes": "Accompanied site visit completed with client Deepak Verma."
+  }
+}
