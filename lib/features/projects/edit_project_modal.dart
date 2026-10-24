@@ -200,6 +200,7 @@ class _EditProjectModalSheetState extends State<EditProjectModalSheet>
         builder: (context, setDlgState) {
           final isDark = widget.state.isDarkMode;
           return AlertDialog(
+            backgroundColor: isDark ? AppColors.darkSurface : Colors.white,
             title: Text('Edit Unit ${unit.unitNo} (${unit.tower})'),
             content: SingleChildScrollView(
               child: Column(

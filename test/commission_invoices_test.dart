@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cp_crm/core/models/app_models.dart';
+import 'package:cp_crm/core/services/mock_data_service.dart';
 import 'package:cp_crm/core/state/app_state.dart';
 import 'package:cp_crm/features/commissions/commissions_screen.dart';
 
@@ -167,6 +168,7 @@ void main() {
 
     test('Project-level commission filtering and KPI calculations', () {
       final state = AppState();
+      state.addProject(MockDataService.getProjects().first);
       final projects = state.projects;
       expect(projects.isNotEmpty, isTrue);
 
@@ -227,7 +229,7 @@ void main() {
       expect(isType2ForBooked, isTrue);
     });
 
-    testWidgets('CommissionsScreen renders settlement destination bank and project directory without redundant bank icon or kpi grid', (WidgetTester tester) async {
+    testWidgets('CommissionsScreen renders settlement destination bank and financial KPI summary cards', (WidgetTester tester) async {
       final state = AppState();
       await tester.pumpWidget(
         MaterialApp(
@@ -238,12 +240,10 @@ void main() {
 
       expect(find.text('Commissions & Payouts'), findsOneWidget);
       expect(find.text('Settlement Destination Bank'), findsOneWidget);
-      // Verify analytic KPI cards are removed
-      expect(find.text('Total Claimed'), findsNothing);
-      expect(find.text('Amount Received'), findsNothing);
-      expect(find.text('Pending Clearance'), findsNothing);
-      // Verify bank icon beside heading is removed
-      expect(find.byIcon(Icons.account_balance_outlined), findsNothing);
+      // Verify financial KPI cards requested by user
+      expect(find.text('Total Claimed'), findsOneWidget);
+      expect(find.text('Pending Audit'), findsOneWidget);
+      expect(find.text('Settled Payout'), findsOneWidget);
     });
   });
 }

@@ -63,7 +63,7 @@ class AppState extends ChangeNotifier {
 
   // Active Data Stores
   List<LeadModel> _leads = MockDataService.getInitialLeads();
-  List<ProjectModel> _projects = MockDataService.getProjects();
+  List<ProjectModel> _projects = [];
   List<SiteVisitModel> _siteVisits = MockDataService.getInitialVisits();
   List<SpocModel> _spocs = MockDataService.getSpocs();
   List<CollateralModel> _collaterals = MockDataService.getCollaterals();
@@ -71,7 +71,7 @@ class AppState extends ChangeNotifier {
   List<CommissionInvoiceModel> _invoices = MockDataService.getInitialInvoices();
   BankDetailsModel? _savedBankDetails = MockDataService.getInitialBankDetails();
   List<CpDocumentModel> _cpDocuments = MockDataService.getInitialCpDocuments();
-  List<ReceivedInvoiceModel> _receivedInvoices = MockDataService.getInitialReceivedInvoices();
+  List<ReceivedInvoiceModel> _receivedInvoices = [];
 
   // Date Filter State
   DashboardDatePreset _dashboardDatePreset = DashboardDatePreset.allTime;
@@ -106,6 +106,7 @@ class AppState extends ChangeNotifier {
 
   // Getters
   List<LeadModel> get allLeads => _leads;
+  List<LeadModel> get leads => _leads;
   List<ProjectModel> get projects => _projects;
   List<SiteVisitModel> get siteVisits => _siteVisits;
   List<SpocModel> get spocs => _spocs;
@@ -146,6 +147,7 @@ class AppState extends ChangeNotifier {
   String get _leadsStorageKey => 'persisted_leads_$_currentUserId';
   String get _invoicesStorageKey => 'persisted_invoices_$_currentUserId';
   String get _siteVisitsStorageKey => 'persisted_visits_$_currentUserId';
+  String get _receivedInvoicesStorageKey => 'persisted_received_invoices_$_currentUserId';
 
   // Constructor
   AppState({bool initialIsDark = false}) {
@@ -153,15 +155,15 @@ class AppState extends ChangeNotifier {
     _initData();
   }
 
-  /// Load user-scoped leads, visits, and invoices.
+  /// Load user-scoped leads, visits, invoices, and received disbursals.
   /// If the user has no stored data, clean pipeline starts completely from scratch (all 0).
-  /// Only default demo user ('usr_9014') loads initial sample mock leads if uninitialized.
   Future<void> _loadUserData(String userId) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final userLeadsKey = 'persisted_leads_$userId';
       final userVisitsKey = 'persisted_visits_$userId';
       final userInvoicesKey = 'persisted_invoices_$userId';
+      final userRecInvoicesKey = 'persisted_received_invoices_$userId';
 
       // 1. Leads
       if (prefs.containsKey(userLeadsKey)) {
@@ -182,11 +184,7 @@ class AppState extends ChangeNotifier {
           _leads = [];
         }
       } else {
-        if (userId == 'usr_9014') {
-          _leads = MockDataService.getInitialLeads();
-        } else {
-          _leads = [];
-        }
+        _leads = [];
       }
 
       // 2. Site Visits
@@ -199,11 +197,7 @@ class AppState extends ChangeNotifier {
           _siteVisits = [];
         }
       } else {
-        if (userId == 'usr_9014') {
-          _siteVisits = MockDataService.getInitialVisits();
-        } else {
-          _siteVisits = [];
-        }
+        _siteVisits = [];
       }
 
       // 3. Invoices
@@ -216,14 +210,25 @@ class AppState extends ChangeNotifier {
           _invoices = [];
         }
       } else {
-        if (userId == 'usr_9014') {
-          _invoices = MockDataService.getInitialInvoices();
-        } else {
-          _invoices = [];
-        }
+        _invoices = [];
       }
 
-      // 4. Notifications
+      // 4. Received Invoices (Builder Disbursal Payout Vouchers)
+      if (prefs.containsKey(userRecInvoicesKey)) {
+        final raw = prefs.getString(userRecInvoicesKey);
+        if (raw != null && raw.isNotEmpty) {
+          final decoded = jsonDecode(raw) as List<dynamic>;
+          _receivedInvoices = decoded
+              .map((item) => ReceivedInvoiceModel.fromJson(item as Map<String, dynamic>))
+              .toList();
+        } else {
+          _receivedInvoices = [];
+        }
+      } else {
+        _receivedInvoices = [];
+      }
+
+      // 5. Notifications
       final userNotifsKey = 'persisted_notifications_$userId';
       if (prefs.containsKey(userNotifsKey)) {
         final raw = prefs.getString(userNotifsKey);
@@ -236,14 +241,10 @@ class AppState extends ChangeNotifier {
           _notifications = [];
         }
       } else {
-        if (userId == 'usr_9014') {
-          _notifications = MockDataService.getNotifications();
-        } else {
-          _notifications = [];
-        }
+        _notifications = [];
       }
 
-      // 5. Last Synced Time
+      // 6. Last Synced Time
       final syncKey = 'last_synced_$userId';
       if (prefs.containsKey(syncKey)) {
         final syncRaw = prefs.getString(syncKey);
@@ -251,8 +252,104 @@ class AppState extends ChangeNotifier {
           _lastSyncedAt = DateTime.tryParse(syncRaw) ?? DateTime.now();
         }
       }
+
+      // Reconcile and purge any lingering mock anomalies
+      reconcileDataConsistency();
     } catch (_) {}
     notifyListeners();
+  }
+
+  /// Ensures complete data consistency across projects, leads, commission claims, and disbursal vouchers.
+  void reconcileDataConsistency() {
+    // 1. Purge legacy mock received invoices and invoices for non-existent projects
+    const legacyMockReceivedIds = {'rec_1', 'rec_2', 'rec_3', 'rec_4', 'rec_5'};
+    _receivedInvoices.removeWhere(
+      (r) => legacyMockReceivedIds.contains(r.id) ||
+             (_projects.isNotEmpty && !_projects.any((p) => p.id == r.projectId)),
+    );
+
+    // 2. Ensure leads map to registered projects
+    if (_projects.isNotEmpty) {
+      bool leadsChanged = false;
+      for (final l in _leads) {
+        final matchesProject = _projects.any((p) => p.id == l.projectId);
+        if (!matchesProject || l.projectId == 'proj_general' || l.projectName == 'General Inquiry') {
+          final targetProj = _projects.length == 1
+              ? _projects.first
+              : _projects.firstWhere(
+                  (p) => p.name.trim().toLowerCase() == l.projectName.trim().toLowerCase(),
+                  orElse: () => _projects.first,
+                );
+          l.projectId = targetProj.id;
+          l.projectName = targetProj.name;
+          leadsChanged = true;
+        }
+      }
+      if (leadsChanged) {
+        _persistLeads();
+      }
+
+      // 3. Ensure commission invoices map to registered projects
+      bool invoicesChanged = false;
+      for (final inv in _invoices) {
+        final matchesProject = _projects.any((p) => p.id == inv.projectId);
+        if (!matchesProject || inv.projectId == 'proj_general' || inv.projectName == 'General Inquiry') {
+          final targetProj = _projects.length == 1
+              ? _projects.first
+              : _projects.firstWhere(
+                  (p) => p.name.trim().toLowerCase() == inv.projectName.trim().toLowerCase(),
+                  orElse: () => _projects.first,
+                );
+          inv.projectId = targetProj.id;
+          inv.projectName = targetProj.name;
+          invoicesChanged = true;
+        }
+      }
+      if (invoicesChanged) {
+        _persistInvoices();
+      }
+    }
+
+    // 4. Ensure received invoices (disbursal vouchers) are strictly synchronized with paid invoices
+    for (final inv in _invoices) {
+      if (inv.status == InvoiceStatus.paid) {
+        if (!_receivedInvoices.any((r) => r.invoiceNumber == inv.invoiceNumber)) {
+          final gross = inv.amount;
+          final tds = gross * 0.05;
+          final net = gross - tds;
+          final cleanNo = inv.invoiceNumber.replaceAll('INV-', '');
+          _receivedInvoices.insert(0, ReceivedInvoiceModel(
+            id: 'rec_${inv.id}',
+            voucherNumber: 'DISB-$cleanNo',
+            invoiceNumber: inv.invoiceNumber,
+            leadId: inv.leadId,
+            clientName: inv.clientName,
+            projectId: inv.projectId,
+            projectName: inv.projectName,
+            unitNumber: inv.type == InvoiceType.siteVisit ? 'Site Visit' : 'Deal Brokerage',
+            type: inv.type == InvoiceType.siteVisit ? ReceivedInvoiceType.siteVisitPayout : ReceivedInvoiceType.bookingBrokerage,
+            grossAmount: gross,
+            tdsRate: 0.05,
+            tdsAmount: tds,
+            netAmount: net,
+            disbursedDate: inv.date,
+            status: ReceivedInvoiceStatus.credited,
+            bankName: inv.bankDetails.bankName,
+            bankAccountNumber: inv.bankDetails.accountNumber.length > 4
+                ? '•••• ${inv.bankDetails.accountNumber.substring(inv.bankDetails.accountNumber.length - 4)}'
+                : inv.bankDetails.accountNumber,
+            utrNumber: 'UTR-${inv.id.replaceAll(RegExp(r'[^0-9]'), '')}',
+            financialYear: 'FY ${inv.date.year}-${(inv.date.year + 1).toString().substring(2)}',
+            notes: 'Disbursed payout credited to verified destination bank.',
+          ));
+        }
+      } else {
+        // Pending, approved or rejected invoices should NOT appear as credited received vouchers
+        _receivedInvoices.removeWhere((r) => r.invoiceNumber == inv.invoiceNumber);
+      }
+    }
+
+    _persistReceivedInvoices();
   }
 
   /// Reset the currently active user's pipeline to a completely clean slate (all 0s).
@@ -261,10 +358,12 @@ class AppState extends ChangeNotifier {
     _siteVisits = [];
     _invoices = [];
     _notifications = [];
+    _projects = [];
     await _persistLeads();
     await _persistSiteVisits();
     await _persistInvoices();
     await _persistNotifications();
+    await _persistProjects();
     notifyListeners();
   }
 
@@ -274,31 +373,35 @@ class AppState extends ChangeNotifier {
     _siteVisits = MockDataService.getInitialVisits();
     _invoices = MockDataService.getInitialInvoices();
     _notifications = MockDataService.getNotifications();
+    _projects = MockDataService.getProjects();
     await _persistLeads();
     await _persistSiteVisits();
     await _persistInvoices();
     await _persistNotifications();
+    await _persistProjects();
     notifyListeners();
   }
 
   Future<void> _initData() async {
-    _projects = MockDataService.getProjects();
+    _projects = [];
     _spocs = MockDataService.getSpocs();
     _collaterals = MockDataService.getCollaterals();
     _notifications = MockDataService.getNotifications();
     _savedBankDetails = MockDataService.getInitialBankDetails();
     _cpDocuments = MockDataService.getInitialCpDocuments();
-    _receivedInvoices = MockDataService.getInitialReceivedInvoices();
+    _receivedInvoices = [];
 
-    // Check saved session in local device storage first
+    // Purge legacy demo accounts and check saved session in local device storage
     try {
+      await AuthStorageService.purgeLegacyDemoAccounts();
       _savedUsers = await AuthStorageService.getRegisteredUsers();
       final activeUser = await AuthStorageService.getActiveUser();
-      if (activeUser != null) {
+      if (activeUser != null && !AuthStorageService.isLegacyDemoId(activeUser.id)) {
         _currentUser = activeUser;
         _isAuthenticated = true;
       } else {
         // Fresh start: do not auto-authenticate, prompt Login Screen
+        await AuthStorageService.clearActiveSession();
         _currentUser = null;
         _isAuthenticated = false;
       }
@@ -307,7 +410,32 @@ class AppState extends ChangeNotifier {
       _isAuthenticated = false;
     }
 
-    // Load active user's pipeline data (scoped by user ID)
+    // 1. Load persisted projects first (so leads & invoices can map accurately)
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final projectsRaw = prefs.getString('persisted_projects');
+      if (projectsRaw != null && projectsRaw.isNotEmpty) {
+        final decoded = jsonDecode(projectsRaw) as List<dynamic>;
+        final stored = decoded.map((item) => ProjectModel.fromJson(item as Map<String, dynamic>)).toList();
+        const legacyMockProjectIds = {
+          'proj_avatar',
+          'proj_prestige',
+          'proj_rajapushpa',
+          'proj_aparna',
+          'proj_brigade',
+          'proj_godrej',
+          'proj_lodha',
+        };
+        _projects = stored.where((p) => !legacyMockProjectIds.contains(p.id)).toList();
+        await _persistProjects();
+      } else {
+        _projects = [];
+      }
+    } catch (_) {
+      _projects = [];
+    }
+
+    // 2. Load active user's pipeline data (scoped by user ID)
     if (_currentUser != null) {
       await _loadUserData(_currentUser!.id);
     } else {
@@ -317,24 +445,7 @@ class AppState extends ChangeNotifier {
       _invoices = MockDataService.getInitialInvoices();
     }
 
-    // Load persisted projects if available
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final projectsRaw = prefs.getString('persisted_projects');
-      if (projectsRaw != null && projectsRaw.isNotEmpty) {
-        final decoded = jsonDecode(projectsRaw) as List<dynamic>;
-        final stored = decoded.map((item) => ProjectModel.fromJson(item as Map<String, dynamic>)).toList();
-        if (stored.isNotEmpty) {
-          for (final proj in stored) {
-            if (!_projects.any((p) => p.id == proj.id)) {
-              _projects.insert(0, proj);
-            }
-          }
-        }
-      }
-    } catch (_) {}
-
-    // Load saved bank details and documents from persistent storage
+    // 3. Load saved bank details and documents from persistent storage
     try {
       final prefs = await SharedPreferences.getInstance();
       final bankRaw = prefs.getString('saved_bank_details');
@@ -377,15 +488,12 @@ class AppState extends ChangeNotifier {
         }
       }
 
-      final recRaw = prefs.getString('persisted_received_invoices');
-      if (recRaw != null && recRaw.isNotEmpty) {
-        final decoded = jsonDecode(recRaw) as List<dynamic>;
-        final stored = decoded.map((item) => ReceivedInvoiceModel.fromJson(item as Map<String, dynamic>)).toList();
-        if (stored.isNotEmpty) {
-          _receivedInvoices = stored;
-        }
-      }
+      // Purge any legacy global mock received invoices key
+      await prefs.remove('persisted_received_invoices');
     } catch (_) {}
+
+    // Ensure total data consistency across projects, leads, claims and vouchers
+    reconcileDataConsistency();
 
     // Load saved theme preference
     try {
@@ -520,7 +628,12 @@ class AppState extends ChangeNotifier {
     _currentUser = saved;
     _isAuthenticated = true;
     _savedUsers = await AuthStorageService.getRegisteredUsers();
-    await _licenseService.verifyLicense(phone: saved.phone);
+    await _licenseService.registerPartnerOnSheet(
+      phone: saved.phone,
+      name: saved.name,
+      plan: '7-Day Free Trial',
+      trialDays: 7,
+    );
 
     // New registered account starts completely clean from scratch
     _leads = [];
@@ -739,6 +852,17 @@ class AppState extends ChangeNotifier {
     final randomSalt = Random().nextInt(999999);
     final uniqueLeadId = 'lead_${now.microsecondsSinceEpoch}_$randomSalt';
 
+    // Auto-resolve project to active registered project if unspecified or general
+    String resolvedProjectId = projectId;
+    String resolvedProjectName = projectName;
+    if (_projects.isNotEmpty) {
+      final exists = _projects.any((p) => p.id == resolvedProjectId);
+      if (!exists || resolvedProjectId == 'proj_general') {
+        resolvedProjectId = _projects.first.id;
+        resolvedProjectName = _projects.first.name;
+      }
+    }
+
     final newLead = LeadModel(
       id: uniqueLeadId,
       firstName: firstName,
@@ -748,8 +872,8 @@ class AppState extends ChangeNotifier {
       email: email,
       budget: budget,
       configurations: configurations,
-      projectId: projectId,
-      projectName: projectName,
+      projectId: resolvedProjectId,
+      projectName: resolvedProjectName,
       timeline: timeline,
       notes: notes,
       stage: LeadStage.cold,
@@ -903,8 +1027,9 @@ class AppState extends ChangeNotifier {
     );
 
     _persistNotifications();
-    notifyListeners();
     _persistProjects();
+    reconcileDataConsistency();
+    notifyListeners();
   }
 
   // Update an Existing Project
@@ -1202,18 +1327,18 @@ class AppState extends ChangeNotifier {
     required bool cabRequired,
     required bool accompanying,
   }) {
-    final lead = _leads.firstWhere((l) => l.id == leadId, orElse: () => _leads.first);
-    final project = _projects.firstWhere((p) => p.id == projectId, orElse: () => _projects.first);
+    final lead = _leads.where((l) => l.id == leadId).firstOrNull ?? (_leads.isNotEmpty ? _leads.first : null);
+    final project = _projects.where((p) => p.id == projectId).firstOrNull ?? (_projects.isNotEmpty ? _projects.first : null);
     final visitCode = 'VIS-${(1000 + _siteVisits.length + 1)}';
 
     final visit = SiteVisitModel(
       id: 'vis_${DateTime.now().microsecondsSinceEpoch}',
       visitCode: visitCode,
       leadId: leadId,
-      clientName: lead.fullName,
-      clientPhone: lead.phone,
+      clientName: lead?.fullName ?? 'Client',
+      clientPhone: lead?.phone ?? '',
       projectId: projectId,
-      projectName: project.name,
+      projectName: project?.name ?? 'General Project',
       scheduledAt: scheduledAt,
       cabRequired: cabRequired,
       accompanying: accompanying,
@@ -1222,32 +1347,37 @@ class AppState extends ChangeNotifier {
 
     _siteVisits.insert(0, visit);
 
-    // Update lead temperature
-    lead.temperature = LeadModel.getTemperatureForStage(lead.stage);
+    // Update lead temperature and activity if lead exists
+    if (lead != null) {
+      lead.temperature = LeadModel.getTemperatureForStage(lead.stage);
 
-    // Add visit history log and activity (Zero-OTP)
-    final dateStr = '${scheduledAt.year}-${scheduledAt.month.toString().padLeft(2, '0')}-${scheduledAt.day.toString().padLeft(2, '0')}';
-    final timeStr = '${scheduledAt.hour.toString().padLeft(2, '0')}:${scheduledAt.minute.toString().padLeft(2, '0')}';
-    lead.siteVisitHistory.insert(
-      0,
-      'Scheduled site visit for $dateStr at $timeStr.',
-    );
+      // Add visit history log and activity (Zero-OTP)
+      final dateStr = '${scheduledAt.year}-${scheduledAt.month.toString().padLeft(2, '0')}-${scheduledAt.day.toString().padLeft(2, '0')}';
+      final timeStr = '${scheduledAt.hour.toString().padLeft(2, '0')}:${scheduledAt.minute.toString().padLeft(2, '0')}';
+      lead.siteVisitHistory.insert(
+        0,
+        'Scheduled site visit for $dateStr at $timeStr.',
+      );
 
-    lead.activityList.insert(
-      0,
-      LeadActivityItem(
-        id: 'act_${DateTime.now().microsecondsSinceEpoch}',
-        title: 'site visit status updated to SCHEDULED',
-        timestamp: DateTime.now(),
-      ),
-    );
+      lead.activityList.insert(
+        0,
+        LeadActivityItem(
+          id: 'act_${DateTime.now().microsecondsSinceEpoch}',
+          title: 'site visit status updated to SCHEDULED',
+          timestamp: DateTime.now(),
+        ),
+      );
+    }
+
+    final targetLeadName = lead?.fullName ?? 'Client';
+    final targetProjectName = project?.name ?? 'Project';
 
     _notifications.insert(
       0,
       AppNotificationModel(
         id: 'notif_${DateTime.now().microsecondsSinceEpoch}',
         title: 'Visit Scheduled: $visitCode',
-        message: 'Digital entry pass generated for ${lead.fullName} at ${project.name}.',
+        message: 'Digital entry pass generated for $targetLeadName at $targetProjectName.',
         type: 'visit',
         timestamp: DateTime.now(),
         targetRoute: '/visits',
@@ -1312,7 +1442,8 @@ class AppState extends ChangeNotifier {
     required String leadId,
     required String notes,
   }) {
-    final project = _projects.firstWhere((p) => p.id == projectId);
+    final project = _projects.where((p) => p.id == projectId).firstOrNull;
+    if (project == null) return false;
     final unitIndex = project.units.indexWhere((u) => u.unitNo == unitNo);
 
     if (unitIndex != -1 && project.units[unitIndex].status == UnitStatus.available) {
@@ -1566,14 +1697,24 @@ class AppState extends ChangeNotifier {
     final now = DateTime.now();
     final invoiceNumber = 'INV-${now.year}-${(1000 + _invoices.length + 1)}';
 
+    String targetProjectId = lead.projectId;
+    String targetProjectName = lead.projectName;
+    if (_projects.isNotEmpty) {
+      final exists = _projects.any((p) => p.id == targetProjectId);
+      if (!exists || targetProjectId == 'proj_general') {
+        targetProjectId = _projects.first.id;
+        targetProjectName = _projects.first.name;
+      }
+    }
+
     final invoice = CommissionInvoiceModel(
       id: 'inv_${now.millisecondsSinceEpoch}',
       invoiceNumber: invoiceNumber,
       leadId: lead.id,
       clientName: lead.fullName,
       clientPhone: lead.phone,
-      projectId: lead.projectId,
-      projectName: lead.projectName,
+      projectId: targetProjectId,
+      projectName: targetProjectName,
       type: type,
       amount: amount,
       date: now,
@@ -1606,16 +1747,17 @@ class AppState extends ChangeNotifier {
       AppNotificationModel(
         id: 'notif_${now.millisecondsSinceEpoch}',
         title: '$typeName Claim Submitted! 🧾',
-        message: 'Invoice $invoiceNumber for $formattedAmt submitted for ${lead.fullName} (${lead.projectName}). Sent for builder audit.',
+        message: 'Invoice $invoiceNumber for $formattedAmt submitted for ${lead.fullName} ($targetProjectName). Sent for builder audit.',
         type: 'broadcast',
         timestamp: now,
       ),
     );
 
-    notifyListeners();
     _persistInvoices();
     _persistBankDetails();
     _persistNotifications();
+    reconcileDataConsistency();
+    notifyListeners();
     return invoice;
   }
 
@@ -1691,6 +1833,7 @@ class AppState extends ChangeNotifier {
       _persistInvoices();
       _persistLeads();
       _persistNotifications();
+      reconcileDataConsistency();
       notifyListeners();
     }
   }
@@ -1736,9 +1879,10 @@ class AppState extends ChangeNotifier {
         ),
       );
 
-      notifyListeners();
       _persistInvoices();
       _persistNotifications();
+      reconcileDataConsistency();
+      notifyListeners();
     }
   }
 
@@ -1914,7 +2058,7 @@ class AppState extends ChangeNotifier {
     try {
       final prefs = await SharedPreferences.getInstance();
       final jsonList = _receivedInvoices.map((inv) => inv.toJson()).toList();
-      await prefs.setString('persisted_received_invoices', jsonEncode(jsonList));
+      await prefs.setString(_receivedInvoicesStorageKey, jsonEncode(jsonList));
     } catch (_) {}
   }
 

@@ -183,22 +183,6 @@ class _DocsScreenState extends State<DocsScreen> with SingleTickerProviderStateM
                         letterSpacing: -0.4,
                       ),
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF2563EB).withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xFF2563EB).withValues(alpha: 0.25)),
-                      ),
-                      child: Text(
-                        'Channel Partner',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          color: isDark ? const Color(0xFF60A5FA) : const Color(0xFF2563EB),
-                        ),
-                      ),
-                    ),
                   ],
                 ),
                 const SizedBox(height: 3),
@@ -841,8 +825,12 @@ class _DocsScreenState extends State<DocsScreen> with SingleTickerProviderStateM
             _buildEmptyState(
               isDark,
               icon: Icons.receipt_long_outlined,
-              title: 'No Received Invoices Found',
-              subtitle: 'No payout receipts match your current filter settings',
+              title: widget.state.receivedInvoices.isEmpty
+                  ? 'No Received Invoices Yet'
+                  : 'No Matching Invoices Found',
+              subtitle: widget.state.receivedInvoices.isEmpty
+                  ? 'Builder payout vouchers and credit advice will appear here once your submitted commission invoices are settled and credited.'
+                  : 'No payout receipts match your current filter settings.',
             )
           else
             ...invoices.map((inv) => _buildReceivedInvoiceCard(inv, isDark)),

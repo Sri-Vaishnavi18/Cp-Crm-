@@ -342,11 +342,17 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
                               setState(() {});
 
                               if (stage == LeadStage.siteVisited) {
+                                ScaffoldMessenger.of(context).clearSnackBars();
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
+                                    behavior: SnackBarBehavior.floating,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                    showCloseIcon: true,
+                                    closeIconColor: Colors.white,
+                                    dismissDirection: DismissDirection.horizontal,
                                     content: const Text('Status updated to Site Visited! You can now upload the Site Visit invoice.'),
                                     backgroundColor: const Color(0xFF0284C7),
-                                    duration: const Duration(seconds: 6),
+                                    duration: const Duration(seconds: 4),
                                     action: SnackBarAction(
                                       label: 'Upload Invoice',
                                       textColor: Colors.white,
@@ -357,11 +363,17 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
                                   ),
                                 );
                               } else if (stage == LeadStage.booked) {
+                                ScaffoldMessenger.of(context).clearSnackBars();
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
+                                    behavior: SnackBarBehavior.floating,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                    showCloseIcon: true,
+                                    closeIconColor: Colors.white,
+                                    dismissDirection: DismissDirection.horizontal,
                                     content: const Text('Status updated to Booked! You can now upload the Booked invoice.'),
                                     backgroundColor: const Color(0xFF16A34A),
-                                    duration: const Duration(seconds: 6),
+                                    duration: const Duration(seconds: 4),
                                     action: SnackBarAction(
                                       label: 'Upload Invoice',
                                       textColor: Colors.white,
@@ -610,7 +622,10 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
               child: Row(
                 children: [
                   InkWell(
-                    onTap: () => Navigator.of(context).pop(),
+                    onTap: () {
+                      ScaffoldMessenger.of(context).clearSnackBars();
+                      Navigator.of(context).pop();
+                    },
                     borderRadius: BorderRadius.circular(8),
                     child: Padding(
                       padding: const EdgeInsets.all(4.0),
@@ -652,8 +667,15 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
 
             // Scrollable Content
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              child: NotificationListener<ScrollNotification>(
+                onNotification: (notification) {
+                  if (notification is ScrollStartNotification) {
+                    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                  }
+                  return false;
+                },
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -664,6 +686,9 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
                     // 2. QUICK ACTION BUTTONS GRID (Screenshot 1)
                     _buildActionButtonsGrid(lead, isDark),
                     const SizedBox(height: 16),
+
+                    // 2.5 DYNAMIC PENDING INVOICE BANNER
+                    _buildPendingInvoiceBanner(lead, isDark),
 
                     // 3. UNIFIED LEAD DETAILS CONTENT
                     _buildLeadInformationCard(lead, isDark),
@@ -686,11 +711,12 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   // 1. HERO PROFILE CARD
   Widget _buildHeroCard(LeadModel lead, bool isDark, Color tempColor) {
@@ -786,12 +812,15 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
                         children: [
                           Row(
                             children: [
-                              Text(
-                                lead.fullName.isNotEmpty ? lead.fullName : 'Lead',
-                                style: TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.w800,
-                                  color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                              Expanded(
+                                child: Text(
+                                  lead.fullName.isNotEmpty ? lead.fullName : 'Lead',
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w800,
+                                    color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                                  ),
                                 ),
                               ),
                             ],
@@ -868,23 +897,6 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
                         ],
                       ),
                     ),
-
-                    // Role Pill (e.g. Channel Partner)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF382B55),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Text(
-                        'Channel Partner',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFFC7D2FE),
-                        ),
-                      ),
-                    ),
                   ],
                 ),
               ],
@@ -916,10 +928,50 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
                 label: 'WhatsApp',
                 color: const Color(0xFF10B981),
                 isDark: isDark,
-                onTap: () {
-                  final msg =
-                      'Hello ${lead.firstName}, this is ${widget.state.currentUser?.name ?? "your representative"} from ${widget.state.currentUser?.firmName ?? "our firm"}. Sharing project details for ${lead.projectName}.';
-                  UrlActionService.openWhatsApp(context, phoneNumber: lead.phone, message: msg);
+                onTap: () async {
+                  // Find project matching lead.projectName or lead.projectInterest
+                  final project = widget.state.projects.cast<ProjectModel?>().firstWhere(
+                    (p) => p != null && (p.name.toLowerCase() == lead.projectName.toLowerCase() || p.id == lead.projectName),
+                    orElse: () => widget.state.projects.isNotEmpty ? widget.state.projects.first : null,
+                  );
+
+                  final brochureName = project?.brochureFileName ?? '${lead.projectName.replaceAll(' ', '_')}_Brochure.pdf';
+                  final brochureSize = project?.brochureFileSize ?? '3.4 MB';
+
+                  final msg = StringBuffer('Hello ${lead.firstName},\n\n');
+                  msg.writeln('This is ${widget.state.currentUser?.name ?? "your relationship manager"} from ${widget.state.currentUser?.firmName ?? "our firm"}.');
+                  msg.writeln('Sharing official project details & brochure for *${lead.projectName}*:\n');
+                  if (project != null) {
+                    msg.writeln('📍 Location: ${project.location}');
+                    msg.writeln('💰 Starting at: *${project.startingPrice}*');
+                    msg.writeln('🏢 Type: ${project.type} • Possession: ${project.possessionDate}');
+                    msg.writeln('📋 RERA Reg: ${project.reraNumber}');
+                  }
+                  msg.writeln('📄 Attached Brochure: $brochureName ($brochureSize)\n');
+                  msg.writeln('Feel free to reply here if you would like to schedule a site visit or reserve a preferred inventory unit.');
+                  msg.writeln('\nWarm regards,');
+                  msg.writeln(widget.state.currentUser?.name ?? "Channel Partner");
+                  if ((widget.state.currentUser?.phone ?? '').isNotEmpty) {
+                    msg.writeln('📞 ${widget.state.currentUser!.phone}');
+                  }
+
+                  // Record in lead activity list
+                  final now = DateTime.now();
+                  lead.activityList.insert(
+                    0,
+                    LeadActivityItem(
+                      id: 'act_${now.millisecondsSinceEpoch}',
+                      title: 'Sent brochure ($brochureName) for ${lead.projectName} via WhatsApp',
+                      timestamp: now,
+                    ),
+                  );
+                  if (mounted) setState(() {});
+
+                  await UrlActionService.openWhatsApp(
+                    context,
+                    phoneNumber: lead.phone,
+                    message: msg.toString(),
+                  );
                 },
               ),
             ),
@@ -937,7 +989,7 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
         ),
         const SizedBox(height: 10),
 
-        // Row 2: Email
+        // Row 2: Email & Upload Invoice Action
         Row(
           children: [
             Expanded(
@@ -963,10 +1015,188 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
               ),
             ),
             const SizedBox(width: 10),
-            const Spacer(flex: 2),
+            Expanded(
+              flex: 2,
+              child: _buildUploadInvoiceActionButton(lead, isDark),
+            ),
           ],
         ),
       ],
+    );
+  }
+
+  Widget _buildUploadInvoiceActionButton(LeadModel lead, bool isDark) {
+    final invoices = widget.state.getInvoicesForLead(lead.id);
+    final isType1Eligible = lead.stage == LeadStage.siteVisited || lead.stage == LeadStage.booked;
+    final isType2Eligible = lead.stage == LeadStage.booked;
+    final isEligible = isType1Eligible || isType2Eligible;
+
+    final hasSiteVisitInvoice = invoices.any((inv) => inv.type == InvoiceType.siteVisit);
+    final hasBookingInvoice = invoices.any((inv) => inv.type == InvoiceType.booking);
+
+    final Color color;
+    final String label;
+    final InvoiceType targetType;
+
+    if (isType2Eligible) {
+      color = const Color(0xFF10B981);
+      targetType = !hasBookingInvoice ? InvoiceType.booking : (!hasSiteVisitInvoice ? InvoiceType.siteVisit : InvoiceType.booking);
+      label = hasBookingInvoice ? 'Upload Invoice (+)' : 'Upload Booking Invoice';
+    } else if (isType1Eligible) {
+      color = const Color(0xFF0284C7);
+      targetType = InvoiceType.siteVisit;
+      label = hasSiteVisitInvoice ? 'Upload Invoice (+)' : 'Upload Visit Invoice';
+    } else {
+      color = isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted;
+      targetType = InvoiceType.siteVisit;
+      label = 'Upload Invoice';
+    }
+
+    return InkWell(
+      onTap: () {
+        if (isEligible) {
+          _showGenerateInvoiceModal(context, lead, targetType);
+        } else {
+          ScaffoldMessenger.of(context).clearSnackBars();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              behavior: SnackBarBehavior.floating,
+              showCloseIcon: true,
+              content: Text('Change status to "Site Visited" or "Booked" to unlock invoice upload.'),
+              backgroundColor: Color(0xFFF59E0B),
+            ),
+          );
+        }
+      },
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
+        decoration: BoxDecoration(
+          color: isEligible
+              ? color.withValues(alpha: 0.12)
+              : (isDark ? const Color(0xFF151C28) : AppColors.lightSurface),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isEligible
+                ? color.withValues(alpha: 0.45)
+                : (isDark ? const Color(0xFF222F43) : AppColors.lightBorder),
+            width: isEligible ? 1.5 : 1,
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              isEligible ? Icons.receipt_long_rounded : Icons.lock_outline_rounded,
+              color: color,
+              size: 18,
+            ),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                label,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                  color: isEligible ? (isDark ? Colors.white : AppColors.lightTextPrimary) : color,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPendingInvoiceBanner(LeadModel lead, bool isDark) {
+    final invoices = widget.state.getInvoicesForLead(lead.id);
+    final hasSiteVisitInvoice = invoices.any((inv) => inv.type == InvoiceType.siteVisit);
+    final hasBookingInvoice = invoices.any((inv) => inv.type == InvoiceType.booking);
+
+    final isSiteVisited = lead.stage == LeadStage.siteVisited;
+    final isBooked = lead.stage == LeadStage.booked;
+
+    if (isSiteVisited && hasSiteVisitInvoice) return const SizedBox.shrink();
+    if (isBooked && hasBookingInvoice && hasSiteVisitInvoice) return const SizedBox.shrink();
+    if (!isSiteVisited && !isBooked) return const SizedBox.shrink();
+
+    final isBookingPending = isBooked && !hasBookingInvoice;
+    final accentColor = isBookingPending ? const Color(0xFF10B981) : const Color(0xFF0284C7);
+    final title = isBookingPending ? 'Booking Commission Unlocked!' : 'Site Visit Payout Unlocked!';
+    final subtitle = isBookingPending
+        ? 'Claim your deal closure brokerage / success fee'
+        : 'Claim your ₹3,000 travel & client escort payout';
+    final targetType = isBookingPending ? InvoiceType.booking : InvoiceType.siteVisit;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: accentColor.withValues(alpha: isDark ? 0.15 : 0.08),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: accentColor.withValues(alpha: 0.45),
+            width: 1.2,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: accentColor.withValues(alpha: 0.2),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.receipt_long_rounded,
+                color: accentColor,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      color: isDark ? Colors.white : AppColors.lightTextPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            ElevatedButton.icon(
+              onPressed: () => _showGenerateInvoiceModal(context, lead, targetType),
+              icon: const Icon(Icons.upload_file_rounded, size: 14),
+              label: const Text('Upload'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: accentColor,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                visualDensity: VisualDensity.compact,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
+                elevation: 0,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -1254,12 +1484,16 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
                     children: [
                       const Icon(Icons.access_time_rounded, color: Color(0xFFF59E0B), size: 12),
                       const SizedBox(width: 4),
-                      Text(
-                        siteVisitText,
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFFF59E0B),
+                      Flexible(
+                        child: Text(
+                          siteVisitText,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFFF59E0B),
+                          ),
                         ),
                       ),
                     ],
@@ -1400,6 +1634,83 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
                   ),
                 ],
               ),
+            ),
+          ),
+
+          // When status is Site Visited or Booked, show dedicated Upload Invoice action tile right here!
+          if (lead.stage == LeadStage.siteVisited || lead.stage == LeadStage.booked) ...[
+            const SizedBox(height: 12),
+            _buildUpdateStatusUploadInvoiceTile(lead, isDark),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildUpdateStatusUploadInvoiceTile(LeadModel lead, bool isDark) {
+    final invoices = widget.state.getInvoicesForLead(lead.id);
+    final isBooked = lead.stage == LeadStage.booked;
+    final hasInvoice = invoices.any((inv) => inv.type == (isBooked ? InvoiceType.booking : InvoiceType.siteVisit));
+    final accentColor = isBooked ? const Color(0xFF10B981) : const Color(0xFF0284C7);
+    final targetType = isBooked ? InvoiceType.booking : InvoiceType.siteVisit;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: accentColor.withValues(alpha: isDark ? 0.12 : 0.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: accentColor.withValues(alpha: 0.35),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            isBooked ? Icons.real_estate_agent_rounded : Icons.tour_rounded,
+            color: accentColor,
+            size: 20,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  isBooked ? 'Booking Commission Invoice' : 'Site Visit Invoice (₹3,000)',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w800,
+                    color: isDark ? Colors.white : AppColors.lightTextPrimary,
+                  ),
+                ),
+                Text(
+                  hasInvoice
+                      ? 'Invoice already submitted • Tap to add another'
+                      : (isBooked ? 'Claim deal closure brokerage' : 'Claim travel & escort payout'),
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          ElevatedButton.icon(
+            onPressed: () {
+              _showGenerateInvoiceModal(context, lead, targetType);
+            },
+            icon: const Icon(Icons.upload_file_rounded, size: 14),
+            label: Text(hasInvoice ? '+ Add Another' : 'Upload Invoice'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: accentColor,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              visualDensity: VisualDensity.compact,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
+              elevation: 0,
             ),
           ),
         ],
@@ -1549,48 +1860,54 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Container(
-                    width: 32,
-                    height: 32,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF2563EB).withValues(alpha: 0.15),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Center(
-                      child: Icon(Icons.location_on_rounded, color: Color(0xFF2563EB), size: 18),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Text(
-                    'Site Visit History',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                      color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
-                    ),
-                  ),
-                  if (totalCount > 0) ...[
-                    const SizedBox(width: 8),
+              Expanded(
+                child: Row(
+                  children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                      width: 32,
+                      height: 32,
                       decoration: BoxDecoration(
                         color: const Color(0xFF2563EB).withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(10),
+                        shape: BoxShape.circle,
                       ),
+                      child: const Center(
+                        child: Icon(Icons.location_on_rounded, color: Color(0xFF2563EB), size: 18),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Flexible(
                       child: Text(
-                        '$totalCount',
-                        style: const TextStyle(
-                          fontSize: 11,
+                        'Site Visit History',
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 16,
                           fontWeight: FontWeight.w800,
-                          color: Color(0xFF2563EB),
+                          color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
                         ),
                       ),
                     ),
+                    if (totalCount > 0) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF2563EB).withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          '$totalCount',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF2563EB),
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
+              const SizedBox(width: 8),
               InkWell(
                 onTap: () => _openScheduleVisit(lead),
                 borderRadius: BorderRadius.circular(10),
@@ -2046,29 +2363,34 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Container(
-                    width: 32,
-                    height: 32,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF10B981).withValues(alpha: 0.15),
-                      shape: BoxShape.circle,
+              Expanded(
+                child: Row(
+                  children: [
+                    Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Center(
+                        child: Icon(Icons.receipt_long_rounded, color: Color(0xFF10B981), size: 18),
+                      ),
                     ),
-                    child: const Center(
-                      child: Icon(Icons.receipt_long_rounded, color: Color(0xFF10B981), size: 18),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Invoices & Commission Claims',
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                        ),
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  Text(
-                    'Invoices & Commission Claims',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                      color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
               if (invoices.isNotEmpty)
                 Container(
@@ -2334,12 +2656,15 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
                 children: [
                   Row(
                     children: [
-                      Text(
-                        inv.invoiceNumber,
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w800,
-                          color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                      Flexible(
+                        child: Text(
+                          inv.invoiceNumber,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w800,
+                            color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 6),

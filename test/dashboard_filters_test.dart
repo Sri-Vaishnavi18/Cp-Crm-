@@ -232,6 +232,7 @@ void main() {
       await tester.runAsync(() async {
         state = AppState();
         await Future.delayed(const Duration(milliseconds: 100));
+        await state.loadSampleDemoData();
       });
 
       await tester.pumpWidget(
@@ -345,6 +346,7 @@ void main() {
       await tester.runAsync(() async {
         state = AppState();
         await Future.delayed(const Duration(milliseconds: 100));
+        await state.loadSampleDemoData();
       });
 
       await tester.pumpWidget(

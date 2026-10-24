@@ -124,10 +124,9 @@ class _AddLeadModalSheetState extends State<AddLeadModalSheet> {
       return;
     }
 
-    final project = widget.state.projects.firstWhere(
-      (p) => p.id == _selectedProjectId,
-      orElse: () => widget.state.projects.first,
-    );
+    final project = widget.state.projects.where((p) => p.id == _selectedProjectId).firstOrNull;
+    final projId = project?.id ?? 'proj_general';
+    final projName = project?.name ?? 'General Inquiry';
 
     widget.state.addLead(
       firstName: _firstNameController.text.trim(),
@@ -137,8 +136,8 @@ class _AddLeadModalSheetState extends State<AddLeadModalSheet> {
       email: _emailController.text.trim().isEmpty ? null : _emailController.text.trim(),
       budget: _selectedBudget,
       configurations: _selectedConfigs.isEmpty ? ['2 BHK'] : _selectedConfigs,
-      projectId: project.id,
-      projectName: project.name,
+      projectId: projId,
+      projectName: projName,
       timeline: _selectedTimeline,
       notes: _notesController.text.trim(),
       temperature: _selectedTemperature,
@@ -375,7 +374,7 @@ class _AddLeadModalSheetState extends State<AddLeadModalSheet> {
                     const SizedBox(height: 6),
                     if (widget.state.projects.isNotEmpty)
                       DropdownButtonFormField<String>(
-                        initialValue: _selectedProjectId,
+                        initialValue: widget.state.projects.any((p) => p.id == _selectedProjectId) ? _selectedProjectId : null,
                         decoration: const InputDecoration(
                           prefixIcon: Icon(Icons.apartment_outlined, size: 18),
                           contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -392,6 +391,30 @@ class _AddLeadModalSheetState extends State<AddLeadModalSheet> {
                         onChanged: (val) {
                           if (val != null) setState(() => _selectedProjectId = val);
                         },
+                      )
+                    else
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: isDark ? AppColors.darkSurface : const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: isDark ? AppColors.darkBorder : Colors.black12),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.info_outline, size: 16, color: Color(0xFF64748B)),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'No projects added yet. Will register as General Lead.',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: isDark ? AppColors.darkTextSecondary : const Color(0xFF64748B),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     const SizedBox(height: 16),
 

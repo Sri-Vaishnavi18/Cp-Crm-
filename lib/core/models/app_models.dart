@@ -501,6 +501,44 @@ class ProjectModel {
     this.brochureUpdatedAt,
   });
 
+  ProjectModel copyWith({
+    String? id,
+    String? name,
+    String? location,
+    String? startingPrice,
+    String? reraNumber,
+    String? possessionDate,
+    String? type,
+    String? heroImageUrl,
+    List<String>? galleryImages,
+    List<String>? amenities,
+    List<String>? approvedBanks,
+    String? distanceDetails,
+    List<String>? towers,
+    List<UnitModel>? units,
+    String? brochureFileName,
+    String? brochureFileSize,
+    DateTime? brochureUpdatedAt,
+  }) => ProjectModel(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    location: location ?? this.location,
+    startingPrice: startingPrice ?? this.startingPrice,
+    reraNumber: reraNumber ?? this.reraNumber,
+    possessionDate: possessionDate ?? this.possessionDate,
+    type: type ?? this.type,
+    heroImageUrl: heroImageUrl ?? this.heroImageUrl,
+    galleryImages: galleryImages ?? this.galleryImages,
+    amenities: amenities ?? this.amenities,
+    approvedBanks: approvedBanks ?? this.approvedBanks,
+    distanceDetails: distanceDetails ?? this.distanceDetails,
+    towers: towers ?? this.towers,
+    units: units ?? this.units,
+    brochureFileName: brochureFileName ?? this.brochureFileName,
+    brochureFileSize: brochureFileSize ?? this.brochureFileSize,
+    brochureUpdatedAt: brochureUpdatedAt ?? this.brochureUpdatedAt,
+  );
+
   Map<String, dynamic> toJson() => {
     'id': id,
     'name': name,
@@ -783,8 +821,8 @@ class CommissionInvoiceModel {
   final String leadId;
   final String clientName;
   final String clientPhone;
-  final String projectId;
-  final String projectName;
+  String projectId;
+  String projectName;
   final InvoiceType type;
   final double amount;
   final DateTime date;

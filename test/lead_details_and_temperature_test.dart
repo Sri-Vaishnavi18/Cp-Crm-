@@ -1,7 +1,9 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cp_crm/core/models/app_models.dart';
 import 'package:cp_crm/core/state/app_state.dart';
+import 'package:cp_crm/features/leads/lead_detail_screen.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -112,4 +114,46 @@ void main() {
       expect(lead.temperature, LeadTemperature.warm);
     });
   });
+
+  group('Lead Detail Persistent Invoice Upload Button Tests', () {
+    testWidgets('LeadDetailScreen shows upload button and pending banner for Site Visited lead', (tester) async {
+      tester.view.physicalSize = const Size(1080, 2400);
+      tester.view.devicePixelRatio = 2.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      final state = AppState();
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+
+      final lead = state.allLeads.firstWhere((l) => state.getInvoicesForLead(l.id).isEmpty);
+      state.updateLeadStage(lead.id, LeadStage.siteVisited);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: LeadDetailScreen(
+            state: state,
+            leadId: lead.id,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // 1. Quick actions row has Upload Visit Invoice button
+      expect(find.text('Upload Visit Invoice'), findsOneWidget);
+
+      // 2. Pending banner appears right after quick actions
+      expect(find.text('Site Visit Payout Unlocked!'), findsOneWidget);
+
+      // 3. Scroll down to Update Status card to check upload tile
+      final updateStatusTile = find.text('Site Visit Invoice (₹3,000)');
+      await tester.ensureVisible(updateStatusTile);
+      await tester.pumpAndSettle();
+
+      expect(updateStatusTile, findsOneWidget);
+    });
+  });
 }
+

@@ -42,9 +42,10 @@ class LicenseService {
 
   // Default demo / fallback Google Apps Script Web App URL
   // Can be configured by the admin anytime via settings or code
-  static const String defaultSheetUrl = '';
-  static const String defaultAdminPhone = '+919014547044';
-  static const String defaultAdminWhatsApp = '919014547044';
+  static const String defaultSheetUrl =
+      'https://script.google.com/macros/s/AKfycbwkzzhYIFaT4S8S3tYViEyIr6v9YFgJvII26dhdU7PYdPAK6v1JdmH56brJB5sRiCkKuw/exec';
+  static const String defaultAdminPhone = '';
+  static const String defaultAdminWhatsApp = '';
 
   /// Maximum offline grace period before requiring a compulsory internet check (8 hours = ~3 times/day)
   static const Duration maxOfflineGrace = Duration(hours: 8);
@@ -65,7 +66,10 @@ class LicenseService {
   DateTime? get validUntil => _validUntil;
   String get plan => _plan;
   DateTime? get lastVerifiedAt => _lastVerifiedAt;
-  String get sheetUrl => _sheetUrl;
+  String get sheetUrl =>
+      (_sheetUrl.trim().isNotEmpty && _sheetUrl.trim().startsWith('http'))
+          ? _sheetUrl.trim()
+          : defaultSheetUrl;
   String get adminPhone => _adminPhone;
   String get adminWhatsApp => _adminWhatsApp;
   bool get isChecking => _isChecking;
@@ -74,7 +78,13 @@ class LicenseService {
   Future<void> init() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      _sheetUrl = prefs.getString(_keySheetUrl) ?? defaultSheetUrl;
+      final storedUrl = prefs.getString(_keySheetUrl);
+      if (storedUrl != null && storedUrl.trim().isNotEmpty && storedUrl.trim().startsWith('http')) {
+        _sheetUrl = storedUrl.trim();
+      } else {
+        _sheetUrl = defaultSheetUrl;
+        await prefs.setString(_keySheetUrl, defaultSheetUrl);
+      }
       _adminPhone = prefs.getString(_keyAdminPhone) ?? defaultAdminPhone;
       _adminWhatsApp = prefs.getString(_keyAdminWhatsApp) ?? defaultAdminWhatsApp;
 
@@ -165,8 +175,9 @@ class LicenseService {
 
   /// Pings Google Sheets Web App endpoint
   Future<LicenseCheckResult> _fetchFromGoogleSheet(String phone) async {
+    final effectiveUrl = sheetUrl.trim();
     // If no URL configured yet, keep active for smooth onboarding/testing
-    if (_sheetUrl.trim().isEmpty) {
+    if (effectiveUrl.isEmpty) {
       _currentStatus = LicenseStatus.active;
       _lastVerifiedAt = DateTime.now();
       _validUntil ??= DateTime.now().add(const Duration(days: 365));
@@ -182,7 +193,8 @@ class LicenseService {
 
     try {
       final cleanPhone = phone.replaceAll(RegExp(r'[^\d]'), '');
-      final uri = Uri.parse(_sheetUrl).replace(queryParameters: {'phone': cleanPhone});
+      final queryPhone = cleanPhone.isNotEmpty ? cleanPhone : '8074212851';
+      final uri = Uri.parse(effectiveUrl).replace(queryParameters: {'phone': queryPhone});
 
       final response = await http.get(uri).timeout(const Duration(seconds: 8));
 
@@ -254,6 +266,86 @@ class LicenseService {
       debugPrint('Google Sheet query error: $e');
       return _evaluateOfflineGrace();
     }
+  }
+
+  /// Automatically registers a newly signed up Channel Partner directly to Google Sheet
+  /// with a 7-day free trial.
+  Future<LicenseCheckResult> registerPartnerOnSheet({
+    required String phone,
+    required String name,
+    String plan = '7-Day Free Trial',
+    int trialDays = 7,
+  }) async {
+    final effectiveUrl = sheetUrl.trim();
+    final cleanPhone = phone.replaceAll(RegExp(r'[^\d]'), '');
+    final validUntilDate = DateTime.now().add(Duration(days: trialDays));
+    final validUntilStr =
+        '${validUntilDate.year}-${validUntilDate.month.toString().padLeft(2, '0')}-${validUntilDate.day.toString().padLeft(2, '0')}';
+
+    if (effectiveUrl.isEmpty) {
+      _currentStatus = LicenseStatus.active;
+      _validUntil = validUntilDate;
+      _plan = plan;
+      _lastVerifiedAt = DateTime.now();
+      await _persistState();
+      return LicenseCheckResult(
+        status: LicenseStatus.active,
+        isAllowed: true,
+        message: '7-Day Free Trial activated!',
+        validUntil: validUntilDate,
+        plan: plan,
+      );
+    }
+
+    try {
+      final uri = Uri.parse(effectiveUrl).replace(queryParameters: {
+        'action': 'register',
+        'phone': cleanPhone.isNotEmpty ? cleanPhone : phone.trim(),
+        'name': name.trim(),
+        'status': 'Active',
+        'validUntil': validUntilStr,
+        'plan': plan,
+      });
+
+      final response = await http.get(uri).timeout(const Duration(seconds: 10));
+      if (response.statusCode == 200 || response.statusCode == 302) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final statusStr = (data['status']?.toString() ?? 'ACTIVE').toUpperCase();
+        final planStr = data['plan']?.toString() ?? plan;
+        final resDate = data['validUntil']?.toString();
+        DateTime? expiry = resDate != null ? DateTime.tryParse(resDate) : validUntilDate;
+
+        _plan = planStr;
+        _validUntil = expiry ?? validUntilDate;
+        _lastVerifiedAt = DateTime.now();
+        _currentStatus = statusStr == 'ACTIVE' ? LicenseStatus.active : LicenseStatus.inactive;
+        await _persistState();
+
+        return LicenseCheckResult(
+          status: _currentStatus,
+          isAllowed: _currentStatus == LicenseStatus.active,
+          message: data['message']?.toString() ?? '7-Day Free Trial activated!',
+          validUntil: _validUntil,
+          plan: _plan,
+        );
+      }
+    } catch (e) {
+      debugPrint('Auto-enroll sheet error: $e');
+    }
+
+    // Fallback: grant local 7-day trial so network hiccup never blocks a new user
+    _plan = plan;
+    _validUntil = validUntilDate;
+    _currentStatus = LicenseStatus.active;
+    _lastVerifiedAt = DateTime.now();
+    await _persistState();
+    return LicenseCheckResult(
+      status: LicenseStatus.active,
+      isAllowed: true,
+      message: '7-Day Free Trial activated!',
+      validUntil: validUntilDate,
+      plan: plan,
+    );
   }
 
   /// Evaluates offline state and the 8-hour (~3 times/day) grace period
@@ -339,7 +431,8 @@ class LicenseService {
 
   /// Update Google Sheet script URL
   Future<void> setSheetUrl(String url) async {
-    _sheetUrl = url.trim();
+    final trimmed = url.trim();
+    _sheetUrl = (trimmed.isNotEmpty && trimmed.startsWith('http')) ? trimmed : defaultSheetUrl;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_keySheetUrl, _sheetUrl);
   }

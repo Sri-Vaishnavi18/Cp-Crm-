@@ -561,7 +561,7 @@ class _SubscriptionLockScreenState extends State<SubscriptionLockScreen> {
                 TextField(
                   controller: phoneController,
                   decoration: const InputDecoration(
-                    hintText: '+919014547044',
+                    hintText: '+91 9876543210',
                     border: OutlineInputBorder(),
                     contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   ),
@@ -575,7 +575,7 @@ class _SubscriptionLockScreenState extends State<SubscriptionLockScreen> {
                 TextField(
                   controller: waController,
                   decoration: const InputDecoration(
-                    hintText: '919014547044',
+                    hintText: '919876543210',
                     border: OutlineInputBorder(),
                     contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   ),

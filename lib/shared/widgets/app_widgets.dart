@@ -1357,7 +1357,10 @@ class _ScheduleVisitModalSheetState extends State<ScheduleVisitModalSheet> {
     if (widget.preselectedLeadId != null && widget.state.allLeads.any((l) => l.id == widget.preselectedLeadId)) {
       _selectedLeadId = widget.preselectedLeadId!;
       final lead = widget.state.allLeads.firstWhere((l) => l.id == widget.preselectedLeadId);
-      _selectedProjectId = lead.projectId;
+      final hasProject = widget.state.projects.any((p) => p.id == lead.projectId);
+      _selectedProjectId = hasProject
+          ? lead.projectId
+          : (widget.state.projects.isNotEmpty ? widget.state.projects.first.id : '');
     } else {
       _selectedLeadId = widget.state.allLeads.isNotEmpty ? widget.state.allLeads.first.id : '';
       _selectedProjectId = widget.state.projects.isNotEmpty ? widget.state.projects.first.id : '';
@@ -1365,9 +1368,24 @@ class _ScheduleVisitModalSheetState extends State<ScheduleVisitModalSheet> {
   }
 
   void _submit() {
+    if (_selectedLeadId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: AppColors.danger,
+          content: Text('Please select a lead.'),
+        ),
+      );
+      return;
+    }
+
+    final lead = widget.state.allLeads.where((l) => l.id == _selectedLeadId).firstOrNull;
+    final projId = _selectedProjectId.isNotEmpty
+        ? _selectedProjectId
+        : (lead != null && lead.projectId.isNotEmpty ? lead.projectId : 'proj_general');
+
     final visitCode = widget.state.scheduleSiteVisit(
       leadId: _selectedLeadId,
-      projectId: _selectedProjectId,
+      projectId: projId,
       scheduledAt: _selectedDateTime,
       cabRequired: _cabRequired,
       accompanying: _accompanying,
@@ -1386,103 +1404,424 @@ class _ScheduleVisitModalSheetState extends State<ScheduleVisitModalSheet> {
   @override
   Widget build(BuildContext context) {
     final isDark = widget.state.isDarkMode;
-    final dateFormat = DateFormat('EEE, d MMM • hh:mm a');
+    final surfaceColor = isDark ? const Color(0xFF131A26) : Colors.white;
+    final cardBgColor = isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC);
+    final borderColor = isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0);
+    final textPrimary = isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary;
+    final textSecondary = isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary;
+    final dateFormat = DateFormat('EEE, d MMM yyyy • hh:mm a');
 
     return Container(
-      padding: EdgeInsets.only(
-        top: 20,
-        left: 20,
-        right: 20,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Center(
-            child: Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(color: Colors.grey.shade400, borderRadius: BorderRadius.circular(2)),
-            ),
-          ),
-          const SizedBox(height: 16),
-          const Text('Schedule Digital Site Visit', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 16),
-
-          Text('Select Lead', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary)),
-          const SizedBox(height: 6),
-          DropdownButtonFormField<String>(
-            initialValue: _selectedLeadId,
-            items: widget.state.allLeads.map((l) => DropdownMenuItem(value: l.id, child: Text('${l.fullName} (${l.phone})'))).toList(),
-            onChanged: (val) {
-              if (val != null) setState(() => _selectedLeadId = val);
-            },
-          ),
-          const SizedBox(height: 14),
-
-          Text('Target Project', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary)),
-          const SizedBox(height: 6),
-          DropdownButtonFormField<String>(
-            initialValue: _selectedProjectId,
-            items: widget.state.projects.map((p) => DropdownMenuItem(value: p.id, child: Text(p.name))).toList(),
-            onChanged: (val) {
-              if (val != null) setState(() => _selectedProjectId = val);
-            },
-          ),
-          const SizedBox(height: 14),
-
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.calendar_today, color: AppColors.primary),
-            title: const Text('Visit Date & Time Slot', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-            subtitle: Text(dateFormat.format(_selectedDateTime), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-            trailing: TextButton(
-              onPressed: () async {
-                final date = await showDatePicker(
-                  context: context,
-                  initialDate: _selectedDateTime,
-                  firstDate: DateTime.now(),
-                  lastDate: DateTime.now().add(const Duration(days: 60)),
-                );
-                if (date != null && context.mounted) {
-                  final time = await showTimePicker(
-                    context: context,
-                    initialTime: TimeOfDay.fromDateTime(_selectedDateTime),
-                  );
-                  if (time != null) {
-                    setState(() {
-                      _selectedDateTime = DateTime(date.year, date.month, date.day, time.hour, time.minute);
-                    });
-                  }
-                }
-              },
-              child: const Text('Change'),
-            ),
-          ),
-          const SizedBox(height: 10),
-
-          SwitchListTile.adaptive(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('Request Builder Cab Pickup for Client', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-            value: _cabRequired,
-            activeTrackColor: AppColors.primary,
-            onChanged: (val) => setState(() => _cabRequired = val),
-          ),
-          SwitchListTile.adaptive(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('Broker Accompanying Client', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-            value: _accompanying,
-            activeTrackColor: AppColors.primary,
-            onChanged: (val) => setState(() => _accompanying = val),
-          ),
-          const SizedBox(height: 20),
-
-          ElevatedButton(
-            onPressed: _submit,
-            child: const Text('Generate Digital QR Entry Pass (Zero-OTP)', style: TextStyle(fontWeight: FontWeight.w700)),
+      decoration: BoxDecoration(
+        color: surfaceColor,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.4 : 0.12),
+            blurRadius: 20,
+            offset: const Offset(0, -4),
           ),
         ],
+      ),
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.90,
+      ),
+      padding: EdgeInsets.only(
+        top: 12,
+        left: 20,
+        right: 20,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+      ),
+      child: SafeArea(
+        top: false,
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 1. Drag Handle Pill
+              Center(
+                child: Container(
+                  width: 44,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF334155) : Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // 2. Header with Icon Badge, Title, Subtitle, and Close Button
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: isDark ? 0.2 : 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.calendar_month_rounded,
+                      color: AppColors.primary,
+                      size: 22,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Schedule Digital Site Visit',
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w800,
+                            color: textPrimary,
+                            letterSpacing: -0.3,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Direct QR entry pass for site reception (Zero-OTP)',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: Icon(Icons.close_rounded, color: textSecondary, size: 22),
+                    splashRadius: 20,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Divider(color: borderColor, height: 1),
+              const SizedBox(height: 16),
+
+              // 3. Lead Selection Field
+              Text(
+                'Select Lead *',
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                  color: textPrimary,
+                ),
+              ),
+              const SizedBox(height: 6),
+              DropdownButtonFormField<String>(
+                isExpanded: true,
+                initialValue: widget.state.allLeads.any((l) => l.id == _selectedLeadId) ? _selectedLeadId : null,
+                dropdownColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+                style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: textPrimary),
+                decoration: InputDecoration(
+                  prefixIcon: const Icon(Icons.person_outline_rounded, color: AppColors.primary, size: 20),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  filled: true,
+                  fillColor: cardBgColor,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: borderColor),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: borderColor),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+                  ),
+                ),
+                items: widget.state.allLeads.map((l) => DropdownMenuItem(
+                  value: l.id,
+                  child: Text(
+                    '${l.fullName} (${l.phone})',
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                )).toList(),
+                onChanged: (val) {
+                  if (val != null) setState(() => _selectedLeadId = val);
+                },
+              ),
+              const SizedBox(height: 14),
+
+              // 4. Target Project Field
+              Text(
+                'Target Project *',
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                  color: textPrimary,
+                ),
+              ),
+              const SizedBox(height: 6),
+              DropdownButtonFormField<String>(
+                isExpanded: true,
+                initialValue: widget.state.projects.any((p) => p.id == _selectedProjectId) ? _selectedProjectId : null,
+                dropdownColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+                style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: textPrimary),
+                decoration: InputDecoration(
+                  prefixIcon: const Icon(Icons.apartment_rounded, color: AppColors.primary, size: 20),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  filled: true,
+                  fillColor: cardBgColor,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: borderColor),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: borderColor),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+                  ),
+                ),
+                items: widget.state.projects.map((p) => DropdownMenuItem(
+                  value: p.id,
+                  child: Text(
+                    p.name,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                )).toList(),
+                onChanged: (val) {
+                  if (val != null) setState(() => _selectedProjectId = val);
+                },
+              ),
+              const SizedBox(height: 14),
+
+              // 5. Visit Date & Time Slot Section
+              Text(
+                'Visit Date & Time Slot *',
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                  color: textPrimary,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  color: cardBgColor,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: borderColor),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: isDark ? 0.2 : 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.access_time_filled_rounded,
+                        color: AppColors.primary,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            dateFormat.format(_selectedDateTime),
+                            style: TextStyle(
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w700,
+                              color: textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Client visit appointment window',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              color: textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    InkWell(
+                      onTap: () async {
+                        final date = await showDatePicker(
+                          context: context,
+                          initialDate: _selectedDateTime,
+                          firstDate: DateTime.now(),
+                          lastDate: DateTime.now().add(const Duration(days: 60)),
+                        );
+                        if (date != null && context.mounted) {
+                          final time = await showTimePicker(
+                            context: context,
+                            initialTime: TimeOfDay.fromDateTime(_selectedDateTime),
+                          );
+                          if (time != null) {
+                            setState(() {
+                              _selectedDateTime = DateTime(
+                                date.year,
+                                date.month,
+                                date.day,
+                                time.hour,
+                                time.minute,
+                              );
+                            });
+                          }
+                        }
+                      },
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+                        ),
+                        child: const Text(
+                          'Change',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+
+              // 6. Visit Logistics & Concierge Section
+              Text(
+                'Visit Logistics & Concierge',
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                  color: textPrimary,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Container(
+                decoration: BoxDecoration(
+                  color: cardBgColor,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: borderColor),
+                ),
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.local_taxi_rounded,
+                            color: isDark ? AppColors.skyBlue : const Color(0xFF0284C7),
+                            size: 20,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Request Builder Cab Pickup',
+                                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: textPrimary),
+                                ),
+                                Text(
+                                  'Complimentary round-trip site transport',
+                                  style: TextStyle(fontSize: 11, color: textSecondary),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Switch.adaptive(
+                            value: _cabRequired,
+                            activeTrackColor: AppColors.primary,
+                            activeThumbColor: Colors.white,
+                            onChanged: (val) => setState(() => _cabRequired = val),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Divider(color: borderColor, height: 1, indent: 14, endIndent: 14),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.badge_outlined,
+                            color: isDark ? AppColors.accentGold : const Color(0xFFD97706),
+                            size: 20,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Broker Accompanying Client',
+                                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: textPrimary),
+                                ),
+                                Text(
+                                  'Ensure desk receptionist tags partner credit',
+                                  style: TextStyle(fontSize: 11, color: textSecondary),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Switch.adaptive(
+                            value: _accompanying,
+                            activeTrackColor: AppColors.primary,
+                            activeThumbColor: Colors.white,
+                            onChanged: (val) => setState(() => _accompanying = val),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // 7. Action Button
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton.icon(
+                  onPressed: _submit,
+                  icon: const Icon(Icons.qr_code_2_rounded, size: 20, color: Colors.white),
+                  label: const Text(
+                    'Generate Digital QR Entry Pass (Zero-OTP)',
+                    style: TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF2563EB),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    elevation: 1,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

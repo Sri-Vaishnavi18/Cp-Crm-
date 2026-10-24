@@ -233,6 +233,13 @@ class AppTheme {
         ),
         showCheckmark: false,
       ),
+      snackBarTheme: SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        showCloseIcon: true,
+        closeIconColor: Colors.white,
+        elevation: 6,
+      ),
     );
   }
 
@@ -357,6 +364,13 @@ class AppTheme {
           side: const BorderSide(color: AppColors.darkBorder),
         ),
         showCheckmark: false,
+      ),
+      snackBarTheme: SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        showCloseIcon: true,
+        closeIconColor: Colors.white,
+        elevation: 6,
       ),
     );
   }

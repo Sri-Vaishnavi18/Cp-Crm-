@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:cp_crm/core/models/app_models.dart';
+import 'package:cp_crm/core/services/mock_data_service.dart';
 import 'package:cp_crm/core/state/app_state.dart';
 import 'package:cp_crm/features/projects/projects_screen.dart';
 
@@ -116,8 +117,7 @@ Short Phone User,12345,no_phone@test.com,Prestige Serenity Palms
 
   group('Unit Matrix Bulk Import & Parser Tests', () {
     test('UnitCsvParser parses standard unit CSV with status mapping', () {
-      final state = AppState();
-      final targetProject = state.projects.first;
+      final targetProject = MockDataService.getProjects().first;
       const csvData = '''UnitNo,Tower,Floor,BHK,CarpetArea,SuperArea,Facing,BasePrice,Status
 A-101,Tower A,1,3 BHK,1350,1820,North-East,14500000,available
 A-102,Tower A,1,2 BHK,980,1320,East,9800000,blocked
@@ -150,8 +150,7 @@ A-103,Tower A,1,4 BHK,2100,2850,West,22500000,sold
     });
 
     test('Sample unit inventory templates parse correctly', () {
-      final state = AppState();
-      final project = state.projects.first;
+      final project = MockDataService.getProjects().first;
 
       final towerA = UnitCsvParser.parse(
         rawText: UnitCsvParser.sampleTowerAUnits,
@@ -259,6 +258,7 @@ A-103,Tower A,1,4 BHK,2100,2850,West,22500000,sold
 
     test('AppState.bulkImportUnits adds units to project and updates starting price if lower', () {
       final state = AppState();
+      state.addProject(MockDataService.getProjects().first);
       final targetProject = state.projects.first;
       final initialUnitsCount = targetProject.units.length;
 
@@ -343,8 +343,8 @@ A-103,Tower A,1,4 BHK,2100,2850,West,22500000,sold
     });
 
     test('All mock projects have populated units and towers for unit matrix visibility', () {
-      final state = AppState();
-      for (final project in state.projects) {
+      final sampleProjects = MockDataService.getProjects();
+      for (final project in sampleProjects) {
         expect(project.units, isNotEmpty, reason: '${project.name} should have units visible');
         expect(project.towers, isNotEmpty, reason: '${project.name} should have towers defined');
         final availableUnits = project.units.where((u) => u.status == UnitStatus.available);
@@ -354,7 +354,8 @@ A-103,Tower A,1,4 BHK,2100,2850,West,22500000,sold
 
     test('AppState updateProject modifies project details, units, and brochure properly', () {
       final state = AppState();
-      final original = state.projects.first;
+      final original = MockDataService.getProjects().first;
+      state.addProject(original);
 
       final updated = ProjectModel(
         id: original.id,
@@ -402,6 +403,7 @@ A-103,Tower A,1,4 BHK,2100,2850,West,22500000,sold
 
     testWidgets('ProjectsScreen renders Edit Details button in place of Share', (WidgetTester tester) async {
       final state = AppState();
+      state.addProject(MockDataService.getProjects().first);
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(

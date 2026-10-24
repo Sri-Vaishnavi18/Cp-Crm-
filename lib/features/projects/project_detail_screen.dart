@@ -772,12 +772,265 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
     );
   }
 
-  void _openCostEstimator(BuildContext context, ProjectModel project) {
+  void _handleShareWhatsApp(BuildContext context, ProjectModel p, String brochureName, String brochureSize) {
+    if (widget.state.leads.isEmpty) {
+      final shareText = '🌟 *${p.name}* (${p.location})\n'
+          '💰 Starting at *${p.startingPrice}*\n'
+          '🏢 Status: ${p.type} • Possession: ${p.possessionDate}\n'
+          '📋 RERA: ${p.reraNumber}\n'
+          '📄 Attached Brochure: $brochureName ($brochureSize)\n\n'
+          'Shared by ${widget.state.currentUser?.firmName ?? 'Channel Partner'}.\n'
+          'Contact: ${widget.state.currentUser?.phone ?? ''}';
+      UrlActionService.openWhatsApp(context, message: shareText);
+      return;
+    }
+
+    _showSendBrochureToLeadModal(context, p, brochureName, brochureSize);
+  }
+
+  void _showSendBrochureToLeadModal(
+    BuildContext context,
+    ProjectModel p,
+    String brochureName,
+    String brochureSize,
+  ) {
+    final isDark = widget.state.isDarkMode;
+    final leads = widget.state.leads;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (ctx) => CostEstimatorSheet(state: widget.state, project: project),
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return Container(
+          constraints: BoxConstraints(maxHeight: MediaQuery.of(ctx).size.height * 0.75),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.darkSurface : Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: isDark ? AppColors.darkBorder : const Color(0xFFCBD5E1),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF25D366).withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.share_rounded, color: Color(0xFF16A34A), size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Send Brochure via WhatsApp',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                            color: isDark ? AppColors.darkTextPrimary : const Color(0xFF0F172A),
+                          ),
+                        ),
+                        Text(
+                          'Select a lead to deliver ${p.name} brochure directly',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: isDark ? AppColors.darkTextSecondary : const Color(0xFF64748B),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              // Option to share generally without selecting a lead
+              InkWell(
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  final shareText = '🌟 *${p.name}* (${p.location})\n'
+                      '💰 Starting at *${p.startingPrice}*\n'
+                      '🏢 Status: ${p.type} • Possession: ${p.possessionDate}\n'
+                      '📋 RERA: ${p.reraNumber}\n'
+                      '📄 Attached Brochure: $brochureName ($brochureSize)\n\n'
+                      'Shared by ${widget.state.currentUser?.firmName ?? 'Channel Partner'}.\n'
+                      'Contact: ${widget.state.currentUser?.phone ?? ''}';
+                  UrlActionService.openWhatsApp(context, message: shareText);
+                },
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF16A34A).withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFF16A34A).withValues(alpha: 0.3)),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.send_rounded, color: Color(0xFF16A34A), size: 18),
+                      SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Share to Other Contact / Group (Broadcast)',
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF16A34A)),
+                        ),
+                      ),
+                      Icon(Icons.arrow_forward_ios_rounded, color: Color(0xFF16A34A), size: 14),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                'YOUR ACTIVE LEADS (${leads.length})',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.8,
+                  color: isDark ? AppColors.darkTextSecondary : const Color(0xFF64748B),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Flexible(
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: leads.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 8),
+                  itemBuilder: (c, idx) {
+                    final lead = leads[idx];
+                    return InkWell(
+                      onTap: () async {
+                        Navigator.of(ctx).pop();
+                        final shareMsg = 'Hello ${lead.firstName},\n\n'
+                            'Here is the official brochure for *${p.name}* at ${p.location}.\n\n'
+                            '💰 Starting at: *${p.startingPrice}*\n'
+                            '🏢 Type: ${p.type} • Possession: ${p.possessionDate}\n'
+                            '📋 RERA Reg: ${p.reraNumber}\n'
+                            '📄 Attached Brochure: $brochureName ($brochureSize)\n\n'
+                            'Please let me know if you would like to schedule a site visit or explore unit availability!\n\n'
+                            'Best regards,\n'
+                            '${widget.state.currentUser?.name ?? "Channel Partner"} | ${widget.state.currentUser?.firmName ?? ""}\n'
+                            '📞 ${widget.state.currentUser?.phone ?? ""}';
+
+                        await UrlActionService.openWhatsApp(
+                          context,
+                          phoneNumber: lead.phone,
+                          message: shareMsg,
+                        );
+
+                        // Log activity in lead history
+                        final now = DateTime.now();
+                        lead.activityList.insert(
+                          0,
+                          LeadActivityItem(
+                            id: 'act_${now.millisecondsSinceEpoch}',
+                            title: 'Sent brochure ($brochureName) for ${p.name} via WhatsApp',
+                            timestamp: now,
+                          ),
+                        );
+                        if (mounted) setState(() {});
+
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Brochure sent to ${lead.fullName} on WhatsApp!'),
+                              backgroundColor: const Color(0xFF16A34A),
+                            ),
+                          );
+                        }
+                      },
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: isDark ? AppColors.darkBg : const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: isDark ? AppColors.darkBorder : const Color(0xFFE2E8F0),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            CircleAvatar(
+                              radius: 18,
+                              backgroundColor: const Color(0xFF2563EB).withValues(alpha: 0.15),
+                              child: Text(
+                                lead.firstName.isNotEmpty ? lead.firstName[0].toUpperCase() : 'L',
+                                style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF2563EB)),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    lead.fullName,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 13,
+                                      color: isDark ? AppColors.darkTextPrimary : const Color(0xFF0F172A),
+                                    ),
+                                  ),
+                                  Text(
+                                    '${lead.phone} • Interested in ${lead.projectName}',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: isDark ? AppColors.darkTextSecondary : const Color(0xFF64748B),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF25D366).withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.send_rounded, size: 12, color: Color(0xFF16A34A)),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    'Send',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xFF16A34A),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -871,6 +1124,11 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
                   ],
                 ),
               ),
+              IconButton(
+                icon: const Icon(Icons.file_upload_outlined, color: Color(0xFF2563EB), size: 20),
+                tooltip: 'Re-upload / replace brochure',
+                onPressed: () => _openBrochureUploadModal(context, p),
+              ),
             ],
           ),
           const SizedBox(height: 12),
@@ -879,43 +1137,53 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
           Row(
             children: [
               Expanded(
+                flex: 12,
                 child: OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+                    padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
                     side: const BorderSide(color: Color(0xFF25D366)),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
                   icon: const Icon(Icons.share_rounded, size: 15, color: Color(0xFF16A34A)),
                   label: const Text(
                     'Share WhatsApp',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF16A34A)),
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF16A34A)),
                   ),
-                  onPressed: () {
-                    final shareText = '🌟 *${p.name}* (${p.location})\n'
-                        '💰 Starting at *${p.startingPrice}*\n'
-                        '🏢 Status: ${p.type} • Possession: ${p.possessionDate}\n'
-                        '📋 RERA: ${p.reraNumber}\n'
-                        '📄 Attached Brochure: $brochureName ($brochureSize)\n\n'
-                        'Shared by ${widget.state.currentUser?.firmName ?? 'Channel Partner'}.\n'
-                        'Contact: ${widget.state.currentUser?.phone ?? ''}';
-                    UrlActionService.openWhatsApp(context, message: shareText);
-                  },
+                  onPressed: () => _handleShareWhatsApp(context, p, brochureName, brochureSize),
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 6),
               Expanded(
+                flex: 9,
+                child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+                    side: const BorderSide(color: Color(0xFF6366F1)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  icon: const Icon(Icons.upload_file_rounded, size: 14, color: Color(0xFF6366F1)),
+                  label: const Text(
+                    'Re-upload',
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF6366F1)),
+                  ),
+                  onPressed: () => _openBrochureUploadModal(context, p),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                flex: 10,
                 child: ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+                    padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
                     backgroundColor: const Color(0xFF2563EB),
                     foregroundColor: Colors.white,
                     elevation: 0,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
-                  icon: const Icon(Icons.download_rounded, size: 15),
+                  icon: const Icon(Icons.download_rounded, size: 14),
                   label: const Text(
                     'Download',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
                   ),
                   onPressed: () async {
                     ScaffoldMessenger.of(context).showSnackBar(

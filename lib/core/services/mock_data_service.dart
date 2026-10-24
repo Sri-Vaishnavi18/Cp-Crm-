@@ -3,15 +3,15 @@ import '../models/app_models.dart';
 class MockDataService {
   static UserModel getInitialUser() {
     return UserModel(
-      id: 'usr_9014',
-      name: 'Vaishu',
-      firmName: 'Channel Partner (Realtor)',
-      reraNumber: '0283838',
-      phone: '9014547044',
-      email: 'vaishu@cp-crm.com',
-      city: 'Hyderabad, Telangana',
+      id: 'usr_guest',
+      name: 'Channel Partner',
+      firmName: 'Real Estate Brokerage',
+      reraNumber: 'RERA-PENDING',
+      phone: '',
+      email: '',
+      city: 'Bangalore, Karnataka',
       isAgency: false,
-      logoUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=200&q=80',
+      logoUrl: '',
     );
   }
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/models/app_models.dart';
+import '../../core/services/document_picker_service.dart';
 import '../../core/state/app_state.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/widgets/app_widgets.dart';
@@ -26,6 +27,11 @@ class _CreateProjectModalSheetState extends State<CreateProjectModalSheet> {
   final TextEditingController _heroImageController = TextEditingController(
     text: 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=800&auto=format&fit=crop&q=80',
   );
+
+  // Brochure State
+  String? _brochureFileName;
+  String? _brochureFileSize;
+  bool _hasCustomBrochure = false;
 
   String _selectedType = 'Ongoing';
   final List<String> _availableTypes = ['Pre-Launch', 'Ongoing', 'Ready to Move'];
@@ -230,6 +236,10 @@ class _CreateProjectModalSheetState extends State<CreateProjectModalSheet> {
       }
     }
 
+    final defaultCleanName = _nameController.text.trim().replaceAll(' ', '_');
+    final brochureName = _brochureFileName ?? (defaultCleanName.isNotEmpty ? '${defaultCleanName}_Brochure.pdf' : 'Project_Brochure.pdf');
+    final brochureSize = _brochureFileSize ?? '3.5 MB';
+
     final project = ProjectModel(
       id: 'proj_${now.millisecondsSinceEpoch}',
       name: _nameController.text.trim(),
@@ -248,6 +258,9 @@ class _CreateProjectModalSheetState extends State<CreateProjectModalSheet> {
       distanceDetails: _distanceController.text.trim(),
       towers: towersList,
       units: finalUnits,
+      brochureFileName: brochureName,
+      brochureFileSize: brochureSize,
+      brochureUpdatedAt: DateTime.now(),
     );
 
     final messenger = ScaffoldMessenger.of(context);
@@ -573,6 +586,180 @@ class _CreateProjectModalSheetState extends State<CreateProjectModalSheet> {
                     ),
                     const SizedBox(height: 18),
 
+                    // Project Brochure & Marketing PDF Upload Section
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  Container(
+                                    width: 28,
+                                    height: 28,
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFDC2626).withValues(alpha: 0.12),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: const Icon(Icons.picture_as_pdf_rounded, size: 16, color: Color(0xFFDC2626)),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Project Brochure (PDF)',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w800,
+                                      color: isDark ? AppColors.darkTextPrimary : const Color(0xFF0F172A),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              if (_brochureFileName != null)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF16A34A).withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    _hasCustomBrochure ? 'Custom File Attached' : 'Attached',
+                                    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF16A34A)),
+                                  ),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'Upload the official project PDF deck, floor plans, or pricing sheet from your device.',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              color: isDark ? AppColors.darkTextSecondary : const Color(0xFF64748B),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          if (_brochureFileName != null) ...[
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              decoration: BoxDecoration(
+                                color: isDark ? AppColors.darkSurfaceCard : Colors.white,
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: const Color(0xFF16A34A).withValues(alpha: 0.4),
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.description_rounded, size: 22, color: Color(0xFFDC2626)),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          _brochureFileName!,
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w700,
+                                            color: isDark ? AppColors.darkTextPrimary : const Color(0xFF0F172A),
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        Text(
+                                          '${_brochureFileSize ?? 'PDF'} • Ready for WhatsApp sharing',
+                                          style: const TextStyle(fontSize: 10.5, color: Color(0xFF16A34A)),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.close_rounded, size: 16, color: Color(0xFFEF4444)),
+                                    onPressed: () {
+                                      setState(() {
+                                        _brochureFileName = null;
+                                        _brochureFileSize = null;
+                                        _hasCustomBrochure = false;
+                                      });
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                          ],
+                          InkWell(
+                            onTap: () async {
+                              final picked = await DocumentPickerService.pickAnyDocument(accept: '.pdf');
+                              if (picked != null) {
+                                setState(() {
+                                  _brochureFileName = picked.fileName;
+                                  _brochureFileSize = picked.formattedSize;
+                                  _hasCustomBrochure = true;
+                                });
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Selected brochure: ${picked.fileName}'),
+                                      backgroundColor: const Color(0xFF16A34A),
+                                      duration: const Duration(seconds: 2),
+                                    ),
+                                  );
+                                }
+                              }
+                            },
+                            borderRadius: BorderRadius.circular(10),
+                            child: Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
+                              decoration: BoxDecoration(
+                                border: Border.all(
+                                  color: const Color(0xFF2563EB).withValues(alpha: 0.5),
+                                ),
+                                borderRadius: BorderRadius.circular(10),
+                                color: const Color(0xFF2563EB).withValues(alpha: 0.05),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(Icons.file_upload_outlined, size: 18, color: Color(0xFF2563EB)),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    _brochureFileName != null ? 'Change Brochure (PDF)' : 'Upload Brochure (PDF) from Device',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xFF2563EB),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 6,
+                            children: [
+                              _buildPresetChip('Luxury_Residences_Brochure.pdf', '3.8 MB'),
+                              _buildPresetChip('Cost_Sheet_Master_Plan.pdf', '4.2 MB'),
+                              _buildPresetChip('E-Brochure_FloorPlans.pdf', '2.6 MB'),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+
                     // Project Units & Inventory Column (Add units to project)
                     Container(
                       padding: const EdgeInsets.all(14),
@@ -851,6 +1038,49 @@ class _CreateProjectModalSheetState extends State<CreateProjectModalSheet> {
             onPressed: _submitProject,
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildPresetChip(String name, String size) {
+    final isSelected = _brochureFileName == name;
+    return InkWell(
+      onTap: () {
+        setState(() {
+          _brochureFileName = name;
+          _brochureFileSize = size;
+          _hasCustomBrochure = true;
+        });
+      },
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF2563EB).withValues(alpha: 0.15) : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isSelected ? const Color(0xFF2563EB) : const Color(0xFFCBD5E1),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isSelected ? Icons.check_circle_rounded : Icons.picture_as_pdf_outlined,
+              size: 12,
+              color: isSelected ? const Color(0xFF2563EB) : const Color(0xFF64748B),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              '$name ($size)',
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                color: isSelected ? const Color(0xFF2563EB) : const Color(0xFF64748B),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

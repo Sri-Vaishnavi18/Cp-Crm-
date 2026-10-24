@@ -7,6 +7,7 @@ import 'package:cp_crm/core/services/file_download_service.dart';
 import 'package:cp_crm/core/state/app_state.dart';
 import 'package:cp_crm/features/projects/project_detail_screen.dart';
 import 'package:cp_crm/features/docs/docs_screen.dart';
+import 'package:cp_crm/features/leads/lead_detail_screen.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -198,7 +199,8 @@ void main() {
   group('ProjectDetailScreen Layout, Brochure Column & Removals Tests', () {
     testWidgets('ProjectDetailScreen removes Cost Estimator and Add Brochure, and provides Brochure column on same page', (tester) async {
       final state = AppState();
-      final project = state.projects.first;
+      final project = MockDataService.getProjects().first;
+      state.addProject(project);
 
       await tester.pumpWidget(
         MaterialApp(
@@ -242,7 +244,8 @@ void main() {
 
     testWidgets('ProjectDetailScreen opens directly to Brochure column when initialSection is brochure', (tester) async {
       final state = AppState();
-      final project = state.projects.first;
+      final project = MockDataService.getProjects().first;
+      state.addProject(project);
 
       await tester.pumpWidget(
         MaterialApp(
@@ -407,6 +410,83 @@ void main() {
       expect(find.text('Uploaded Image Preview'), findsOneWidget);
       expect(find.text('Download Image'), findsOneWidget);
       expect(find.text('Export as Official PDF Certificate'), findsOneWidget);
+    });
+  });
+
+  group('Project Brochure Upload, Re-upload & WhatsApp Sharing Tests', () {
+    testWidgets('ProjectDetailScreen displays Re-upload button and brochure metadata correctly', (tester) async {
+      final state = AppState();
+      final project = MockDataService.getProjects().first.copyWith(
+        brochureFileName: 'Custom_Deck_V1.pdf',
+        brochureFileSize: '4.8 MB',
+      );
+      state.addProject(project);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ProjectDetailScreen(
+            state: state,
+            project: project,
+            initialSection: 'brochure',
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Verify brochure details are present
+      expect(find.text('Custom_Deck_V1.pdf • 4.8 MB'), findsOneWidget);
+      expect(find.text('Custom Upload'), findsOneWidget);
+
+      // Verify Re-upload button exists alongside Share WhatsApp and Download
+      expect(find.text('Re-upload'), findsOneWidget);
+      expect(find.text('Share WhatsApp'), findsOneWidget);
+      expect(find.text('Download'), findsOneWidget);
+
+      // Tap Re-upload button to open upload modal
+      await tester.tap(find.text('Re-upload'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Add Project Brochure'), findsOneWidget);
+      expect(find.text('Save Project Brochure'), findsOneWidget);
+    });
+
+    testWidgets('LeadDetailScreen WhatsApp action formats and sends project brochure details to lead', (tester) async {
+      final state = AppState();
+      final lead = state.allLeads.first;
+
+      tester.view.physicalSize = const Size(1000, 1600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: LeadDetailScreen(
+              state: state,
+              leadId: lead.id,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('WhatsApp'), findsOneWidget);
+
+      // Tap WhatsApp action
+      final initialActivitiesCount = lead.activityList.length;
+      await tester.tap(find.text('WhatsApp'));
+      await tester.pumpAndSettle();
+
+      // Retrieve updated lead from state
+      final updatedLead = state.allLeads.firstWhere((l) => l.id == lead.id);
+
+      // Verify that activity timeline has logged the brochure WhatsApp transmission
+      expect(updatedLead.activityList.length, equals(initialActivitiesCount + 1));
+      expect(updatedLead.activityList.first.title.contains('Sent brochure'), true);
+      expect(updatedLead.activityList.first.title.contains('via WhatsApp'), true);
     });
   });
 }

@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/state/app_state.dart';
+import '../../core/services/biometric_service.dart';
 import '../../shared/widgets/powered_by_branding.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -26,6 +27,18 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
   bool _obscurePassword = true;
   String? _errorMessage;
+
+  bool _canCheckBiometrics = false;
+
+  @override
+  void initState() {
+    super.initState();
+    BiometricService.isBiometricAvailable().then((available) {
+      if (mounted) {
+        setState(() => _canCheckBiometrics = available);
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -455,31 +468,32 @@ class _LoginScreenState extends State<LoginScreen> {
                                     ),
                             ),
                           ),
-                          const SizedBox(height: 8),
-
-                          // Compact Biometric Unlock Button
-                          SizedBox(
-                            width: double.infinity,
-                            height: 36,
-                            child: OutlinedButton.icon(
-                              onPressed: _isLoading ? null : _handleBiometricLogin,
-                              icon: const Icon(Icons.fingerprint, size: 17, color: AppColors.primary),
-                              label: Text(
-                                'Quick Biometric Unlock',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                          // Compact Biometric Unlock Button (Only when hardware available)
+                          if (_canCheckBiometrics) ...[
+                            const SizedBox(height: 8),
+                            SizedBox(
+                              width: double.infinity,
+                              height: 36,
+                              child: OutlinedButton.icon(
+                                onPressed: _isLoading ? null : _handleBiometricLogin,
+                                icon: const Icon(Icons.fingerprint, size: 17, color: AppColors.primary),
+                                label: Text(
+                                  'Quick Biometric Unlock',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                                  ),
                                 ),
-                              ),
-                              style: OutlinedButton.styleFrom(
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                side: BorderSide(
-                                  color: isDark ? Colors.white24 : Colors.black12,
+                                style: OutlinedButton.styleFrom(
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                  side: BorderSide(
+                                    color: isDark ? Colors.white24 : Colors.black12,
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
+                          ],
                           const SizedBox(height: 12),
 
                           // Compact Register Link CTA

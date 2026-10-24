@@ -36,7 +36,10 @@ This guide shows you how to manage your Channel Partners' access and payments us
 
 ```javascript
 function doGet(e) {
-  var phoneParam = e.parameter.phone;
+  var params = e ? e.parameter : {};
+  var phoneParam = params.phone;
+  var action = (params.action || "").toLowerCase();
+
   if (!phoneParam) {
     return ContentService.createTextOutput(JSON.stringify({
       found: false,
@@ -46,45 +49,104 @@ function doGet(e) {
   }
 
   // Clean phone number (strip non-digits)
-  var cleanPhone = phoneParam.replace(/[^\d]/g, '');
-
+  var cleanPhone = String(phoneParam).replace(/[^\d]/g, '');
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
   var data = sheet.getDataRange().getValues();
 
-  // Row 0 is header: Phone | Name | Status | ValidUntil | Plan
+  // 1. Check if phone already exists
+  var foundRowIndex = -1;
   for (var i = 1; i < data.length; i++) {
     var rowPhone = String(data[i][0]).replace(/[^\d]/g, '');
     if (rowPhone === cleanPhone || rowPhone.endsWith(cleanPhone) || cleanPhone.endsWith(rowPhone)) {
-      var name = data[i][1] || "Partner";
-      var status = String(data[i][2] || "ACTIVE").toUpperCase().trim();
-      var rawDate = data[i][3];
-      var plan = data[i][4] || "Standard Plan";
+      foundRowIndex = i;
+      break;
+    }
+  }
 
-      var validUntilStr = "";
-      if (rawDate instanceof Date) {
-        validUntilStr = Utilities.formatDate(rawDate, "GMT", "yyyy-MM-dd");
-      } else if (rawDate) {
-        validUntilStr = String(rawDate);
-      }
+  // 2. Action: Register (Auto-enroll new sign-up with 7-Day Free Trial)
+  if (action === "register") {
+    var regName = params.name || "Channel Partner";
+    var regPlan = params.plan || "7-Day Free Trial";
+    var regStatus = (params.status || "Active").trim();
+    
+    // Default 7 days from today if validUntil not provided
+    var regValidUntil = params.validUntil;
+    if (!regValidUntil) {
+      var d = new Date();
+      d.setDate(d.getDate() + 7);
+      regValidUntil = Utilities.formatDate(d, "GMT", "yyyy-MM-dd");
+    }
+
+    if (foundRowIndex > 0) {
+      // Already registered, return existing details
+      var existingName = data[foundRowIndex][1] || regName;
+      var existingStatus = String(data[foundRowIndex][2] || "ACTIVE").toUpperCase().trim();
+      var rawExistingDate = data[foundRowIndex][3];
+      var existingDateStr = (rawExistingDate instanceof Date) 
+          ? Utilities.formatDate(rawExistingDate, "GMT", "yyyy-MM-dd") 
+          : String(rawExistingDate || "");
+      var existingPlan = data[foundRowIndex][4] || regPlan;
 
       return ContentService.createTextOutput(JSON.stringify({
         found: true,
-        phone: rowPhone,
-        name: name,
-        status: status,
-        validUntil: validUntilStr,
-        plan: plan,
-        message: "Partner record verified."
+        phone: cleanPhone,
+        name: existingName,
+        status: existingStatus,
+        validUntil: existingDateStr,
+        plan: existingPlan,
+        message: "Account already registered."
+      })).setMimeType(ContentService.MimeType.JSON);
+    } else {
+      // Append brand-new row to Google Sheet
+      sheet.appendRow([cleanPhone, regName, regStatus, regValidUntil, regPlan]);
+
+      return ContentService.createTextOutput(JSON.stringify({
+        found: true,
+        phone: cleanPhone,
+        name: regName,
+        status: "ACTIVE",
+        validUntil: regValidUntil,
+        plan: regPlan,
+        message: "7-Day Free Trial activated successfully!"
       })).setMimeType(ContentService.MimeType.JSON);
     }
   }
 
-  // If partner is not listed in sheet
+  // 3. Normal Verification (Querying existing user)
+  if (foundRowIndex > 0) {
+    var name = data[foundRowIndex][1] || "Partner";
+    var status = String(data[foundRowIndex][2] || "ACTIVE").toUpperCase().trim();
+    var rawDate = data[foundRowIndex][3];
+    var plan = data[foundRowIndex][4] || "Standard Plan";
+
+    var validUntilStr = "";
+    if (rawDate instanceof Date) {
+      validUntilStr = Utilities.formatDate(rawDate, "GMT", "yyyy-MM-dd");
+    } else if (rawDate) {
+      validUntilStr = String(rawDate);
+    }
+
+    return ContentService.createTextOutput(JSON.stringify({
+      found: true,
+      phone: String(data[foundRowIndex][0]),
+      name: name,
+      status: status,
+      validUntil: validUntilStr,
+      plan: plan,
+      message: "Partner record verified."
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  // Partner not found in sheet
   return ContentService.createTextOutput(JSON.stringify({
     found: false,
     status: "INACTIVE",
     message: "Partner number not found in approved licenses."
   })).setMimeType(ContentService.MimeType.JSON);
+}
+
+function doPost(e) {
+  return doGet(e);
 }
 ```
 

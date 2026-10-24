@@ -41,12 +41,9 @@ void main() {
   });
 
   group('AuthStorageService Device Persistence Tests', () {
-    test('seeds default demo users on initial call', () async {
+    test('starts with an empty registered users list on fresh device', () async {
       final users = await AuthStorageService.getRegisteredUsers();
-      expect(users.length, greaterThanOrEqualTo(3));
-      expect(users.any((u) => u.name == 'Rahul Sharma'), true);
-      expect(users.any((u) => u.name == 'Priya Nair'), true);
-      expect(users.any((u) => u.name == 'Vikram Seth'), true);
+      expect(users, isEmpty);
     });
 
     test('registers a new CP user and persists in device storage', () async {
@@ -73,6 +70,19 @@ void main() {
     });
 
     test('authenticates with correct credentials and rejects invalid', () async {
+      final user = UserModel(
+        id: 'usr_test_auth',
+        name: 'Rahul Sharma',
+        firmName: 'Apex Realty',
+        reraNumber: 'RERA123',
+        phone: '9876543210',
+        email: 'rahul@apex.com',
+        city: 'Bangalore',
+        isAgency: true,
+        password: 'password123',
+      );
+      await AuthStorageService.registerUser(user);
+
       final success = await AuthStorageService.authenticate(
         identifier: '9876543210',
         password: 'password123',
@@ -88,9 +98,22 @@ void main() {
     });
 
     test('session management sets and clears active user', () async {
-      await AuthStorageService.setActiveSession('usr_8819');
+      final user = UserModel(
+        id: 'usr_active_8819',
+        name: 'Active User',
+        firmName: 'Active Firm',
+        reraNumber: 'RERA456',
+        phone: '9988776655',
+        email: 'active@user.com',
+        city: 'Bangalore',
+        isAgency: false,
+        password: 'mypassword',
+      );
+      await AuthStorageService.registerUser(user);
+
+      await AuthStorageService.setActiveSession('usr_active_8819');
       final active = await AuthStorageService.getActiveUser();
-      expect(active?.id, 'usr_8819');
+      expect(active?.id, 'usr_active_8819');
 
       await AuthStorageService.clearActiveSession();
       final cleared = await AuthStorageService.getActiveUser();

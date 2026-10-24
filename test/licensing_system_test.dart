@@ -19,8 +19,8 @@ void main() {
       final service = LicenseService();
       expect(service.currentStatus, LicenseStatus.active);
       expect(service.isAllowed, isTrue);
-      expect(service.adminPhone, '+919014547044');
-      expect(service.adminWhatsApp, '919014547044');
+      expect(service.adminPhone, '');
+      expect(service.adminWhatsApp, '');
     });
 
     test('Status overrides work accurately for testing', () async {

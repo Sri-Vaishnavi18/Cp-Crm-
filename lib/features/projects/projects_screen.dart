@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/models/app_models.dart';
 import '../../core/state/app_state.dart';
-import '../../core/services/url_action_service.dart';
 import 'project_detail_screen.dart';
 import 'create_project_modal.dart';
 import 'edit_project_modal.dart';
@@ -226,33 +225,91 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
                     ),
                   ),
 
-                // 2. Dynamic Horizontal Project Filter Chips (All 7 projects)
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: Row(
-                    children: [
-                      _buildProjectFilterChip('All', 'All', isDark),
-                      ...widget.state.projects.map((proj) {
-                        return Padding(
-                          padding: const EdgeInsets.only(left: 8),
-                          child: _buildProjectFilterChip(proj.name, proj.name, isDark),
-                        );
-                      }),
-                    ],
+                // 2. Dynamic Horizontal Project Filter Chips
+                if (widget.state.projects.isNotEmpty)
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: Row(
+                      children: [
+                        _buildProjectFilterChip('All', 'All', isDark),
+                        ...widget.state.projects.map((proj) {
+                          return Padding(
+                            padding: const EdgeInsets.only(left: 8),
+                            child: _buildProjectFilterChip(proj.name, proj.name, isDark),
+                          );
+                        }),
+                      ],
+                    ),
                   ),
-                ),
                 const SizedBox(height: 4),
 
                 // 3. Projects List
                 Expanded(
                   child: projects.isEmpty
                       ? Center(
-                          child: Text(
-                            'No projects found matching selection',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: isDark ? AppColors.darkTextSecondary : const Color(0xFF64748B),
+                          child: SingleChildScrollView(
+                            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Container(
+                                  width: 72,
+                                  height: 72,
+                                  decoration: BoxDecoration(
+                                    color: isDark ? const Color(0xFF1E293B) : const Color(0xFFEFF6FF),
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: isDark ? Colors.white12 : const Color(0xFFBFDBFE),
+                                    ),
+                                  ),
+                                  child: const Icon(
+                                    Icons.apartment_rounded,
+                                    color: Color(0xFF2563EB),
+                                    size: 36,
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  widget.state.projects.isEmpty
+                                      ? 'No Projects Added Yet'
+                                      : 'No Matching Projects',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w700,
+                                    color: isDark ? AppColors.darkTextPrimary : const Color(0xFF0F172A),
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  widget.state.projects.isEmpty
+                                      ? 'Your project directory is empty. Tap "+ Add Project" to register your residential or commercial inventory.'
+                                      : 'No projects found matching your search. Try resetting your search or filter selection.',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    height: 1.4,
+                                    color: isDark ? AppColors.darkTextSecondary : const Color(0xFF64748B),
+                                  ),
+                                ),
+                                const SizedBox(height: 20),
+                                if (widget.state.projects.isEmpty)
+                                  ElevatedButton.icon(
+                                    onPressed: _openCreateProjectModal,
+                                    icon: const Icon(Icons.add_rounded, size: 18, color: Colors.white),
+                                    label: const Text(
+                                      'Add Your First Project',
+                                      style: TextStyle(fontWeight: FontWeight.w700),
+                                    ),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF2563EB),
+                                      foregroundColor: Colors.white,
+                                      elevation: 2,
+                                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                    ),
+                                  ),
+                              ],
                             ),
                           ),
                         )

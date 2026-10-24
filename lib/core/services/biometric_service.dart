@@ -20,8 +20,7 @@ class BiometricService {
     try {
       final available = await isBiometricAvailable();
       if (!available) {
-        // Graceful fallback on devices/simulators without biometric hardware
-        return true;
+        return false;
       }
       return await _auth.authenticate(
         localizedReason: reason,

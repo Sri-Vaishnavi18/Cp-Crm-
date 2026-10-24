@@ -7,61 +7,14 @@ class AuthStorageService {
   static const String _activeUserIdKey = 'cp_crm_active_user_id';
   static const String _isAuthenticatedKey = 'cp_crm_is_authenticated';
 
-  /// Seed realistic demo Channel Partners if device storage is currently empty
-  static List<UserModel> get _defaultDemoUsers => [
-    UserModel(
-      id: 'usr_9014',
-      name: 'Vaishu',
-      firmName: 'Channel Partner (Realtor)',
-      reraNumber: '0283838',
-      phone: '9014547044',
-      email: 'vaishu@cp-crm.com',
-      city: 'Hyderabad, Telangana',
-      isAgency: false,
-      password: 'password123',
-      logoUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=200&q=80',
-      registeredAt: DateTime(2024, 1, 10),
-    ),
-    UserModel(
-      id: 'usr_8819',
-      name: 'Rahul Sharma',
-      firmName: 'Apex Realty Advisors',
-      reraNumber: 'PRM/KA/RERA/1251/310/AG/230101/004218',
-      phone: '9876543210',
-      email: 'rahul@apexrealty.com',
-      city: 'Bangalore, Karnataka',
-      isAgency: true,
-      password: 'password123',
-      logoUrl: 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=200&q=80',
-      registeredAt: DateTime(2023, 1, 15),
-    ),
-    UserModel(
-      id: 'usr_9420',
-      name: 'Priya Nair',
-      firmName: 'Horizon Elite Properties',
-      reraNumber: 'PRM/KA/RERA/1251/520/AG/220815/007812',
-      phone: '9811223344',
-      email: 'priya@horizonproperties.in',
-      city: 'Bangalore, Karnataka',
-      isAgency: true,
-      password: 'password123',
-      logoUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=200&q=80',
-      registeredAt: DateTime(2023, 5, 20),
-    ),
-    UserModel(
-      id: 'usr_3108',
-      name: 'Vikram Seth',
-      firmName: 'Vikram Seth Real Estate',
-      reraNumber: 'PRM/KA/RERA/1251/412/AG/230410/009142',
-      phone: '9988776655',
-      email: 'vikram.seth@realtor.in',
-      city: 'Bangalore, Karnataka',
-      isAgency: false,
-      password: 'password123',
-      logoUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&q=80',
-      registeredAt: DateTime(2023, 8, 10),
-    ),
-  ];
+  static const Set<String> _legacyDemoIds = {
+    'usr_9014',
+    'usr_8819',
+    'usr_9420',
+    'usr_3108',
+  };
+
+  static bool isLegacyDemoId(String? id) => id != null && _legacyDemoIds.contains(id);
 
   /// Retrieve all registered CP/SP profiles from local device storage
   static Future<List<UserModel>> getRegisteredUsers() async {
@@ -71,23 +24,35 @@ class AuthStorageService {
       List<UserModel> users = [];
       if (usersJson != null && usersJson.trim().isNotEmpty) {
         final List<dynamic> decoded = jsonDecode(usersJson);
-        users = decoded.map((item) => UserModel.fromJson(Map<String, dynamic>.from(item))).toList();
+        users = decoded
+            .map((item) => UserModel.fromJson(Map<String, dynamic>.from(item)))
+            .where((u) => !isLegacyDemoId(u.id))
+            .toList();
       }
-
-      // Ensure all default demo users (including 9014547044) are available in storage
-      for (final demo in _defaultDemoUsers) {
-        final cleanDemoPhone = demo.phone.replaceAll(RegExp(r'[^\d]'), '');
-        final exists = users.any((u) => u.phone.replaceAll(RegExp(r'[^\d]'), '') == cleanDemoPhone);
-        if (!exists) {
-          users.add(demo);
-        }
-      }
-
-      await _saveUsersList(users);
       return users;
     } catch (_) {
-      return _defaultDemoUsers;
+      return [];
     }
+  }
+
+  /// Purge any legacy pre-seeded demo accounts from local device storage
+  static Future<void> purgeLegacyDemoAccounts() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final activeUserId = prefs.getString(_activeUserIdKey);
+      if (isLegacyDemoId(activeUserId)) {
+        await clearActiveSession();
+      }
+      final usersJson = prefs.getString(_usersKey);
+      if (usersJson != null && usersJson.trim().isNotEmpty) {
+        final List<dynamic> decoded = jsonDecode(usersJson);
+        final cleanUsers = decoded
+            .map((item) => UserModel.fromJson(Map<String, dynamic>.from(item)))
+            .where((u) => !isLegacyDemoId(u.id))
+            .toList();
+        await _saveUsersList(cleanUsers);
+      }
+    } catch (_) {}
   }
 
   /// Internal helper to save users list to SharedPreferences
@@ -143,11 +108,8 @@ class AuthStorageService {
       final matchesEmail = rawIdentifier.isNotEmpty && userEmail == rawIdentifier;
 
       if (matchesPhone || matchesEmail) {
-        // Accept user's set password or demo master passwords
-        if (user.password == null ||
-            user.password == password ||
-            password == 'password123' ||
-            password == 'admin123') {
+        // Require explicit registered password match
+        if (user.password != null && user.password!.isNotEmpty && user.password == password) {
           await setActiveSession(user.id);
           return user;
         }
@@ -166,7 +128,7 @@ class AuthStorageService {
       final isAuth = prefs.getBool(_isAuthenticatedKey) ?? false;
       final activeUserId = prefs.getString(_activeUserIdKey);
 
-      if (!isAuth || activeUserId == null) {
+      if (!isAuth || activeUserId == null || isLegacyDemoId(activeUserId)) {
         return null;
       }
 
@@ -174,10 +136,6 @@ class AuthStorageService {
       final found = users.where((u) => u.id == activeUserId);
       if (found.isNotEmpty) {
         return found.first;
-      }
-      // If active ID not found, return first available user
-      if (users.isNotEmpty) {
-        return users.first;
       }
       return null;
     } catch (_) {
