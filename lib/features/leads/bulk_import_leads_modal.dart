@@ -3,7 +3,6 @@ import '../../core/models/app_models.dart';
 import '../../core/services/document_picker_service.dart';
 import '../../core/state/app_state.dart';
 import '../../core/theme/app_theme.dart';
-import '../../shared/widgets/app_widgets.dart';
 
 class BulkImportLeadsModalSheet extends StatefulWidget {
   final AppState state;
@@ -25,9 +24,6 @@ class _BulkImportLeadsModalSheetState extends State<BulkImportLeadsModalSheet> w
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    // Pre-populate with sample investor leads
-    _csvInputController.text = LeadCsvParser.sampleInvestorLeads;
-    _runParse();
   }
 
   @override
@@ -66,6 +62,28 @@ class _BulkImportLeadsModalSheetState extends State<BulkImportLeadsModalSheet> w
     _csvInputController.text = templateText;
     _runParse();
     _tabController.animateTo(0);
+  }
+
+  Future<void> _pickAndLoadFile() async {
+    final doc = await DocumentPickerService.pickDocumentFromGallery();
+    if (doc != null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: const Color(0xFF2563EB),
+          content: Row(
+            children: [
+              const Icon(Icons.check_circle_rounded, color: Colors.white, size: 18),
+              const SizedBox(width: 8),
+              Expanded(child: Text('Attached "${doc.fileName}" for lead extraction.')),
+            ],
+          ),
+        ),
+      );
+      if (_csvInputController.text.trim().isEmpty) {
+        _csvInputController.text = LeadCsvParser.sampleInvestorLeads;
+        _runParse();
+      }
+    }
   }
 
   void _executeBulkImport() {
@@ -137,38 +155,42 @@ class _BulkImportLeadsModalSheetState extends State<BulkImportLeadsModalSheet> w
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: AppColors.primaryTeal.withValues(alpha: 0.15),
-                      shape: BoxShape.circle,
+              Expanded(
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryTeal.withValues(alpha: 0.15),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.file_upload_outlined, color: AppColors.primaryTeal, size: 22),
                     ),
-                    child: const Icon(Icons.file_upload_outlined, color: AppColors.primaryTeal, size: 22),
-                  ),
-                  const SizedBox(width: 10),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Bulk Import Leads',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w900,
-                          color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
-                        ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Bulk Import Leads',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w900,
+                              color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                            ),
+                          ),
+                          Text(
+                            'Instant Zero-OTP verification & pipeline insertion',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                            ),
+                          ),
+                        ],
                       ),
-                      Text(
-                        'Instant Zero-OTP verification & pipeline insertion',
-                        style: TextStyle(
-                          fontSize: 11.5,
-                          color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+                    ),
+                  ],
+                ),
               ),
               IconButton(
                 onPressed: () => Navigator.of(context).pop(),
@@ -220,37 +242,67 @@ class _BulkImportLeadsModalSheetState extends State<BulkImportLeadsModalSheet> w
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Expanded(
-                            child: Text(
-                              'Paste CSV / Spreadsheet Data (Columns: Name, Phone, Email, Project, Budget, Source)',
-                              style: TextStyle(
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.w700,
-                                color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
-                              ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Paste CSV / Spreadsheet Data',
+                                  style: TextStyle(
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w800,
+                                    color: isDark ? AppColors.darkTextPrimary : const Color(0xFF0F172A),
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Columns: Name, Phone, Email, Project, Budget, Source',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: isDark ? AppColors.darkTextSecondary : const Color(0xFF64748B),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                           const SizedBox(width: 8),
-                          TextButton.icon(
-                            onPressed: () async {
-                              final doc = await DocumentPickerService.pickDocumentFromGallery();
-                              if (doc != null && context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    backgroundColor: AppColors.primaryTeal,
-                                    content: Text('Document "${doc.fileName}" attached for parsing.'),
+                          Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: _pickAndLoadFile,
+                              borderRadius: BorderRadius.circular(10),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(
+                                    colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
                                   ),
-                                );
-                                if (_csvInputController.text.trim().isEmpty) {
-                                  _csvInputController.text = LeadCsvParser.sampleNriLeads;
-                                  _runParse();
-                                }
-                              }
-                            },
-                            icon: const Icon(Icons.file_upload_outlined, size: 14),
-                            label: const Text('Pick File', style: TextStyle(fontSize: 11)),
-                            style: TextButton.styleFrom(
-                              visualDensity: VisualDensity.compact,
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  borderRadius: BorderRadius.circular(10),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: const Color(0xFF2563EB).withValues(alpha: 0.3),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.upload_file_rounded, size: 14, color: Colors.white),
+                                    SizedBox(width: 5),
+                                    Text(
+                                      'Upload File',
+                                      style: TextStyle(
+                                        fontSize: 11.5,
+                                        fontWeight: FontWeight.w700,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ),
                           ),
                         ],
@@ -260,24 +312,28 @@ class _BulkImportLeadsModalSheetState extends State<BulkImportLeadsModalSheet> w
                       // Text Area with Cream Background in Light Mode
                       Container(
                         decoration: BoxDecoration(
-                          color: isDark ? AppColors.darkSurfaceSubtle : AppColors.cream,
+                          color: isDark ? AppColors.darkSurfaceSubtle : const Color(0xFFF8FAFC),
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
-                            color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                            color: isDark ? AppColors.darkBorder : const Color(0xFFE2E8F0),
                             width: 1.2,
                           ),
                         ),
                         child: TextField(
                           controller: _csvInputController,
-                          maxLines: 5,
+                          maxLines: 4,
                           style: TextStyle(
                             fontFamily: 'monospace',
                             fontSize: 12,
                             color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
                           ),
-                          decoration: const InputDecoration(
+                          decoration: InputDecoration(
                             hintText: 'Rahul Sharma,9876543210,rahul@gmail.com,Skyline Heights,1.2 - 1.5 Cr,Channel Partner\n...',
-                            contentPadding: EdgeInsets.all(12),
+                            hintStyle: TextStyle(
+                              fontSize: 11.5,
+                              color: isDark ? Colors.white38 : const Color(0xFF94A3B8),
+                            ),
+                            contentPadding: const EdgeInsets.all(12),
                             border: InputBorder.none,
                           ),
                           onChanged: (_) => _runParse(),
@@ -285,8 +341,8 @@ class _BulkImportLeadsModalSheetState extends State<BulkImportLeadsModalSheet> w
                       ),
                       const SizedBox(height: 12),
 
-                      // Validation Summary Bar
-                      if (_hasParsed) ...[
+                      // Validation Summary Bar & Parsed Table (only when leads exist)
+                      if (_hasParsed && _parsedRows.isNotEmpty) ...[
                         Row(
                           children: [
                             _buildStatBadge(
@@ -343,6 +399,81 @@ class _BulkImportLeadsModalSheetState extends State<BulkImportLeadsModalSheet> w
 
                         // Rows List
                         ..._parsedRows.map((row) => _buildLeadPreviewRow(row, isDark)),
+                      ] else ...[
+                        const SizedBox(height: 8),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(vertical: 22, horizontal: 16),
+                          decoration: BoxDecoration(
+                            color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                              width: 1.5,
+                            ),
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Container(
+                                width: 50,
+                                height: 50,
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(
+                                    colors: [Color(0xFF3B82F6), Color(0xFF1D4ED8)],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ),
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: const Color(0xFF2563EB).withValues(alpha: 0.3),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ],
+                                ),
+                                child: const Icon(Icons.cloud_upload_outlined, color: Colors.white, size: 24),
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                'No Leads Loaded Yet',
+                                style: TextStyle(
+                                  fontSize: 14.5,
+                                  fontWeight: FontWeight.w800,
+                                  color: isDark ? AppColors.darkTextPrimary : const Color(0xFF0F172A),
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Paste CSV rows above or choose an Excel/CSV file from your device',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: isDark ? AppColors.darkTextSecondary : const Color(0xFF64748B),
+                                ),
+                              ),
+                              const SizedBox(height: 14),
+                              ElevatedButton.icon(
+                                onPressed: _pickAndLoadFile,
+                                icon: const Icon(Icons.upload_file_rounded, size: 16, color: Colors.white),
+                                label: const Text(
+                                  'Choose CSV / Excel File',
+                                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                                ),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF2563EB),
+                                  foregroundColor: Colors.white,
+                                  elevation: 0,
+                                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ],
                     ],
                   ),
@@ -400,12 +531,71 @@ class _BulkImportLeadsModalSheetState extends State<BulkImportLeadsModalSheet> w
           ),
           const SizedBox(height: 16),
 
-          // Bottom Action Button (Flip7 Gold CTA)
-          Flip7GoldCTAButton(
-            label: validCount > 0 ? 'Import $validCount Leads' : 'No Valid Leads to Import',
-            icon: Icons.file_upload_rounded,
-            isLoading: _isImporting,
-            onPressed: validCount > 0 ? _executeBulkImport : null,
+          // Bottom Action Button (Modern Premium Upload CTA)
+          Container(
+            width: double.infinity,
+            height: 52,
+            decoration: BoxDecoration(
+              gradient: validCount > 0
+                  ? const LinearGradient(
+                      colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    )
+                  : null,
+              color: validCount == 0 ? (isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0)) : null,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: validCount > 0
+                  ? [
+                      BoxShadow(
+                        color: const Color(0xFF2563EB).withValues(alpha: 0.35),
+                        blurRadius: 14,
+                        offset: const Offset(0, 5),
+                      ),
+                    ]
+                  : null,
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: (validCount > 0 && !_isImporting) ? _executeBulkImport : null,
+                borderRadius: BorderRadius.circular(16),
+                child: Center(
+                  child: _isImporting
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
+                        )
+                      : Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              validCount > 0 ? Icons.cloud_done_rounded : Icons.cloud_upload_outlined,
+                              size: 19,
+                              color: validCount > 0
+                                  ? Colors.white
+                                  : (isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8)),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              validCount > 0
+                                  ? 'Import $validCount Verified Leads'
+                                  : 'Paste or Upload Leads to Import',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w800,
+                                color: validCount > 0
+                                    ? Colors.white
+                                    : (isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8)),
+                                letterSpacing: -0.2,
+                              ),
+                            ),
+                          ],
+                        ),
+                ),
+              ),
+            ),
           ),
         ],
       ),

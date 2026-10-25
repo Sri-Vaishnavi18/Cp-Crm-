@@ -556,9 +556,7 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
-  bool _isAgency = true;
   final _nameController = TextEditingController();
-  final _firmNameController = TextEditingController();
   final _reraController = TextEditingController();
   final _phoneController = TextEditingController();
   final _emailController = TextEditingController();
@@ -571,7 +569,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   void dispose() {
     _nameController.dispose();
-    _firmNameController.dispose();
     _reraController.dispose();
     _phoneController.dispose();
     _emailController.dispose();
@@ -585,11 +582,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     setState(() => _errorMessage = null);
 
     if (_nameController.text.trim().isEmpty) {
-      setState(() => _errorMessage = 'Please enter authorized contact person name.');
-      return;
-    }
-    if (_isAgency && _firmNameController.text.trim().isEmpty) {
-      setState(() => _errorMessage = 'Please enter agency or firm name.');
+      setState(() => _errorMessage = 'Please enter your full name.');
       return;
     }
     if (_reraController.text.trim().isEmpty) {
@@ -613,12 +606,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     final result = await widget.state.register(
       name: _nameController.text.trim(),
-      firmName: _isAgency ? _firmNameController.text.trim() : _nameController.text.trim(),
       reraNumber: _reraController.text.trim(),
       phone: _phoneController.text.trim(),
       email: _emailController.text.trim(),
       city: _cityController.text.trim(),
-      isAgency: _isAgency,
       password: _passwordController.text,
     );
 
@@ -633,7 +624,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 const Icon(Icons.verified, color: Colors.white, size: 20),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text('Account created for ${result.user?.firmName}!'),
+                  child: Text('Account created for ${result.user?.name ?? "Partner"}!'),
                 ),
               ],
             ),
@@ -676,35 +667,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
               const SizedBox(height: 4),
               Text(
-                'Register your firm or realtor profile to get instant access',
+                'Register your partner profile to get instant access',
                 style: TextStyle(
                   fontSize: 13,
                   color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
                 ),
-              ),
-              const SizedBox(height: 20),
-
-              // Partner Type Selector
-              Row(
-                children: [
-                  Expanded(
-                    child: ChoiceChip(
-                      avatar: Icon(Icons.business_outlined, size: 16, color: _isAgency ? Colors.white : AppColors.primary),
-                      label: const Center(child: Text('Agency / Firm')),
-                      selected: _isAgency,
-                      onSelected: (val) => setState(() => _isAgency = true),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ChoiceChip(
-                      avatar: Icon(Icons.person_outline, size: 16, color: !_isAgency ? Colors.white : AppColors.primary),
-                      label: const Center(child: Text('Individual Realtor')),
-                      selected: !_isAgency,
-                      onSelected: (val) => setState(() => _isAgency = false),
-                    ),
-                  ),
-                ],
               ),
               const SizedBox(height: 20),
 
@@ -733,16 +700,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 const SizedBox(height: 16),
               ],
 
-              if (_isAgency) ...[
-                _buildFieldLabel('Agency / Firm Name *', isDark),
-                TextField(
-                  controller: _firmNameController,
-                  decoration: _buildInputDecoration('e.g. Skyline Realty Advisors', Icons.business, isDark),
-                ),
-                const SizedBox(height: 16),
-              ],
-
-              _buildFieldLabel('Authorized Contact Person *', isDark),
+              _buildFieldLabel('Full Name *', isDark),
               TextField(
                 controller: _nameController,
                 decoration: _buildInputDecoration('Full Name', Icons.person_outline, isDark),
@@ -769,7 +727,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               TextField(
                 controller: _emailController,
                 keyboardType: TextInputType.emailAddress,
-                decoration: _buildInputDecoration('partner@firm.com', Icons.email_outlined, isDark),
+                decoration: _buildInputDecoration('partner@example.com', Icons.email_outlined, isDark),
               ),
               const SizedBox(height: 16),
 

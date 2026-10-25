@@ -4,12 +4,15 @@ import '../../core/models/app_models.dart';
 import '../../core/state/app_state.dart';
 import '../../core/services/url_action_service.dart';
 import 'lead_detail_screen.dart';
+import 'bulk_import_leads_modal.dart';
 import '../../shared/widgets/app_widgets.dart';
 export 'add_lead_modal.dart';
+export 'bulk_import_leads_modal.dart';
 
 class LeadsScreen extends StatefulWidget {
   final AppState state;
   final VoidCallback onOpenAddLead;
+  final VoidCallback? onOpenBulkImport;
   final VoidCallback? onBack;
   final String? initialFilter;
 
@@ -17,6 +20,7 @@ class LeadsScreen extends StatefulWidget {
     super.key,
     required this.state,
     required this.onOpenAddLead,
+    this.onOpenBulkImport,
     this.onBack,
     this.initialFilter,
   });
@@ -47,6 +51,19 @@ class _LeadsScreenState extends State<LeadsScreen> {
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _openBulkImportModal() {
+    if (widget.onOpenBulkImport != null) {
+      widget.onOpenBulkImport!();
+    } else {
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (ctx) => BulkImportLeadsModalSheet(state: widget.state),
+      );
+    }
   }
 
   void _navigateToDetail(LeadModel lead) {
@@ -288,7 +305,39 @@ class _LeadsScreenState extends State<LeadsScreen> {
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 8),
+                  OutlinedButton.icon(
+                    key: const Key('leads_bulk_import_button'),
+                    onPressed: _openBulkImportModal,
+                    icon: const Icon(Icons.cloud_upload_outlined, size: 15, color: Color(0xFF2563EB)),
+                    label: const Text(
+                      'Bulk Import',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF1D4ED8),
+                        letterSpacing: -0.2,
+                      ),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(
+                        color: isDark ? const Color(0xFF3B82F6) : const Color(0xFF2563EB).withValues(alpha: 0.6),
+                        width: 1.2,
+                      ),
+                      backgroundColor: isDark
+                          ? const Color(0xFF1E3A8A).withValues(alpha: 0.35)
+                          : const Color(0xFFEFF6FF),
+                      foregroundColor: const Color(0xFF1D4ED8),
+                      elevation: 0,
+                      shadowColor: const Color(0xFF2563EB).withValues(alpha: 0.15),
+                      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
+                      minimumSize: const Size(0, 36),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
                   ElevatedButton.icon(
                     onPressed: widget.onOpenAddLead,
                     icon: const Icon(Icons.add, size: 16, color: Colors.white),
@@ -304,7 +353,7 @@ class _LeadsScreenState extends State<LeadsScreen> {
                       backgroundColor: const Color(0xFF2563EB),
                       foregroundColor: Colors.white,
                       elevation: 0,
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       minimumSize: const Size(0, 36),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(20),
@@ -475,6 +524,35 @@ class _LeadsScreenState extends State<LeadsScreen> {
                               onPressed: _resetAllFilters,
                               icon: const Icon(Icons.restart_alt_rounded, size: 16),
                               label: const Text('Reset All Filters'),
+                            ),
+                          ] else ...[
+                            const SizedBox(height: 16),
+                            Wrap(
+                              spacing: 10,
+                              runSpacing: 10,
+                              alignment: WrapAlignment.center,
+                              children: [
+                                OutlinedButton.icon(
+                                  onPressed: _openBulkImportModal,
+                                  icon: const Icon(Icons.file_upload_outlined, size: 16),
+                                  label: const Text('Bulk Import Leads'),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: const Color(0xFF2563EB),
+                                    side: const BorderSide(color: Color(0xFF2563EB)),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                                  ),
+                                ),
+                                ElevatedButton.icon(
+                                  onPressed: widget.onOpenAddLead,
+                                  icon: const Icon(Icons.add, size: 16),
+                                  label: const Text('Add Lead'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF2563EB),
+                                    foregroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ],

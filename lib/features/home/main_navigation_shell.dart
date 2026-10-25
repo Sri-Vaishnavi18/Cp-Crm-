@@ -42,6 +42,15 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
     );
   }
 
+  void _openBulkImportModal() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => BulkImportLeadsModalSheet(state: widget.state),
+    );
+  }
+
   void _openScheduleVisitModal() {
     showModalBottomSheet(
       context: context,
@@ -120,6 +129,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
             state: widget.state,
             initialFilter: _leadInitialFilter,
             onOpenAddLead: _openAddLeadModal,
+            onOpenBulkImport: _openBulkImportModal,
             onBack: () => setState(() => _currentIndex = 0),
           ),
           ProjectsScreen(

@@ -603,18 +603,21 @@ class AppState extends ChangeNotifier {
 
   Future<AuthResult> register({
     required String name,
-    required String firmName,
+    String? firmName,
     required String reraNumber,
     required String phone,
     required String email,
     required String city,
-    required bool isAgency,
+    bool isAgency = false,
     required String password,
   }) async {
+    final effectiveFirmName = (isAgency && firmName != null && firmName.trim().isNotEmpty)
+        ? firmName.trim()
+        : (firmName != null && firmName.trim().isNotEmpty ? firmName.trim() : name.trim());
     final newUser = UserModel(
       id: 'usr_${DateTime.now().millisecondsSinceEpoch}',
       name: name.trim(),
-      firmName: isAgency ? firmName.trim() : name.trim(),
+      firmName: effectiveFirmName,
       reraNumber: reraNumber.trim().toUpperCase(),
       phone: phone.trim(),
       email: email.trim(),
