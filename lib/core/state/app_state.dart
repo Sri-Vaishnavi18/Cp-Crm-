@@ -72,6 +72,9 @@ class AppState extends ChangeNotifier {
   BankDetailsModel? _savedBankDetails = MockDataService.getInitialBankDetails();
   List<CpDocumentModel> _cpDocuments = MockDataService.getInitialCpDocuments();
   List<ReceivedInvoiceModel> _receivedInvoices = [];
+  List<ChatConversationModel> _conversations = [];
+  Map<String, List<ChatMessageModel>> _chatMessages = {};
+  List<UserModel> _networkCps = MockDataService.getNetworkChannelPartners();
 
   // Date Filter State
   DashboardDatePreset _dashboardDatePreset = DashboardDatePreset.allTime;
@@ -116,6 +119,13 @@ class AppState extends ChangeNotifier {
   BankDetailsModel? get savedBankDetails => _savedBankDetails;
   List<CpDocumentModel> get cpDocuments => _cpDocuments;
   List<ReceivedInvoiceModel> get receivedInvoices => _receivedInvoices;
+  List<ChatConversationModel> get conversations => _conversations;
+  List<UserModel> get networkCps => _networkCps;
+  int get totalUnreadChatCount => _conversations.fold(0, (acc, c) => acc + c.unreadCount);
+
+  List<ChatMessageModel> getMessagesForConversation(String conversationId) {
+    return _chatMessages[conversationId] ?? [];
+  }
 
   int get missingMandatoryDocsCount =>
       _cpDocuments.where((d) => d.isMandatory && (d.status == CpDocumentStatus.missing || d.status == CpDocumentStatus.expired)).length;
@@ -148,6 +158,8 @@ class AppState extends ChangeNotifier {
   String get _invoicesStorageKey => 'persisted_invoices_$_currentUserId';
   String get _siteVisitsStorageKey => 'persisted_visits_$_currentUserId';
   String get _receivedInvoicesStorageKey => 'persisted_received_invoices_$_currentUserId';
+  String get _chatsStorageKey => 'persisted_chats_$_currentUserId';
+  String get _messagesStorageKey => 'persisted_messages_$_currentUserId';
 
   // Constructor
   AppState({bool initialIsDark = false}) {
@@ -250,6 +262,48 @@ class AppState extends ChangeNotifier {
         final syncRaw = prefs.getString(syncKey);
         if (syncRaw != null && syncRaw.isNotEmpty) {
           _lastSyncedAt = DateTime.tryParse(syncRaw) ?? DateTime.now();
+        }
+      }
+
+      // 7. Chats and Messages
+      final userChatsKey = 'persisted_chats_$userId';
+      final userMsgsKey = 'persisted_messages_$userId';
+      if (prefs.containsKey(userChatsKey)) {
+        final raw = prefs.getString(userChatsKey);
+        if (raw != null && raw.isNotEmpty) {
+          final decoded = jsonDecode(raw) as List<dynamic>;
+          _conversations = decoded
+              .map((item) => ChatConversationModel.fromJson(item as Map<String, dynamic>))
+              .toList();
+        } else {
+          _conversations = [];
+        }
+      } else {
+        _conversations = MockDataService.getInitialConversations(userId);
+      }
+
+      if (prefs.containsKey(userMsgsKey)) {
+        final raw = prefs.getString(userMsgsKey);
+        if (raw != null && raw.isNotEmpty) {
+          final decoded = jsonDecode(raw) as Map<String, dynamic>;
+          _chatMessages = decoded.map((key, val) {
+            final list = (val as List<dynamic>)
+                .map((item) => ChatMessageModel.fromJson(item as Map<String, dynamic>))
+                .toList();
+            return MapEntry(key, list);
+          });
+        } else {
+          _chatMessages = {};
+        }
+      } else {
+        _chatMessages = MockDataService.getInitialChatMessages(userId);
+      }
+
+      // 8. Peer CP Network Directory
+      _networkCps = MockDataService.getNetworkChannelPartners();
+      for (final u in _savedUsers) {
+        if (u.id != userId && !_networkCps.any((cp) => cp.id == u.id)) {
+          _networkCps.add(u);
         }
       }
 
@@ -359,11 +413,14 @@ class AppState extends ChangeNotifier {
     _invoices = [];
     _notifications = [];
     _projects = [];
+    _conversations = [];
+    _chatMessages = {};
     await _persistLeads();
     await _persistSiteVisits();
     await _persistInvoices();
     await _persistNotifications();
     await _persistProjects();
+    await _persistChats();
     notifyListeners();
   }
 
@@ -374,11 +431,15 @@ class AppState extends ChangeNotifier {
     _invoices = MockDataService.getInitialInvoices();
     _notifications = MockDataService.getNotifications();
     _projects = MockDataService.getProjects();
+    _conversations = MockDataService.getInitialConversations(_currentUserId);
+    _chatMessages = MockDataService.getInitialChatMessages(_currentUserId);
     await _persistLeads();
     await _persistSiteVisits();
     await _persistInvoices();
     await _persistNotifications();
     await _persistProjects();
+    await _persistChats();
+    await _persistAllMessages();
     notifyListeners();
   }
 
@@ -390,6 +451,9 @@ class AppState extends ChangeNotifier {
     _savedBankDetails = MockDataService.getInitialBankDetails();
     _cpDocuments = MockDataService.getInitialCpDocuments();
     _receivedInvoices = [];
+    _conversations = [];
+    _chatMessages = {};
+    _networkCps = MockDataService.getNetworkChannelPartners();
 
     // Purge legacy demo accounts and check saved session in local device storage
     try {
@@ -682,6 +746,8 @@ class AppState extends ChangeNotifier {
     _siteVisits = [];
     _invoices = [];
     _notifications = [];
+    _conversations = [];
+    _chatMessages = {};
     notifyListeners();
   }
 
@@ -2072,6 +2138,319 @@ class AppState extends ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       final jsonList = _notifications.map((n) => n.toJson()).toList();
       await prefs.setString('persisted_notifications_$uid', jsonEncode(jsonList));
+    } catch (_) {}
+  }
+
+  // ==========================================
+  // CP Community & Text Messaging Methods
+  // ==========================================
+
+  ChatMessageModel sendChatMessage({
+    required String conversationId,
+    required String text,
+  }) {
+    final cleanText = text.trim();
+    if (cleanText.isEmpty) {
+      throw ArgumentError('Message text cannot be empty');
+    }
+
+    final now = DateTime.now();
+    final senderId = _currentUser?.id ?? 'usr_guest';
+    final senderName = _currentUser?.name.isNotEmpty == true ? _currentUser!.name : 'Channel Partner';
+    final senderFirm = _currentUser?.firmName.isNotEmpty == true ? _currentUser!.firmName : 'Real Estate Brokerage';
+
+    final newMessage = ChatMessageModel(
+      id: 'msg_${now.microsecondsSinceEpoch}',
+      conversationId: conversationId,
+      senderId: senderId,
+      senderName: senderName,
+      senderFirm: senderFirm,
+      text: cleanText,
+      timestamp: now,
+      status: MessageStatus.delivered,
+    );
+
+    // Append to messages map
+    final currentList = List<ChatMessageModel>.from(_chatMessages[conversationId] ?? []);
+    currentList.add(newMessage);
+    _chatMessages[conversationId] = currentList;
+
+    // Update conversation snippet and time, and bump to top
+    final convIndex = _conversations.indexWhere((c) => c.id == conversationId);
+    if (convIndex != -1) {
+      final oldConv = _conversations[convIndex];
+      final updatedConv = oldConv.copyWith(
+        lastMessage: cleanText,
+        lastMessageTime: now,
+        lastSenderName: senderName,
+      );
+      _conversations.removeAt(convIndex);
+      _conversations.insert(0, updatedConv);
+    }
+
+    notifyListeners();
+    _persistChats();
+    _persistMessages(conversationId);
+    return newMessage;
+  }
+
+  ChatConversationModel createGroupChat({
+    required String groupName,
+    String? description,
+    required List<UserModel> selectedMembers,
+    int colorIndex = 0,
+  }) {
+    final cleanName = groupName.trim();
+    if (cleanName.isEmpty) {
+      throw ArgumentError('Group name cannot be empty');
+    }
+
+    final now = DateTime.now();
+    final creatorId = _currentUser?.id ?? 'usr_guest';
+    final creatorName = _currentUser?.name.isNotEmpty == true ? _currentUser!.name : 'Channel Partner';
+    final creatorFirm = _currentUser?.firmName.isNotEmpty == true ? _currentUser!.firmName : 'Brokerage';
+
+    final participantIds = <String>{creatorId};
+    for (final member in selectedMembers) {
+      participantIds.add(member.id);
+    }
+
+    final groupConvId = 'conv_group_${now.microsecondsSinceEpoch}';
+    final newGroup = ChatConversationModel(
+      id: groupConvId,
+      title: cleanName,
+      isGroup: true,
+      description: description?.trim().isNotEmpty == true ? description!.trim() : null,
+      creatorId: creatorId,
+      participantIds: participantIds.toList(),
+      adminIds: [creatorId],
+      lastMessage: '$creatorName created group "$cleanName"',
+      lastMessageTime: now,
+      lastSenderName: creatorName,
+      unreadCount: 0,
+      avatarColorIndex: colorIndex,
+      createdAt: now,
+    );
+
+    // Initial system message
+    final systemMsg = ChatMessageModel(
+      id: 'msg_sys_${now.microsecondsSinceEpoch}',
+      conversationId: groupConvId,
+      senderId: creatorId,
+      senderName: creatorName,
+      senderFirm: creatorFirm,
+      text: '$creatorName created group "$cleanName"',
+      timestamp: now,
+      isSystemMessage: true,
+      status: MessageStatus.read,
+    );
+
+    _conversations.insert(0, newGroup);
+    _chatMessages[groupConvId] = [systemMsg];
+
+    notifyListeners();
+    _persistChats();
+    _persistMessages(groupConvId);
+    return newGroup;
+  }
+
+  ChatConversationModel getOrCreateDirectChat(UserModel targetCp) {
+    final currentId = _currentUser?.id ?? 'usr_guest';
+    
+    // Check if direct conversation already exists
+    final existingIndex = _conversations.indexWhere(
+      (c) => !c.isGroup && c.participantIds.contains(targetCp.id) && c.participantIds.contains(currentId),
+    );
+
+    if (existingIndex != -1) {
+      return _conversations[existingIndex];
+    }
+
+    final now = DateTime.now();
+    final convId = 'conv_direct_${targetCp.id}_${currentId}_${now.millisecondsSinceEpoch}';
+    final newDirect = ChatConversationModel(
+      id: convId,
+      title: targetCp.name,
+      isGroup: false,
+      creatorId: currentId,
+      participantIds: [currentId, targetCp.id],
+      adminIds: [],
+      lastMessage: null,
+      lastMessageTime: now,
+      lastSenderName: null,
+      unreadCount: 0,
+      avatarColorIndex: (targetCp.name.length) % 6,
+      createdAt: now,
+    );
+
+    _conversations.insert(0, newDirect);
+    _chatMessages[convId] = [];
+
+    notifyListeners();
+    _persistChats();
+    _persistMessages(convId);
+    return newDirect;
+  }
+
+  void addMembersToGroup(String conversationId, List<UserModel> newMembers) {
+    final convIndex = _conversations.indexWhere((c) => c.id == conversationId);
+    if (convIndex == -1) return;
+
+    final conv = _conversations[convIndex];
+    final currentParticipants = List<String>.from(conv.participantIds);
+    final addedNames = <String>[];
+
+    for (final member in newMembers) {
+      if (!currentParticipants.contains(member.id)) {
+        currentParticipants.add(member.id);
+        addedNames.add(member.name);
+      }
+    }
+
+    if (addedNames.isEmpty) return;
+
+    final now = DateTime.now();
+    final currentName = _currentUser?.name.isNotEmpty == true ? _currentUser!.name : 'Channel Partner';
+    final currentFirm = _currentUser?.firmName.isNotEmpty == true ? _currentUser!.firmName : 'Brokerage';
+    final systemText = '$currentName added ${addedNames.join(', ')} to the group';
+
+    final systemMsg = ChatMessageModel(
+      id: 'msg_sys_${now.microsecondsSinceEpoch}',
+      conversationId: conversationId,
+      senderId: _currentUser?.id ?? 'usr_guest',
+      senderName: currentName,
+      senderFirm: currentFirm,
+      text: systemText,
+      timestamp: now,
+      isSystemMessage: true,
+      status: MessageStatus.read,
+    );
+
+    final msgs = List<ChatMessageModel>.from(_chatMessages[conversationId] ?? []);
+    msgs.add(systemMsg);
+    _chatMessages[conversationId] = msgs;
+
+    final updatedConv = conv.copyWith(
+      participantIds: currentParticipants,
+      lastMessage: systemText,
+      lastMessageTime: now,
+      lastSenderName: currentName,
+    );
+
+    _conversations[convIndex] = updatedConv;
+
+    notifyListeners();
+    _persistChats();
+    _persistMessages(conversationId);
+  }
+
+  void leaveGroup(String conversationId) {
+    final convIndex = _conversations.indexWhere((c) => c.id == conversationId);
+    if (convIndex == -1) return;
+
+    final conv = _conversations[convIndex];
+    final currentId = _currentUser?.id ?? 'usr_guest';
+    final currentName = _currentUser?.name.isNotEmpty == true ? _currentUser!.name : 'Channel Partner';
+    final currentFirm = _currentUser?.firmName.isNotEmpty == true ? _currentUser!.firmName : 'Brokerage';
+
+    final updatedParticipants = List<String>.from(conv.participantIds)..remove(currentId);
+    final updatedAdmins = List<String>.from(conv.adminIds)..remove(currentId);
+
+    final now = DateTime.now();
+    final systemText = '$currentName left the group';
+    final systemMsg = ChatMessageModel(
+      id: 'msg_sys_${now.microsecondsSinceEpoch}',
+      conversationId: conversationId,
+      senderId: currentId,
+      senderName: currentName,
+      senderFirm: currentFirm,
+      text: systemText,
+      timestamp: now,
+      isSystemMessage: true,
+      status: MessageStatus.read,
+    );
+
+    final msgs = List<ChatMessageModel>.from(_chatMessages[conversationId] ?? []);
+    msgs.add(systemMsg);
+    _chatMessages[conversationId] = msgs;
+
+    final updatedConv = conv.copyWith(
+      participantIds: updatedParticipants,
+      adminIds: updatedAdmins,
+      lastMessage: systemText,
+      lastMessageTime: now,
+      lastSenderName: currentName,
+    );
+
+    _conversations[convIndex] = updatedConv;
+
+    notifyListeners();
+    _persistChats();
+    _persistMessages(conversationId);
+  }
+
+  void markConversationAsRead(String conversationId) {
+    final idx = _conversations.indexWhere((c) => c.id == conversationId);
+    if (idx != -1 && _conversations[idx].unreadCount > 0) {
+      _conversations[idx] = _conversations[idx].copyWith(unreadCount: 0);
+      notifyListeners();
+      _persistChats();
+    }
+  }
+
+  void clearConversationMessages(String conversationId) {
+    _chatMessages[conversationId] = [];
+    final idx = _conversations.indexWhere((c) => c.id == conversationId);
+    if (idx != -1) {
+      _conversations[idx] = _conversations[idx].copyWith(
+        lastMessage: null,
+        unreadCount: 0,
+      );
+    }
+    notifyListeners();
+    _persistChats();
+    _persistMessages(conversationId);
+  }
+
+  void deleteConversation(String conversationId) {
+    _conversations.removeWhere((c) => c.id == conversationId);
+    _chatMessages.remove(conversationId);
+    notifyListeners();
+    _persistChats();
+    _persistAllMessages();
+  }
+
+  Future<void> _persistChats() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final jsonList = _conversations.map((c) => c.toJson()).toList();
+      await prefs.setString(_chatsStorageKey, jsonEncode(jsonList));
+    } catch (_) {}
+  }
+
+  Future<void> _persistMessages(String conversationId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final allRaw = prefs.getString(_messagesStorageKey);
+      Map<String, dynamic> storedMap = {};
+      if (allRaw != null && allRaw.isNotEmpty) {
+        try {
+          storedMap = jsonDecode(allRaw) as Map<String, dynamic>;
+        } catch (_) {}
+      }
+      final list = (_chatMessages[conversationId] ?? []).map((m) => m.toJson()).toList();
+      storedMap[conversationId] = list;
+      await prefs.setString(_messagesStorageKey, jsonEncode(storedMap));
+    } catch (_) {}
+  }
+
+  Future<void> _persistAllMessages() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final mapToStore = _chatMessages.map(
+        (key, list) => MapEntry(key, list.map((m) => m.toJson()).toList()),
+      );
+      await prefs.setString(_messagesStorageKey, jsonEncode(mapToStore));
     } catch (_) {}
   }
 }

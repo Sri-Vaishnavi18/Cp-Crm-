@@ -11,6 +11,7 @@ import '../commissions/commissions_screen.dart';
 import '../spoc_helpdesk/spoc_screen.dart';
 import '../notifications/notifications_screen.dart';
 import '../profile/profile_screen.dart';
+import '../chat/chat_list_screen.dart';
 
 class MainNavigationShell extends StatefulWidget {
   final AppState state;
@@ -29,7 +30,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
   void _openInvoices() {
     setState(() {
       _docsInitialTab = 1;
-      _currentIndex = 3;
+      _currentIndex = 4;
     });
   }
 
@@ -90,6 +91,12 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
     );
   }
 
+  void _openChatsScreen() {
+    setState(() {
+      _currentIndex = 3;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
@@ -102,7 +109,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
             state: widget.state,
             onNavigateTab: (idx) => setState(() {
               _leadInitialFilter = null;
-              if (idx == 3) {
+              if (idx == 4) {
                 _docsInitialTab = 0;
               }
               _currentIndex = idx;
@@ -113,10 +120,11 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
             onOpenSiteVisits: _openSiteVisitsScreen,
             onOpenSpocHelpdesk: _openSpocHelpdesk,
             onOpenNotifications: _openNotifications,
-            onOpenCommissions: () => setState(() => _currentIndex = 4),
+            onOpenChats: _openChatsScreen,
+            onOpenCommissions: () => setState(() => _currentIndex = 5),
             onOpenDocs: () => setState(() {
               _docsInitialTab = 0;
-              _currentIndex = 3;
+              _currentIndex = 4;
             }),
             onOpenInvoices: _openInvoices,
             onOpenLeadsWithFilter: (filter) => setState(() {
@@ -133,6 +141,10 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
             onBack: () => setState(() => _currentIndex = 0),
           ),
           ProjectsScreen(
+            state: widget.state,
+            onBack: () => setState(() => _currentIndex = 0),
+          ),
+          ChatListScreen(
             state: widget.state,
             onBack: () => setState(() => _currentIndex = 0),
           ),
@@ -239,6 +251,14 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                   ),
                   _buildBottomNavItem(
                     index: 3,
+                    label: 'Chats',
+                    activeIcon: Icons.forum_rounded,
+                    inactiveIcon: Icons.forum_outlined,
+                    badgeCount: widget.state.totalUnreadChatCount > 0 ? widget.state.totalUnreadChatCount : null,
+                    isDark: isDark,
+                  ),
+                  _buildBottomNavItem(
+                    index: 4,
                     label: 'Docs',
                     activeIcon: Icons.folder_shared_rounded,
                     inactiveIcon: Icons.folder_shared_outlined,
@@ -246,7 +266,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                     isDark: isDark,
                   ),
                   _buildBottomNavItem(
-                    index: 4,
+                    index: 5,
                     label: 'Commissions',
                     activeIcon: Icons.account_balance_wallet_rounded,
                     inactiveIcon: Icons.account_balance_wallet_outlined,
@@ -284,14 +304,14 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
     Widget iconWidget = Icon(
       isSelected ? activeIcon : inactiveIcon,
       color: color,
-      size: 24,
+      size: 22,
     );
 
     if (badgeCount != null && badgeCount > 0) {
       iconWidget = Badge(
         label: Text(
           '$badgeCount',
-          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
+          style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Colors.white),
         ),
         backgroundColor: const Color(0xFFEF4444),
         child: iconWidget,
@@ -300,23 +320,23 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
 
     return InkWell(
       onTap: () => setState(() {
-        if (index == 3) {
+        if (index == 4) {
           _docsInitialTab = 0;
         }
         _currentIndex = index;
       }),
       borderRadius: BorderRadius.circular(12),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             iconWidget,
-            const SizedBox(height: 3),
+            const SizedBox(height: 2),
             Text(
               label,
               style: TextStyle(
-                fontSize: 11,
+                fontSize: 10,
                 fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                 color: color,
               ),

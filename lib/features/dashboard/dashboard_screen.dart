@@ -4,6 +4,7 @@ import '../../core/state/app_state.dart';
 import '../../core/models/app_models.dart';
 import '../commissions/commissions_screen.dart';
 import '../../shared/widgets/date_filter_bar.dart';
+import '../chat/chat_list_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
   final AppState state;
@@ -19,6 +20,7 @@ class DashboardScreen extends StatelessWidget {
   final VoidCallback? onOpenDocs;
   final VoidCallback? onOpenInvoices;
   final Function(String filter)? onOpenLeadsWithFilter;
+  final VoidCallback? onOpenChats;
 
   const DashboardScreen({
     super.key,
@@ -35,6 +37,7 @@ class DashboardScreen extends StatelessWidget {
     this.onOpenDocs,
     this.onOpenInvoices,
     this.onOpenLeadsWithFilter,
+    this.onOpenChats,
   });
 
   @override
@@ -83,6 +86,10 @@ class DashboardScreen extends StatelessWidget {
 
               // 7. Brokerage & Revenue Performance Trajectory Graph
               _buildBrokeragePerformanceGraph(context, isDark),
+              const SizedBox(height: 20),
+
+              // 8. CP Community & Mastermind Groups Card
+              _buildCpCommunityCard(context, isDark),
               const SizedBox(height: 24),
             ],
           ),
@@ -1561,4 +1568,161 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
+  Widget _buildCpCommunityCard(BuildContext context, bool isDark) {
+    final unread = state.totalUnreadChatCount;
+    final groupsCount = state.conversations.where((c) => c.isGroup).length;
+    final directCount = state.conversations.where((c) => !c.isGroup).length;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkSurface : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? AppColors.darkBorder : const Color(0xFFE2E8F0),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2563EB).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                alignment: Alignment.center,
+                child: const Icon(
+                  Icons.forum_rounded,
+                  color: Color(0xFF2563EB),
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          'CP Community & Masterminds',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: isDark ? AppColors.darkTextPrimary : const Color(0xFF0F172A),
+                          ),
+                        ),
+                        if (unread > 0) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF2563EB),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              '$unread NEW',
+                              style: const TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 1),
+                    Text(
+                      'Verified Channel Partner Network • Text Only',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: isDark ? AppColors.darkTextSecondary : const Color(0xFF64748B),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Connect with fellow CPs for co-broking deals, sharing ready-to-move luxury inventory, and regional broker masterminds without calls or spam.',
+            style: TextStyle(
+              fontSize: 12,
+              height: 1.4,
+              color: isDark ? AppColors.darkTextSecondary : const Color(0xFF475569),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: isDark ? AppColors.darkSurfaceSubtle : const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  '$groupsCount Active Groups',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? AppColors.darkTextPrimary : const Color(0xFF334155),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: isDark ? AppColors.darkSurfaceSubtle : const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  '$directCount Direct Threads',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? AppColors.darkTextPrimary : const Color(0xFF334155),
+                  ),
+                ),
+              ),
+              const Spacer(),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF2563EB),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                onPressed: () {
+                  if (onOpenChats != null) {
+                    onOpenChats!();
+                  } else {
+                    onNavigateTab(3);
+                  }
+                },
+                icon: const Icon(Icons.chat_bubble_outline_rounded, size: 14, color: Colors.white),
+                label: const Text(
+                  'Open Chats',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 }

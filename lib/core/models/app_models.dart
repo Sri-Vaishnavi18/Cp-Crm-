@@ -1,4 +1,5 @@
 import 'dart:convert';
+export 'chat_models.dart';
 
 class UserModel {
   final String id;
@@ -54,6 +55,16 @@ class UserModel {
     logoUrl: json['logoUrl']?.toString(),
     registeredAt: json['registeredAt'] != null ? DateTime.tryParse(json['registeredAt'].toString()) : null,
   );
+
+  String get maskedPhone {
+    final digits = phone.replaceAll(RegExp(r'[^\d]'), '');
+    if (digits.length >= 10) {
+      final start = digits.substring(0, 2);
+      final end = digits.substring(digits.length - 2);
+      return '+91 $start*** ***$end';
+    }
+    return 'Protected';
+  }
 }
 
 enum LeadTemperature {
