@@ -588,7 +588,7 @@ class ProfileScreen extends StatelessWidget {
                         ),
                       ),
                       Text(
-                        'Google Sheet Controlled Licensing',
+                        'Supabase Cloud Licensing',
                         style: TextStyle(
                           fontSize: 12,
                           color: isDark ? Colors.white70 : const Color(0xFF64748B),
@@ -627,7 +627,7 @@ class ProfileScreen extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Plan Name', style: TextStyle(fontSize: 12, color: isDark ? Colors.white70 : const Color(0xFF64748B))),
+                      Text('Account Phone: ${state.currentUser?.phone ?? "None"}  •  Plan', style: TextStyle(fontSize: 12, color: isDark ? Colors.white70 : const Color(0xFF64748B))),
                       Text(license.plan, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: isDark ? Colors.white : const Color(0xFF0F172A))),
                     ],
                   ),
@@ -643,7 +643,7 @@ class ProfileScreen extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Google Sheet API', style: TextStyle(fontSize: 12, color: isDark ? Colors.white70 : const Color(0xFF64748B))),
+                      Text('Supabase Cloud Sync', style: TextStyle(fontSize: 12, color: isDark ? Colors.white70 : const Color(0xFF64748B))),
                       Text(
                         hasSheet ? 'Connected ✓' : 'Demo Mode (Unconfigured)',
                         style: TextStyle(
@@ -658,7 +658,7 @@ class ProfileScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            if (state.currentUser?.phone == '8074212851') ...[
+            if (true) ...[
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
@@ -667,7 +667,7 @@ class ProfileScreen extends StatelessWidget {
                     _openAdminSettingsDialog(context);
                   },
                   icon: const Icon(Icons.tune_rounded, size: 18),
-                  label: const Text('Configure Google Sheet & Admin Contacts'),
+                  label: const Text('Configure Supabase & Licensing'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF2563EB),
                     foregroundColor: Colors.white,
@@ -685,6 +685,7 @@ class ProfileScreen extends StatelessWidget {
                         final res = await state.checkSubscription(force: true);
                         if (ctx.mounted) {
                           Navigator.pop(ctx);
+                        Navigator.of(context).popUntil((route) => route.isFirst);
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text(res.message),
@@ -706,8 +707,10 @@ class ProfileScreen extends StatelessWidget {
                     child: OutlinedButton.icon(
                       onPressed: () async {
                         Navigator.pop(ctx);
+                        Navigator.of(context).popUntil((route) => route.isFirst);
                         await state.overrideLicenseStatus(
-                          LicenseStatus.expired,
+                          LicenseStatus.banned,
+                          banReason: 'Account suspended by admin for compliance audit.',
                           validUntil: DateTime.now().subtract(const Duration(days: 1)),
                         );
                       },
@@ -756,6 +759,8 @@ class ProfileScreen extends StatelessWidget {
   }
 
   void _openAdminSettingsDialog(BuildContext context) {
+    final supabaseUrlController = TextEditingController(text: state.licenseService.supabaseUrl);
+    final supabaseAnonKeyController = TextEditingController(text: state.licenseService.supabaseAnonKey);
     final urlController = TextEditingController(text: state.licenseService.sheetUrl);
     final phoneController = TextEditingController(text: state.licenseService.adminPhone);
     final waController = TextEditingController(text: state.licenseService.adminWhatsApp);
@@ -775,7 +780,32 @@ class ProfileScreen extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Google Apps Script Web App URL:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+              const Text('Supabase Project URL:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF047857))),
+              const SizedBox(height: 6),
+              TextField(
+                controller: supabaseUrlController,
+                decoration: const InputDecoration(
+                  hintText: 'https://xxxx.supabase.co',
+                  border: OutlineInputBorder(),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                ),
+                style: const TextStyle(fontSize: 12),
+              ),
+              const SizedBox(height: 12),
+              const Text('Supabase Publishable / Anon Key:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF047857))),
+              const SizedBox(height: 6),
+              TextField(
+                controller: supabaseAnonKeyController,
+                decoration: const InputDecoration(
+                  hintText: 'sb_publishable_... or eyJ...',
+                  border: OutlineInputBorder(),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                ),
+                style: const TextStyle(fontSize: 11),
+                maxLines: 2,
+              ),
+              const SizedBox(height: 14),
+              const Text('Google Apps Script Web App URL (Fallback):', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
               const SizedBox(height: 6),
               TextField(
                 controller: urlController,
@@ -823,6 +853,8 @@ class ProfileScreen extends StatelessWidget {
                 sheetUrl: urlController.text,
                 phone: phoneController.text,
                 whatsApp: waController.text,
+                supabaseUrl: supabaseUrlController.text,
+                supabaseAnonKey: supabaseAnonKeyController.text,
               );
               if (dialogCtx.mounted) {
                 Navigator.pop(dialogCtx);

@@ -279,7 +279,7 @@ class AppState extends ChangeNotifier {
           _conversations = [];
         }
       } else {
-        _conversations = MockDataService.getInitialConversations(userId);
+        _conversations = [];
       }
 
       if (prefs.containsKey(userMsgsKey)) {
@@ -296,7 +296,7 @@ class AppState extends ChangeNotifier {
           _chatMessages = {};
         }
       } else {
-        _chatMessages = MockDataService.getInitialChatMessages(userId);
+        _chatMessages = {};
       }
 
       // 8. Peer CP Network Directory
@@ -316,6 +316,11 @@ class AppState extends ChangeNotifier {
   /// Ensures complete data consistency across projects, leads, commission claims, and disbursal vouchers.
   void reconcileDataConsistency() {
     // 1. Purge legacy mock received invoices and invoices for non-existent projects
+    const legacyMockConvIds = {'conv_group_hyd_luxury', 'conv_group_rtm_deals', 'conv_direct_cp_net_1', 'conv_direct_cp_net_2'};
+    if (_conversations.any((c) => legacyMockConvIds.contains(c.id))) {
+      _conversations.removeWhere((c) => legacyMockConvIds.contains(c.id));
+      _persistChats();
+    }
     const legacyMockReceivedIds = {'rec_1', 'rec_2', 'rec_3', 'rec_4', 'rec_5'};
     _receivedInvoices.removeWhere(
       (r) => legacyMockReceivedIds.contains(r.id) ||
@@ -411,6 +416,8 @@ class AppState extends ChangeNotifier {
     _leads = [];
     _siteVisits = [];
     _invoices = [];
+    _conversations = [];
+    _chatMessages = {};
     _notifications = [];
     _projects = [];
     _conversations = [];
@@ -418,6 +425,8 @@ class AppState extends ChangeNotifier {
     await _persistLeads();
     await _persistSiteVisits();
     await _persistInvoices();
+    await _persistChats();
+    await _persistAllMessages();
     await _persistNotifications();
     await _persistProjects();
     await _persistChats();
@@ -436,6 +445,8 @@ class AppState extends ChangeNotifier {
     await _persistLeads();
     await _persistSiteVisits();
     await _persistInvoices();
+    await _persistChats();
+    await _persistAllMessages();
     await _persistNotifications();
     await _persistProjects();
     await _persistChats();
@@ -578,7 +589,7 @@ class AppState extends ChangeNotifier {
         },
       );
       if (_currentUser != null) {
-        _licenseService.verifyLicense(phone: _currentUser!.phone, isSilent: true).then((_) {
+        _licenseService.verifyLicense(phone: _currentUser!.phone, name: _currentUser!.name, isSilent: true).then((_) {
           notifyListeners();
         });
       }
@@ -620,7 +631,7 @@ class AppState extends ChangeNotifier {
       _currentUser = user;
       _isAuthenticated = true;
       _savedUsers = await AuthStorageService.getRegisteredUsers();
-      await _licenseService.verifyLicense(phone: user.phone);
+      await _licenseService.verifyLicense(phone: user.phone, name: user.name);
       await _loadUserData(user.id);
       notifyListeners();
       return AuthResult(success: true, user: user);
@@ -657,7 +668,7 @@ class AppState extends ChangeNotifier {
       await AuthStorageService.setActiveSession(user.id);
       _currentUser = user;
       _isAuthenticated = true;
-      await _licenseService.verifyLicense(phone: user.phone);
+      await _licenseService.verifyLicense(phone: user.phone, name: user.name);
       await _loadUserData(user.id);
       notifyListeners();
       return AuthResult(success: true, user: user);
@@ -695,7 +706,7 @@ class AppState extends ChangeNotifier {
     _currentUser = saved;
     _isAuthenticated = true;
     _savedUsers = await AuthStorageService.getRegisteredUsers();
-    await _licenseService.registerPartnerOnSheet(
+    await _licenseService.registerPartner(
       phone: saved.phone,
       name: saved.name,
       plan: '7-Day Free Trial',
@@ -706,9 +717,13 @@ class AppState extends ChangeNotifier {
     _leads = [];
     _siteVisits = [];
     _invoices = [];
+    _conversations = [];
+    _chatMessages = {};
     await _persistLeads();
     await _persistSiteVisits();
     await _persistInvoices();
+    await _persistChats();
+    await _persistAllMessages();
 
     // Trigger welcoming notification
     _notifications.insert(
@@ -745,6 +760,8 @@ class AppState extends ChangeNotifier {
     _leads = [];
     _siteVisits = [];
     _invoices = [];
+    _conversations = [];
+    _chatMessages = {};
     _notifications = [];
     _conversations = [];
     _chatMessages = {};
@@ -753,19 +770,22 @@ class AppState extends ChangeNotifier {
 
   Future<LicenseCheckResult> checkSubscription({bool force = false}) async {
     final phone = _currentUser?.phone ?? '';
-    final result = await _licenseService.verifyLicense(phone: phone, force: force);
+    final result = await _licenseService.verifyLicense(phone: phone, name: _currentUser?.name ?? 'Partner', force: force);
     notifyListeners();
     return result;
   }
 
-  Future<void> updateLicenseConfig({required String sheetUrl, required String phone, required String whatsApp}) async {
+  Future<void> updateLicenseConfig({required String sheetUrl, required String phone, required String whatsApp, String? supabaseUrl, String? supabaseAnonKey}) async {
+    if (supabaseUrl != null && supabaseAnonKey != null) {
+      await _licenseService.setSupabaseConfig(url: supabaseUrl, anonKey: supabaseAnonKey);
+    }
     await _licenseService.setSheetUrl(sheetUrl);
     await _licenseService.setAdminContact(phone: phone, whatsApp: whatsApp);
     notifyListeners();
   }
 
-  Future<void> overrideLicenseStatus(LicenseStatus status, {DateTime? validUntil, String? plan}) async {
-    await _licenseService.overrideStatus(status, validUntil: validUntil, plan: plan);
+  Future<void> overrideLicenseStatus(LicenseStatus status, {DateTime? validUntil, String? plan, String? banReason}) async {
+    await _licenseService.overrideStatus(status, validUntil: validUntil, plan: plan, banReason: banReason);
     notifyListeners();
   }
 
@@ -2428,7 +2448,11 @@ class AppState extends ChangeNotifier {
     } catch (_) {}
   }
 
-  Future<void> _persistMessages(String conversationId) async {
+  Future<void> _persistMessages([String? conversationId]) async {
+    if (conversationId == null) {
+      await _persistAllMessages();
+      return;
+    }
     try {
       final prefs = await SharedPreferences.getInstance();
       final allRaw = prefs.getString(_messagesStorageKey);

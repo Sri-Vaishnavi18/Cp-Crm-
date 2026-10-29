@@ -6,6 +6,8 @@ import 'features/auth/auth_screens.dart';
 import 'features/auth/subscription_lock_screen.dart';
 import 'features/home/main_navigation_shell.dart';
 
+final GlobalKey<NavigatorState> appNavigatorKey = GlobalKey<NavigatorState>();
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   bool initialIsDark = false;
@@ -33,11 +35,19 @@ class _CpCrmAppState extends State<CpCrmApp> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _state = AppState(initialIsDark: widget.initialIsDark);
+    _state.addListener(_handleStateChange);
+  }
+
+  void _handleStateChange() {
+    if (_state.isAuthenticated && !_state.isSubscriptionActive) {
+      appNavigatorKey.currentState?.popUntil((route) => route.isFirst);
+    }
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _state.removeListener(_handleStateChange);
     _state.dispose();
     super.dispose();
   }
@@ -57,6 +67,7 @@ class _CpCrmAppState extends State<CpCrmApp> with WidgetsBindingObserver {
       listenable: _state,
       builder: (context, _) {
         return MaterialApp(
+          navigatorKey: appNavigatorKey,
           title: 'CP CRM',
           debugShowCheckedModeBanner: false,
           theme: AppTheme.lightTheme,

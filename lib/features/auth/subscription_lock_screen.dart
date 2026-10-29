@@ -29,6 +29,7 @@ class _SubscriptionLockScreenState extends State<SubscriptionLockScreen> {
     final user = widget.state.currentUser;
     final license = widget.state.licenseService;
     final status = license.currentStatus;
+    final isBanned = status == LicenseStatus.banned;
 
     final primaryColor = Theme.of(context).primaryColor;
     final backgroundColor = isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC);
@@ -63,7 +64,7 @@ class _SubscriptionLockScreenState extends State<SubscriptionLockScreen> {
                         color: subtextColor.withValues(alpha: 0.4),
                       ),
                       onPressed: _openAdminSettingsDialog,
-                      tooltip: 'Admin / Sheet Configuration',
+                      tooltip: 'Admin / Supabase Configuration',
                     ),
                   ],
                 ),
@@ -181,7 +182,15 @@ class _SubscriptionLockScreenState extends State<SubscriptionLockScreen> {
                         _buildInfoRow('Firm Name', user.firmName, textColor, subtextColor),
                         const Divider(height: 20),
                         _buildInfoRow('Registered Phone', user.phone, textColor, subtextColor),
-                        if (license.validUntil != null) ...[
+                        if (isBanned && license.banReason != null) ...[
+                          const Divider(height: 20),
+                          _buildInfoRow(
+                            'Suspension Reason',
+                            license.banReason!,
+                            const Color(0xFFEF4444),
+                            subtextColor,
+                          ),
+                        ] else if (license.validUntil != null) ...[
                           const Divider(height: 20),
                           _buildInfoRow(
                             'Valid Until',
@@ -238,7 +247,7 @@ class _SubscriptionLockScreenState extends State<SubscriptionLockScreen> {
                   child: ElevatedButton(
                     onPressed: _isVerifying ? null : _handleVerifyNow,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: primaryColor,
+                      backgroundColor: isBanned ? const Color(0xFFDC2626) : primaryColor,
                       foregroundColor: Colors.white,
                       elevation: 2,
                       shape: RoundedRectangleBorder(
@@ -260,7 +269,7 @@ class _SubscriptionLockScreenState extends State<SubscriptionLockScreen> {
                               const Icon(Icons.refresh_rounded, size: 20),
                               const SizedBox(width: 8),
                               Text(
-                                'Check & Unlock Now',
+                                isBanned ? 'Re-check Account Status' : 'Check & Unlock Now',
                                 style: GoogleFonts.inter(
                                   fontSize: 15,
                                   fontWeight: FontWeight.w600,
@@ -280,7 +289,7 @@ class _SubscriptionLockScreenState extends State<SubscriptionLockScreen> {
                     onPressed: _contactAdminWhatsApp,
                     icon: const Icon(Icons.chat_outlined, color: Color(0xFF22C55E), size: 20),
                     label: Text(
-                      'Contact Admin on WhatsApp',
+                      isBanned ? 'Contact Compliance on WhatsApp' : 'Contact Admin on WhatsApp',
                       style: GoogleFonts.inter(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
@@ -310,7 +319,9 @@ class _SubscriptionLockScreenState extends State<SubscriptionLockScreen> {
                     onPressed: _callAdmin,
                     icon: Icon(Icons.phone_outlined, size: 18, color: subtextColor),
                     label: Text(
-                      'Call Support (${license.adminPhone})',
+                      license.adminPhone.isNotEmpty
+                          ? 'Call Support (${license.adminPhone})'
+                          : 'Call Support',
                       style: GoogleFonts.inter(
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
@@ -387,6 +398,8 @@ class _SubscriptionLockScreenState extends State<SubscriptionLockScreen> {
         return const Color(0xFF6366F1);
       case LicenseStatus.verificationRequired:
         return const Color(0xFFEAB308);
+      case LicenseStatus.banned:
+        return const Color(0xFFDC2626);
       case LicenseStatus.inactive:
         return const Color(0xFFEF4444);
     }
@@ -402,6 +415,8 @@ class _SubscriptionLockScreenState extends State<SubscriptionLockScreen> {
         return const [Color(0xFF6366F1), Color(0xFF4F46E5)];
       case LicenseStatus.verificationRequired:
         return const [Color(0xFFF59E0B), Color(0xFFCA8A04)];
+      case LicenseStatus.banned:
+        return const [Color(0xFFDC2626), Color(0xFF7F1D1D)];
       case LicenseStatus.inactive:
         return const [Color(0xFFEF4444), Color(0xFFDC2626)];
     }
@@ -417,6 +432,8 @@ class _SubscriptionLockScreenState extends State<SubscriptionLockScreen> {
         return Icons.hourglass_top_rounded;
       case LicenseStatus.verificationRequired:
         return Icons.wifi_find_rounded;
+      case LicenseStatus.banned:
+        return Icons.block_rounded;
       case LicenseStatus.inactive:
         return Icons.lock_rounded;
     }
@@ -432,6 +449,8 @@ class _SubscriptionLockScreenState extends State<SubscriptionLockScreen> {
         return 'PAYMENT UNDER REVIEW';
       case LicenseStatus.verificationRequired:
         return 'DAILY CHECK REQUIRED';
+      case LicenseStatus.banned:
+        return 'ACCOUNT SUSPENDED / BANNED';
       case LicenseStatus.inactive:
         return 'PAYMENT PENDING / INACTIVE';
     }
@@ -447,6 +466,8 @@ class _SubscriptionLockScreenState extends State<SubscriptionLockScreen> {
         return 'Account Pending Approval';
       case LicenseStatus.verificationRequired:
         return 'Connect to Internet';
+      case LicenseStatus.banned:
+        return 'Access Revoked';
       case LicenseStatus.inactive:
         return 'Subscription Required';
     }
@@ -462,6 +483,11 @@ class _SubscriptionLockScreenState extends State<SubscriptionLockScreen> {
         return 'Your payment is being verified by admin. Once approved, the app will unlock automatically.';
       case LicenseStatus.verificationRequired:
         return 'A daily security verification is required. Please turn on mobile data or Wi-Fi and tap "Check & Unlock Now".';
+      case LicenseStatus.banned:
+        final reason = widget.state.licenseService.banReason;
+        return (reason != null && reason.isNotEmpty)
+            ? 'Your account was suspended: $reason'
+            : 'Access revoked by administration due to policy or compliance violations.';
       case LicenseStatus.inactive:
         return 'Access to CP CRM is reserved for active partners. Please complete your subscription payment to unlock.';
     }
@@ -491,12 +517,12 @@ class _SubscriptionLockScreenState extends State<SubscriptionLockScreen> {
     final phone = widget.state.currentUser?.phone ?? '';
     final name = widget.state.currentUser?.name ?? 'Partner';
     final adminWhatsApp = widget.state.licenseService.adminWhatsApp;
+    final isBanned = widget.state.licenseService.currentStatus == LicenseStatus.banned;
 
     final message = Uri.encodeComponent(
-      'Hello Admin, I have made the payment for CP CRM access.\n'
-      'Name: $name\n'
-      'Phone: $phone\n'
-      'Please activate my account in the Google Sheet.',
+      isBanned
+          ? 'Hello Admin, my CP CRM account has been suspended.\nName: $name\nPhone: $phone\nPlease check my account status.'
+          : 'Hello Admin, I have made the payment for CP CRM access.\nName: $name\nPhone: $phone\nPlease activate my account.',
     );
 
     final url = Uri.parse('https://wa.me/$adminWhatsApp?text=$message');
@@ -514,7 +540,9 @@ class _SubscriptionLockScreenState extends State<SubscriptionLockScreen> {
   }
 
   void _openAdminSettingsDialog() {
-    final urlController = TextEditingController(text: widget.state.licenseService.sheetUrl);
+    final supabaseUrlController = TextEditingController(text: widget.state.licenseService.supabaseUrl);
+    final supabaseAnonKeyController = TextEditingController(text: widget.state.licenseService.supabaseAnonKey);
+    final sheetUrlController = TextEditingController(text: widget.state.licenseService.sheetUrl);
     final phoneController = TextEditingController(text: widget.state.licenseService.adminPhone);
     final waController = TextEditingController(text: widget.state.licenseService.adminWhatsApp);
 
@@ -527,7 +555,7 @@ class _SubscriptionLockScreenState extends State<SubscriptionLockScreen> {
               const Icon(Icons.admin_panel_settings_outlined, color: Colors.indigo),
               const SizedBox(width: 8),
               Text(
-                'Admin Control Setup',
+                'Admin & Backend Setup',
                 style: GoogleFonts.outfit(fontWeight: FontWeight.w700, fontSize: 18),
               ),
             ],
@@ -537,80 +565,163 @@ class _SubscriptionLockScreenState extends State<SubscriptionLockScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Google Apps Script Web App URL:',
-                  style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 13),
+                // Supabase Config Section
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF10B981).withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.3)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.bolt, size: 18, color: Color(0xFF10B981)),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Supabase Configuration (Fast & Scalable)',
+                            style: GoogleFonts.inter(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 12,
+                              color: const Color(0xFF047857),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Project URL:',
+                        style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 12),
+                      ),
+                      const SizedBox(height: 4),
+                      TextField(
+                        controller: supabaseUrlController,
+                        decoration: const InputDecoration(
+                          hintText: 'https://xyzcompany.supabase.co',
+                          border: OutlineInputBorder(),
+                          contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        ),
+                        style: const TextStyle(fontSize: 11),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Anon / Public Key:',
+                        style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 12),
+                      ),
+                      const SizedBox(height: 4),
+                      TextField(
+                        controller: supabaseAnonKeyController,
+                        decoration: const InputDecoration(
+                          hintText: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+                          border: OutlineInputBorder(),
+                          contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        ),
+                        style: const TextStyle(fontSize: 11),
+                        maxLines: 2,
+                      ),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 14),
+
+                // Fallback Sheet URL
+                Text(
+                  'Legacy Fallback Sheet URL:',
+                  style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 12),
+                ),
+                const SizedBox(height: 4),
                 TextField(
-                  controller: urlController,
+                  controller: sheetUrlController,
                   decoration: const InputDecoration(
                     hintText: 'https://script.google.com/macros/s/.../exec',
                     border: OutlineInputBorder(),
-                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                   ),
-                  style: const TextStyle(fontSize: 12),
-                  maxLines: 2,
+                  style: const TextStyle(fontSize: 11),
+                ),
+                const SizedBox(height: 12),
+
+                // Admin Contacts
+                Text(
+                  'Support Phone / WhatsApp:',
+                  style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 12),
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: phoneController,
+                        decoration: const InputDecoration(
+                          hintText: 'Phone: +91...',
+                          border: OutlineInputBorder(),
+                          contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        ),
+                        style: const TextStyle(fontSize: 11),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextField(
+                        controller: waController,
+                        decoration: const InputDecoration(
+                          hintText: 'WA: 919876...',
+                          border: OutlineInputBorder(),
+                          contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        ),
+                        style: const TextStyle(fontSize: 11),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 14),
-                Text(
-                  'Admin Phone (For Calls):',
-                  style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 13),
-                ),
-                const SizedBox(height: 6),
-                TextField(
-                  controller: phoneController,
-                  decoration: const InputDecoration(
-                    hintText: '+91 9876543210',
-                    border: OutlineInputBorder(),
-                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  ),
-                ),
-                const SizedBox(height: 14),
-                Text(
-                  'Admin WhatsApp (Without + sign):',
-                  style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 13),
-                ),
-                const SizedBox(height: 6),
-                TextField(
-                  controller: waController,
-                  decoration: const InputDecoration(
-                    hintText: '919876543210',
-                    border: OutlineInputBorder(),
-                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  ),
-                ),
-                const SizedBox(height: 16),
                 const Divider(),
                 Text(
-                  'Quick Testing / Override:',
+                  'Live Simulation & Overrides:',
                   style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 12),
                 ),
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 8,
+                  runSpacing: 6,
                   children: [
                     ActionChip(
-                      label: const Text('Unlock (Active)'),
+                      avatar: const Icon(Icons.check_circle_outline, size: 16, color: Colors.green),
+                      label: const Text('Active'),
                       onPressed: () async {
                         await widget.state.overrideLicenseStatus(LicenseStatus.active);
                         if (dialogCtx.mounted) Navigator.pop(dialogCtx);
                       },
                     ),
                     ActionChip(
-                      label: const Text('Lock (Inactive)'),
+                      avatar: const Icon(Icons.block, size: 16, color: Colors.red),
+                      label: const Text('Ban User'),
                       onPressed: () async {
-                        await widget.state.overrideLicenseStatus(LicenseStatus.inactive);
+                        await widget.state.overrideLicenseStatus(
+                          LicenseStatus.banned,
+                          banReason: 'Account suspended for RERA audit violation.',
+                        );
                         if (dialogCtx.mounted) Navigator.pop(dialogCtx);
                       },
                     ),
                     ActionChip(
+                      avatar: const Icon(Icons.event_busy, size: 16, color: Colors.amber),
                       label: const Text('Expired'),
                       onPressed: () async {
                         await widget.state.overrideLicenseStatus(
                           LicenseStatus.expired,
                           validUntil: DateTime.now().subtract(const Duration(days: 1)),
                         );
+                        if (dialogCtx.mounted) Navigator.pop(dialogCtx);
+                      },
+                    ),
+                    ActionChip(
+                      avatar: const Icon(Icons.lock_outline, size: 16, color: Colors.grey),
+                      label: const Text('Inactive'),
+                      onPressed: () async {
+                        await widget.state.overrideLicenseStatus(LicenseStatus.inactive);
                         if (dialogCtx.mounted) Navigator.pop(dialogCtx);
                       },
                     ),
@@ -627,9 +738,11 @@ class _SubscriptionLockScreenState extends State<SubscriptionLockScreen> {
             ElevatedButton(
               onPressed: () async {
                 await widget.state.updateLicenseConfig(
-                  sheetUrl: urlController.text,
+                  sheetUrl: sheetUrlController.text,
                   phone: phoneController.text,
                   whatsApp: waController.text,
+                  supabaseUrl: supabaseUrlController.text,
+                  supabaseAnonKey: supabaseAnonKeyController.text,
                 );
                 if (dialogCtx.mounted) {
                   Navigator.pop(dialogCtx);
