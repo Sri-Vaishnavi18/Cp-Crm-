@@ -784,6 +784,20 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<LicenseCheckResult> extendSubscription({
+    required int daysToAdd,
+    required String planName,
+  }) async {
+    final phone = _currentUser?.phone ?? '';
+    final result = await _licenseService.extendSubscription(
+      phone: phone,
+      daysToAdd: daysToAdd,
+      planName: planName,
+    );
+    notifyListeners();
+    return result;
+  }
+
   Future<void> overrideLicenseStatus(LicenseStatus status, {DateTime? validUntil, String? plan, String? banReason}) async {
     await _licenseService.overrideStatus(status, validUntil: validUntil, plan: plan, banReason: banReason);
     notifyListeners();

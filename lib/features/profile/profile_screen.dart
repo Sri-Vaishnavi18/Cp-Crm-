@@ -8,6 +8,7 @@ import '../docs/docs_screen.dart';
 import '../notifications/notifications_screen.dart';
 import '../spoc_helpdesk/spoc_screen.dart';
 import '../../shared/widgets/app_widgets.dart';
+import '../subscription/subscription_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   final AppState state;
@@ -658,100 +659,97 @@ class ProfileScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            if (true) ...[
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.pop(ctx);
-                    _openAdminSettingsDialog(context);
-                  },
-                  icon: const Icon(Icons.tune_rounded, size: 18),
-                  label: const Text('Configure Supabase & Licensing'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF2563EB),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 13),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  _openAdminSettingsDialog(context);
+                },
+                icon: const Icon(Icons.tune_rounded, size: 18),
+                label: const Text('Configure Supabase & Licensing'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF2563EB),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 13),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
               ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () async {
-                        final res = await state.checkSubscription(force: true);
-                        if (ctx.mounted) {
-                          Navigator.pop(ctx);
-                        Navigator.of(context).popUntil((route) => route.isFirst);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(res.message),
-                              backgroundColor: res.isAllowed ? const Color(0xFF16A34A) : const Color(0xFFDC2626),
-                            ),
-                          );
-                        }
-                      },
-                      icon: const Icon(Icons.sync_rounded, size: 16),
-                      label: const Text('Verify Now'),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () async {
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () async {
+                      final res = await state.checkSubscription(force: true);
+                      if (ctx.mounted) {
                         Navigator.pop(ctx);
                         Navigator.of(context).popUntil((route) => route.isFirst);
-                        await state.overrideLicenseStatus(
-                          LicenseStatus.banned,
-                          banReason: 'Account suspended by admin for compliance audit.',
-                          validUntil: DateTime.now().subtract(const Duration(days: 1)),
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(res.message),
+                            backgroundColor: res.isAllowed ? const Color(0xFF16A34A) : const Color(0xFFDC2626),
+                          ),
                         );
-                      },
-                      icon: const Icon(Icons.lock_clock_rounded, size: 16, color: Color(0xFFDC2626)),
-                      label: const Text('Test Lock', style: TextStyle(color: Color(0xFFDC2626))),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        side: const BorderSide(color: Color(0xFFDC2626)),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
+                      }
+                    },
+                    icon: const Icon(Icons.sync_rounded, size: 16),
+                    label: const Text('Verify Now'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
                   ),
-                ],
-              ),
-            ] else ...[
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: () async {
-                    final res = await state.checkSubscription(force: true);
-                    if (ctx.mounted) {
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () async {
                       Navigator.pop(ctx);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(res.message),
-                          backgroundColor: res.isAllowed ? const Color(0xFF16A34A) : const Color(0xFFDC2626),
-                        ),
+                      Navigator.of(context).popUntil((route) => route.isFirst);
+                      await state.overrideLicenseStatus(
+                        LicenseStatus.banned,
+                        banReason: 'Account suspended by admin for compliance audit.',
+                        validUntil: DateTime.now().subtract(const Duration(days: 1)),
                       );
-                    }
-                  },
-                  icon: const Icon(Icons.sync_rounded, size: 18),
-                  label: const Text('Refresh Subscription Status'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF2563EB),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 13),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    },
+                    icon: const Icon(Icons.lock_clock_rounded, size: 16, color: Color(0xFFDC2626)),
+                    label: const Text('Test Lock', style: TextStyle(color: Color(0xFFDC2626))),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      side: const BorderSide(color: Color(0xFFDC2626)),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
                   ),
                 ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (c) => SubscriptionScreen(
+                        state: state,
+                        onBack: () => Navigator.pop(c),
+                      ),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.workspace_premium_rounded, size: 18),
+                label: const Text('View All Plans & Upgrade Tier'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF10B981),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 13),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
               ),
-            ],
+            ),
           ],
         ),
       ),

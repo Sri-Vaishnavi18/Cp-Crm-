@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/services/license_service.dart';
 import '../../core/state/app_state.dart';
+import '../subscription/subscription_screen.dart';
 
 class SubscriptionLockScreen extends StatefulWidget {
   final AppState state;
@@ -280,6 +281,41 @@ class _SubscriptionLockScreenState extends State<SubscriptionLockScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
+
+                if (!isBanned) ...[
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (ctx) => SubscriptionScreen(
+                              state: widget.state,
+                              onBack: () => Navigator.pop(ctx),
+                            ),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.workspace_premium_rounded, size: 20),
+                      label: Text(
+                        'View Plans & Upgrade (1 Mo / 6 Mos / 1 Yr)',
+                        style: GoogleFonts.inter(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF2563EB),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
 
                 // Action Button: WhatsApp Admin
                 SizedBox(

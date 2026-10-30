@@ -12,6 +12,7 @@ import '../spoc_helpdesk/spoc_screen.dart';
 import '../notifications/notifications_screen.dart';
 import '../profile/profile_screen.dart';
 import '../chat/chat_list_screen.dart';
+import '../subscription/subscription_screen.dart';
 
 class MainNavigationShell extends StatefulWidget {
   final AppState state;
@@ -158,6 +159,10 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
             state: widget.state,
             onBack: () => setState(() => _currentIndex = 0),
           ),
+          SubscriptionScreen(
+            state: widget.state,
+            onBack: () => setState(() => _currentIndex = 0),
+          ),
         ];
 
     return Scaffold(
@@ -272,6 +277,17 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                     inactiveIcon: Icons.account_balance_wallet_outlined,
                     isDark: isDark,
                   ),
+                  _buildBottomNavItem(
+                    index: 6,
+                    label: 'Subscription',
+                    activeIcon: Icons.workspace_premium_rounded,
+                    inactiveIcon: Icons.workspace_premium_outlined,
+                    badgeCount: (widget.state.licenseService.validUntil != null &&
+                            widget.state.licenseService.validUntil!.difference(DateTime.now()).inDays <= 3)
+                        ? 1
+                        : null,
+                    isDark: isDark,
+                  ),
                 ],
               ),
               const SizedBox(height: 2),
@@ -318,30 +334,36 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
       );
     }
 
-    return InkWell(
-      onTap: () => setState(() {
-        if (index == 4) {
-          _docsInitialTab = 0;
-        }
-        _currentIndex = index;
-      }),
-      borderRadius: BorderRadius.circular(12),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            iconWidget,
-            const SizedBox(height: 2),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                color: color,
+    return Expanded(
+      child: InkWell(
+        onTap: () => setState(() {
+          if (index == 4) {
+            _docsInitialTab = 0;
+          }
+          _currentIndex = index;
+        }),
+        borderRadius: BorderRadius.circular(10),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              iconWidget,
+              const SizedBox(height: 2),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  style: TextStyle(
+                    fontSize: 9.5,
+                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                    color: color,
+                  ),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

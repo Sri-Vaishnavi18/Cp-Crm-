@@ -656,6 +656,82 @@ class LicenseService {
     await prefs.setString(_keyAdminWhatsApp, _adminWhatsApp);
   }
 
+  /// Extend or renew subscription for a partner and sync with Supabase
+  Future<LicenseCheckResult> extendSubscription({
+    required String phone,
+    required int daysToAdd,
+    required String planName,
+  }) async {
+    final now = DateTime.now();
+    final baseDate = (_validUntil != null && _validUntil!.isAfter(now))
+        ? _validUntil!
+        : now;
+    final newExpiry = baseDate.add(Duration(days: daysToAdd));
+
+    _currentStatus = LicenseStatus.active;
+    _validUntil = newExpiry;
+    _plan = planName;
+    _banReason = null;
+    _lastVerifiedAt = now;
+    await _persistState();
+
+    // Call Supabase cloud sync if configured
+    if (isSupabaseConfigured && phone.trim().isNotEmpty) {
+      try {
+        final cleanPhone = phone.replaceAll(RegExp(r'\D'), '');
+        final queryPhone = cleanPhone.isNotEmpty ? cleanPhone : phone.trim();
+
+        // 1. Try RPC extend_subscription first
+        final rpcEndpoint = Uri.parse('$_supabaseUrl/rest/v1/rpc/extend_subscription');
+        final rpcRes = await http.post(
+          rpcEndpoint,
+          headers: {
+            'apikey': _supabaseAnonKey,
+            'Authorization': 'Bearer $_supabaseAnonKey',
+            'Content-Type': 'application/json',
+          },
+          body: jsonEncode({
+            'target_phone': queryPhone,
+            'days_to_add': daysToAdd,
+            'new_plan': planName,
+          }),
+        ).timeout(const Duration(seconds: 8));
+
+        if (rpcRes.statusCode < 200 || rpcRes.statusCode >= 300) {
+          // If RPC fails (e.g. permission or not defined), attempt direct PATCH
+          final patchEndpoint = Uri.parse('$_supabaseUrl/rest/v1/channel_partners').replace(
+            queryParameters: {'phone': 'eq.$queryPhone'},
+          );
+          await http.patch(
+            patchEndpoint,
+            headers: {
+              'apikey': _supabaseAnonKey,
+              'Authorization': 'Bearer $_supabaseAnonKey',
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode({
+              'valid_until': newExpiry.toIso8601String(),
+              'plan_name': planName,
+              'status': 'ACTIVE',
+              'is_banned': false,
+              'ban_reason': null,
+            }),
+          ).timeout(const Duration(seconds: 8));
+        }
+      } catch (e) {
+        debugPrint('Supabase extend subscription error: $e');
+      }
+    }
+
+    return LicenseCheckResult(
+      status: LicenseStatus.active,
+      isAllowed: true,
+      message: 'Plan upgraded to $planName successfully!',
+      validUntil: newExpiry,
+      plan: planName,
+    );
+  }
+
   /// Manual override for admin testing / bypass
   Future<void> overrideStatus(LicenseStatus status, {DateTime? validUntil, String? plan, String? banReason}) async {
     _currentStatus = status;
